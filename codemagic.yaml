@@ -1,0 +1,90 @@
+# قۆپچە — Codemagic CI/CD
+# Docs: https://docs.codemagic.io/yaml-quick-start/building-a-flutter-app/
+#
+# Before first build:
+# 1. Push this repo to GitHub / GitLab / Bitbucket
+# 2. Add the app in Codemagic → connect the repo
+# 3. iOS: connect App Store Connect + create app (bundle: com.shikposh.shikPosh)
+# 4. Replace APP_STORE_APPLE_ID and your email below
+
+workflows:
+  # ---------- Android APK (download from Codemagic artifacts) ----------
+  android-apk:
+    name: Android APK (test)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      java: 17
+    scripts:
+      - name: Set up local.properties
+        script: |
+          echo "flutter.sdk=$HOME/programs/flutter" > "$CM_BUILD_DIR/android/local.properties"
+      - name: Get Flutter packages
+        script: |
+          flutter pub get
+      - name: Build release APK
+        script: |
+          flutter build apk --release \
+            --build-name=1.0.$BUILD_NUMBER \
+            --build-number=$BUILD_NUMBER
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
+    publishing:
+      email:
+        recipients:
+          - YOUR_EMAIL@example.com
+        notify:
+          success: true
+          failure: true
+
+  # ---------- iOS → TestFlight ----------
+  ios-testflight:
+    name: iOS TestFlight
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    integrations:
+      # Must match the name of your App Store Connect integration in Codemagic
+      app_store_connect: codemagic
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.shikposh.shikPosh
+      vars:
+        # App Store Connect → Apps → your app → App Information → Apple ID (numeric)
+        APP_STORE_APPLE_ID: 0000000000
+    scripts:
+      - name: Set up code signing
+        script: |
+          xcode-project use-profiles
+      - name: Get Flutter packages
+        script: |
+          flutter pub get
+      - name: Install CocoaPods
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+      - name: Build IPA
+        script: |
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo 0)
+          BUILD_NO=$((LATEST + 1))
+          flutter build ipa --release \
+            --build-name=1.0.$BUILD_NO \
+            --build-number=$BUILD_NO \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      email:
+        recipients:
+          - YOUR_EMAIL@example.com
+        notify:
+          success: true
+          failure: true
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false

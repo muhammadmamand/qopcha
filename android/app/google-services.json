@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "727891551013",
+    "project_id": "qopchaapp",
+    "storage_bucket": "qopchaapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:727891551013:android:449ff2f178a82c693ab0cc",
+        "android_client_info": {
+          "package_name": "com.shikposh.shik_posh"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCQk-8ohIvN9Je_BysyO0hEiZHEbJEntqs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
