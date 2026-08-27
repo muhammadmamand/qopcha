@@ -1,3 +1,4 @@
+=
 # قۆپچە / Qopcha — Codemagic CI/CD (build iOS from Windows via cloud Mac)
 # Docs: https://docs.codemagic.io/yaml-quick-start/building-a-flutter-app/
 #
@@ -38,7 +39,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - YOUR_EMAIL@example.com
+          - muhammadmhassan07@gmail.com
         notify:
           success: true
           failure: true
@@ -49,7 +50,7 @@ workflows:
     max_build_duration: 120
     instance_type: mac_mini_m2
     integrations:
-      # Must match the name of your App Store Connect integration in Codemagic
+      # Must match Apple Developer Portal key name in Codemagic
       app_store_connect: codemagic
     environment:
       flutter: stable
@@ -59,8 +60,9 @@ workflows:
         distribution_type: app_store
         bundle_identifier: com.qopcha.Qopcha
       vars:
-        # App Store Connect → Apps → Qopcha → App Information → Apple ID (numeric)
-        APP_STORE_APPLE_ID: 0000000000
+        # Optional: App Store Connect → Qopcha → App Information → Apple ID
+        # Leave 0 to start from build 1 on first TestFlight upload
+        APP_STORE_APPLE_ID: "0"
         API_BASE: https://169-58-230-144.sslip.io
     scripts:
       - name: Set up code signing
@@ -74,7 +76,11 @@ workflows:
           find . -name "Podfile" -execdir pod install \;
       - name: Build IPA (HTTPS Contabo API)
         script: |
-          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo 0)
+          if [ "$APP_STORE_APPLE_ID" != "0" ] && [ -n "$APP_STORE_APPLE_ID" ]; then
+            LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo 0)
+          else
+            LATEST=0
+          fi
           BUILD_NO=$((LATEST + 1))
           flutter build ipa --release \
             --dart-define=API_BASE="$API_BASE" \
@@ -87,7 +93,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - YOUR_EMAIL@example.com
+          - muhammadmhassan07@gmail.com
         notify:
           success: true
           failure: true
