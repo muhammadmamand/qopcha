@@ -1,4 +1,4 @@
-# Firebase setup for Shik Posh (project: qopchaapp)
+# Firebase setup for Qopcha (project: qopchaapp)
 
 Your Flutter code is ready for **Auth + Firestore + Storage**.
 You must finish these steps once on your PC.

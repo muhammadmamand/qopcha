@@ -53,7 +53,7 @@ class _GradientHeaderState extends State<GradientHeader>
         clipBehavior: Clip.none,
         children: [
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: AppColors.primaryGradient,
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(36),

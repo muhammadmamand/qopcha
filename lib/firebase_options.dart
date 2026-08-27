@@ -43,13 +43,12 @@ class DefaultFirebaseOptions {
     authDomain: 'qopchaapp.firebaseapp.com',
   );
 
-  /// Add an iOS app in Firebase Console, then replace these.
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyCQk-8ohIvN9Je_BysyO0hEiZHEbJEntqs',
-    appId: '1:727891551013:ios:REPLACE_AFTER_ADDING_IOS_APP',
+    apiKey: 'AIzaSyAhvQ3kHGpu4gnWlbmRf_uXqxTCXsvahMU',
+    appId: '1:727891551013:ios:beb74e52df908fb63ab0cc',
     messagingSenderId: '727891551013',
     projectId: 'qopchaapp',
     storageBucket: 'qopchaapp.firebasestorage.app',
-    iosBundleId: 'com.shikposh.shikPosh',
+    iosBundleId: 'com.qopcha.Qopcha',
   );
 }

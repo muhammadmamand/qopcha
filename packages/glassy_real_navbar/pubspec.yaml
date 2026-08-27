@@ -1,0 +1,13 @@
+name: glassy_real_navbar
+description: Local copy of glassy_real_navbar with lens specular highlights removed.
+version: 1.0.4
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.10.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  vector_math: ^2.1.4

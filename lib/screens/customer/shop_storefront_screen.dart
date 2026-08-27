@@ -1,15 +1,20 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/hero_tags.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
+import '../../services/maps_launcher_service.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/product_card.dart';
+import '../../widgets/product_image.dart';
 
 final shopOwnerByIdProvider =
     FutureProvider.family<UserModel?, String>((ref, shopOwnerId) async {
@@ -32,7 +37,7 @@ class ShopStorefrontScreen extends ConsumerWidget {
     final productsAsync = ref.watch(shopProductsProvider(shopOwnerId));
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: const Color(0xFFF7F9FA),
       body: productsAsync.when(
         loading: () => const LoadingView(message: 'بارکردنی دووکان...'),
         error: (e, _) => ErrorView(
@@ -52,57 +57,134 @@ class ShopStorefrontScreen extends ConsumerWidget {
                       ? products.first.shopName
                       : 'دووکان'));
           final description = owner?.shopDescription?.trim();
-          final address = owner?.shopAddress?.trim() ?? owner?.location?.trim();
-          final ownerName = owner?.name;
+          final address =
+              owner?.shopAddress?.trim() ?? owner?.location?.trim();
+          final ownerName = owner?.name.trim();
+          final avatarUrl = owner?.avatarUrl?.trim();
+          final logoUrl = owner?.shopLogoUrl?.trim();
+          final coverUrl = owner?.shopCoverUrl?.trim();
+          final tier =
+              owner?.isShopOwner == true ? owner!.effectiveShopTier : null;
+          final phone = owner?.phone.trim();
+          final hasPhone = phone != null && phone.isNotEmpty;
+          final hasAddress = address != null && address.isNotEmpty;
+          final productCovers = products
+              .expand((p) => p.imageUrls)
+              .where((u) => u.trim().isNotEmpty)
+              .take(3)
+              .toList();
+          final coverUrls = (coverUrl != null && coverUrl.isNotEmpty)
+              ? <String>[coverUrl]
+              : productCovers;
+          final displayLogo = (logoUrl != null && logoUrl.isNotEmpty)
+              ? logoUrl
+              : null;
 
           return CustomScrollView(
-            physics: const BouncingScrollPhysics(),
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
             slivers: [
               SliverToBoxAdapter(
-                child: _StoreHeader(
+                child: _ShopHero(
                   shopName: shopName,
-                  ownerName: ownerName,
+                  ownerName: (ownerName != null && ownerName.isNotEmpty)
+                      ? ownerName
+                      : null,
                   description: description,
                   address: address,
-                  productCount: products.length,
-                  onBack: () => context.pop(),
+                  avatarUrl: displayLogo ?? avatarUrl,
+                  tier: tier,
+                  coverUrls: coverUrls,
+                  onBack: () {
+                    if (context.canPop()) {
+                      context.pop();
+                    } else {
+                      context.go('/home');
+                    }
+                  },
+                  onCall: hasPhone
+                      ? () async {
+                          HapticFeedback.selectionClick();
+                          final uri = Uri(scheme: 'tel', path: phone);
+                          await launchUrl(uri);
+                        }
+                      : null,
+                  onMaps: hasAddress
+                      ? () {
+                          HapticFeedback.selectionClick();
+                          const MapsLauncherService().openDirections(
+                            address: address,
+                          );
+                        }
+                      : null,
                 ),
               ),
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                  padding: const EdgeInsets.fromLTRB(16, 28, 16, 14),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(
-                        'بەرهەمەکانی دووکان',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'کۆلێکشن',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.textPrimary,
+                                height: 1.1,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              products.isEmpty
+                                  ? 'هێشتا هیچ بەرهەمێک نییە'
+                                  : '${products.length} بەرهەم لەم دووکانە',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.secondary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          '${products.length}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.secondary,
-                            fontSize: 12,
+                      if (products.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.brand.withValues(alpha: 0.09),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${products.length}',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 13,
+                              color: AppColors.brand,
+                            ),
                           ),
                         ),
-                      ),
                     ],
                   ),
-                ),
+                )
+                    .animate()
+                    .fadeIn(delay: 220.ms, duration: 450.ms)
+                    .slideY(
+                      begin: 0.06,
+                      delay: 220.ms,
+                      curve: Curves.easeOutCubic,
+                    ),
               ),
               if (products.isEmpty)
                 const SliverFillRemaining(
@@ -114,14 +196,14 @@ class ShopStorefrontScreen extends ConsumerWidget {
                 )
               else
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 48),
                   sliver: SliverGrid(
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      mainAxisSpacing: 14,
-                      crossAxisSpacing: 14,
-                      childAspectRatio: 0.68,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 8,
+                      childAspectRatio: 0.66,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
@@ -154,111 +236,113 @@ class ShopStorefrontScreen extends ConsumerWidget {
   }
 }
 
-class _StoreHeader extends StatelessWidget {
+class _ShopHero extends StatelessWidget {
   final String shopName;
   final String? ownerName;
   final String? description;
   final String? address;
-  final int productCount;
+  final String? avatarUrl;
+  final ShopTier? tier;
+  final List<String> coverUrls;
   final VoidCallback onBack;
+  final VoidCallback? onCall;
+  final VoidCallback? onMaps;
 
-  const _StoreHeader({
+  const _ShopHero({
     required this.shopName,
     required this.ownerName,
     required this.description,
     required this.address,
-    required this.productCount,
+    required this.avatarUrl,
+    required this.tier,
+    required this.coverUrls,
     required this.onBack,
+    required this.onCall,
+    required this.onMaps,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-        16,
-        MediaQuery.of(context).padding.top + 8,
-        20,
-        28,
-      ),
-      decoration: const BoxDecoration(
-        gradient: AppColors.primaryGradient,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(32),
-          bottomRight: Radius.circular(32),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    final top = MediaQuery.paddingOf(context).top;
+    final hasDesc = description != null && description!.isNotEmpty;
+    final hasActions = onCall != null || onMaps != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 300 + top * 0.15,
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              Material(
-                color: Colors.white.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-                child: InkWell(
-                  onTap: onBack,
-                  borderRadius: BorderRadius.circular(12),
-                  child: const Padding(
-                    padding: EdgeInsets.all(10),
-                    child: Icon(Icons.arrow_back_rounded, color: Colors.white),
+              Positioned.fill(
+                child: _HeroCover(coverUrls: coverUrls)
+                    .animate()
+                    .fadeIn(duration: 550.ms)
+                    .scale(
+                      begin: const Offset(1.06, 1.06),
+                      end: const Offset(1, 1),
+                      duration: 900.ms,
+                      curve: Curves.easeOutCubic,
+                    ),
+              ),
+              const Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0x26000000),
+                        Color(0x590D3D42),
+                        Color(0xEB0D3D42),
+                      ],
+                      stops: [0.0, 0.45, 1.0],
+                    ),
                   ),
                 ),
               ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
+              Positioned(
+                top: top + 8,
+                right: 16,
+                left: 16,
+                child: Row(
                   children: [
-                    Icon(Icons.verified_rounded, size: 14, color: Colors.white),
-                    SizedBox(width: 4),
-                    Text(
-                      'دووکان',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    _GlassIconButton(
+                      icon: Icons.arrow_back_rounded,
+                      onTap: onBack,
                     ),
+                    const Spacer(),
+                    if (tier != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.22),
+                          ),
+                        ),
+                        child: Text(
+                          tier!.labelKu,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    shopName.isEmpty ? 'د' : shopName[0],
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
+              Positioned(
+                left: 20,
+                right: 110,
+                bottom: 56,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -266,137 +350,348 @@ class _StoreHeader extends StatelessWidget {
                       shopName,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
                         color: Colors.white,
-                        fontSize: 22,
+                        fontSize: 32,
                         fontWeight: FontWeight.w900,
+                        height: 1.15,
+                        letterSpacing: -0.4,
                       ),
-                    ),
-                    if (ownerName != null && ownerName!.isNotEmpty) ...[
-                      const SizedBox(height: 4),
+                    )
+                        .animate()
+                        .fadeIn(delay: 120.ms, duration: 500.ms)
+                        .slideY(
+                          begin: 0.18,
+                          delay: 120.ms,
+                          duration: 550.ms,
+                          curve: Curves.easeOutCubic,
+                        ),
+                    if (ownerName != null) ...[
+                      const SizedBox(height: 8),
                       Text(
-                        'خاوەن: $ownerName',
+                        ownerName!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.8),
-                          fontSize: 13,
+                          fontFamily: AppTheme.fontFamily,
+                          color: Colors.white.withValues(alpha: 0.82),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
                   ],
                 ),
               ),
+              Positioned(
+                bottom: -42,
+                right: 20,
+                child: _ShopAvatar(
+                  shopName: shopName,
+                  avatarUrl: avatarUrl,
+                )
+                    .animate()
+                    .fadeIn(delay: 180.ms, duration: 450.ms)
+                    .scale(
+                      begin: const Offset(0.86, 0.86),
+                      end: const Offset(1, 1),
+                      delay: 180.ms,
+                      duration: 500.ms,
+                      curve: Curves.easeOutBack,
+                    ),
+              ),
             ],
           ),
-          if (description != null && description!.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            Text(
-              description!,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.85),
-                fontSize: 13,
-                height: 1.45,
-              ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.18),
-              ),
-            ),
-            child: Row(
-              children: [
-                _HeaderStat(
-                  icon: Icons.inventory_2_outlined,
-                  label: 'بەرهەم',
-                  value: '$productCount',
-                ),
-                if (address != null && address!.isNotEmpty) ...[
-                  Container(
-                    width: 1,
-                    height: 34,
-                    margin: const EdgeInsets.symmetric(horizontal: 12),
-                    color: Colors.white.withValues(alpha: 0.2),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 56, 20, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (hasDesc)
+                Text(
+                  description!,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 14.5,
+                    height: 1.55,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondary,
                   ),
-                  Expanded(
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.location_on_outlined,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            address!,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.9),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
+                ).animate().fadeIn(delay: 260.ms, duration: 450.ms),
+              if (address != null && address!.isNotEmpty) ...[
+                SizedBox(height: hasDesc ? 14 : 0),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.place_outlined,
+                      size: 18,
+                      color: AppColors.brand.withValues(alpha: 0.9),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        address!,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 13.5,
+                          height: 1.4,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ).animate().fadeIn(delay: 300.ms, duration: 450.ms),
               ],
-            ),
+              if (hasActions) ...[
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    if (onCall != null)
+                      Expanded(
+                        child: _ProfileAction(
+                          label: 'پەیوەندی',
+                          icon: Icons.phone_rounded,
+                          filled: true,
+                          onTap: onCall!,
+                        ),
+                      ),
+                    if (onCall != null && onMaps != null)
+                      const SizedBox(width: 10),
+                    if (onMaps != null)
+                      Expanded(
+                        child: _ProfileAction(
+                          label: 'نەخشە',
+                          icon: Icons.map_outlined,
+                          filled: false,
+                          onTap: onMaps!,
+                        ),
+                      ),
+                  ],
+                )
+                    .animate()
+                    .fadeIn(delay: 340.ms, duration: 450.ms)
+                    .slideY(
+                      begin: 0.08,
+                      delay: 340.ms,
+                      curve: Curves.easeOutCubic,
+                    ),
+              ],
+            ],
           ),
-        ],
-      ),
-    ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.05);
+        ),
+      ],
+    );
   }
 }
 
-class _HeaderStat extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
+class _HeroCover extends StatelessWidget {
+  final List<String> coverUrls;
 
-  const _HeaderStat({
-    required this.icon,
+  const _HeroCover({required this.coverUrls});
+
+  @override
+  Widget build(BuildContext context) {
+    if (coverUrls.isEmpty) {
+      return DecoratedBox(
+        decoration: BoxDecoration(gradient: AppColors.primaryGradient),
+        child: CustomPaint(painter: _SoftPatternPainter()),
+      );
+    }
+
+    if (coverUrls.length == 1) {
+      return ProductImage(path: coverUrls.first, fit: BoxFit.cover);
+    }
+
+    return Row(
+      children: [
+        for (var i = 0; i < coverUrls.length; i++) ...[
+          if (i > 0) const SizedBox(width: 2),
+          Expanded(
+            flex: i == 0 ? 3 : 2,
+            child: ProductImage(path: coverUrls[i], fit: BoxFit.cover),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _SoftPatternPainter extends CustomPainter {
+  const _SoftPatternPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.05)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    const step = 28.0;
+    for (double x = -size.height; x < size.width + size.height; x += step) {
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x + size.height, size.height),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _ShopAvatar extends StatelessWidget {
+  final String shopName;
+  final String? avatarUrl;
+
+  const _ShopAvatar({required this.shopName, required this.avatarUrl});
+
+  String get _letter {
+    final t = shopName.trim();
+    if (t.isEmpty) return 'د';
+    return String.fromCharCodes(t.runes.take(1));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 92,
+      height: 92,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: Colors.white, width: 4),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.brand.withValues(alpha: 0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: ColoredBox(
+          color: AppColors.brand,
+          child: avatarUrl != null && avatarUrl!.isNotEmpty
+              ? CachedNetworkImage(
+                  imageUrl: avatarUrl!,
+                  fit: BoxFit.cover,
+                  errorWidget: (_, _, _) => _LetterMark(letter: _letter),
+                )
+              : _LetterMark(letter: _letter),
+        ),
+      ),
+    );
+  }
+}
+
+class _LetterMark extends StatelessWidget {
+  final String letter;
+
+  const _LetterMark({required this.letter});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        letter,
+        style: TextStyle(
+          fontFamily: AppTheme.fontFamily,
+          color: Colors.white,
+          fontSize: 34,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _GlassIconButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.16),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: 44,
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+          ),
+          child: Icon(icon, color: Colors.white, size: 22),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileAction extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool filled;
+  final VoidCallback onTap;
+
+  const _ProfileAction({
     required this.label,
-    required this.value,
+    required this.icon,
+    required this.filled,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, color: Colors.white, size: 18),
-        const SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              value,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-                fontSize: 16,
+    return Material(
+      color: filled ? AppColors.brand : Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          height: 52,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: filled
+                ? null
+                : Border.all(color: AppColors.border.withValues(alpha: 0.95)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: filled ? Colors.white : AppColors.brand,
               ),
-            ),
-            Text(
-              label,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.75),
-                fontSize: 11,
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  color: filled ? Colors.white : AppColors.brand,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ],
+      ),
     );
   }
 }

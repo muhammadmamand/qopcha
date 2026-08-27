@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -7,121 +10,112 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_animations.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/hero_tags.dart';
-import '../../providers/cart_provider.dart';
+import '../../models/product_model.dart';
 import '../../providers/product_provider.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/premium_bottom_nav.dart';
 
-enum _SearchAudience { women, men }
+enum _Gender { men, women }
 
-class _CatItem {
+class _CatDef {
   final String label;
   final String category;
   final IconData icon;
-  final Color bg;
-  final _SearchAudience audience;
+  final _Gender gender;
 
-  const _CatItem({
+  const _CatDef({
     required this.label,
     required this.category,
     required this.icon,
-    required this.bg,
-    required this.audience,
+    required this.gender,
   });
 }
 
-/// Soft pastels tinted by brand teal / orange / white mix.
-const _kAccent = AppColors.brand;
-const _kAccentDark = Color(0xFF0F555C);
-const _kPageBg = AppColors.brandWhite;
-const _kCta = AppColors.highlight;
+final _kTeal = AppColors.brand;
+final _kCoral = AppColors.highlight;
 
-const _categories = <_CatItem>[
-  _CatItem(
-    label: 'جانتە',
-    category: 'جانتە',
-    icon: Icons.shopping_bag_outlined,
-    bg: Color(0xFFD7ECEE),
-    audience: _SearchAudience.women,
-  ),
-  _CatItem(
-    label: 'پێڵاو',
-    category: 'پێڵاو',
-    icon: Icons.ice_skating_outlined,
-    bg: Color(0xFFFFE4D8),
-    audience: _SearchAudience.women,
-  ),
-  _CatItem(
-    label: 'کۆت',
-    category: 'کۆت',
-    icon: Icons.checkroom_outlined,
-    bg: Color(0xFFE8F4F5),
-    audience: _SearchAudience.women,
-  ),
-  _CatItem(
-    label: 'کراس',
-    category: 'کراس',
-    icon: Icons.dry_cleaning_outlined,
-    bg: Color(0xFFFFF0E8),
-    audience: _SearchAudience.women,
-  ),
-  _CatItem(
-    label: 'ئاکسەسوار',
-    category: 'ئاکسەسوار',
-    icon: Icons.watch_outlined,
-    bg: Color(0xFFDDF0F1),
-    audience: _SearchAudience.women,
-  ),
-  _CatItem(
-    label: 'فەرمی',
-    category: 'جلوبەرگی فەرمی',
-    icon: Icons.woman_2_outlined,
-    bg: Color(0xFFFFEADF),
-    audience: _SearchAudience.women,
-  ),
-  _CatItem(
+const _menCats = <_CatDef>[
+  _CatDef(
     label: 'پۆشاک',
     category: 'پۆشاک',
-    icon: Icons.accessibility_new_rounded,
-    bg: Color(0xFFD7ECEE),
-    audience: _SearchAudience.men,
+    icon: Icons.checkroom_outlined,
+    gender: _Gender.men,
   ),
-  _CatItem(
+  _CatDef(
     label: 'پانتۆڵ',
     category: 'پانتۆڵ',
     icon: Icons.straighten_rounded,
-    bg: Color(0xFFE8F4F5),
-    audience: _SearchAudience.men,
+    gender: _Gender.men,
   ),
-  _CatItem(
+  _CatDef(
     label: 'کۆت',
     category: 'کۆت',
-    icon: Icons.checkroom_outlined,
-    bg: Color(0xFFFFE4D8),
-    audience: _SearchAudience.men,
+    icon: Icons.dry_cleaning_outlined,
+    gender: _Gender.men,
   ),
-  _CatItem(
+  _CatDef(
     label: 'پێڵاو',
     category: 'پێڵاو',
     icon: Icons.ice_skating_outlined,
-    bg: Color(0xFFFFF0E8),
-    audience: _SearchAudience.men,
+    gender: _Gender.men,
   ),
-  _CatItem(
+  _CatDef(
     label: 'وەرزشی',
     category: 'جلوبەرگی وەرزشی',
     icon: Icons.sports_outlined,
-    bg: Color(0xFFDDF0F1),
-    audience: _SearchAudience.men,
+    gender: _Gender.men,
   ),
-  _CatItem(
+  _CatDef(
     label: 'کڵاو',
     category: 'کڵاو',
     icon: Icons.balcony_outlined,
-    bg: Color(0xFFFFEADF),
-    audience: _SearchAudience.men,
+    gender: _Gender.men,
   ),
+];
+
+const _womenCats = <_CatDef>[
+  _CatDef(
+    label: 'کراس',
+    category: 'کراس',
+    icon: Icons.dry_cleaning_outlined,
+    gender: _Gender.women,
+  ),
+  _CatDef(
+    label: 'جانتە',
+    category: 'جانتە',
+    icon: Icons.shopping_bag_outlined,
+    gender: _Gender.women,
+  ),
+  _CatDef(
+    label: 'پێڵاو',
+    category: 'پێڵاو',
+    icon: Icons.ice_skating_outlined,
+    gender: _Gender.women,
+  ),
+  _CatDef(
+    label: 'کۆت',
+    category: 'کۆت',
+    icon: Icons.checkroom_outlined,
+    gender: _Gender.women,
+  ),
+  _CatDef(
+    label: 'ئاکسەسوار',
+    category: 'ئاکسەسوار',
+    icon: Icons.watch_outlined,
+    gender: _Gender.women,
+  ),
+  _CatDef(
+    label: 'فەرمی',
+    category: 'جلوبەرگی فەرمی',
+    icon: Icons.woman_2_outlined,
+    gender: _Gender.women,
+  ),
+];
+
+final _chipCats = <_CatDef>[
+  ..._womenCats.take(3),
+  ..._menCats.take(3),
 ];
 
 class SearchScreen extends ConsumerStatefulWidget {
@@ -134,7 +128,9 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _searchController = TextEditingController();
   final _focusNode = FocusNode();
-  _SearchAudience _audience = _SearchAudience.women;
+  final _scrollController = ScrollController();
+  final _menKey = GlobalKey();
+  final _womenKey = GlobalKey();
 
   @override
   void initState() {
@@ -148,11 +144,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void dispose() {
     _searchController.dispose();
     _focusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
   void _setQuery(String value) {
     ref.read(searchQueryProvider.notifier).state = value;
+    setState(() {});
+  }
+
+  void _selectCategory(String category) {
+    HapticFeedback.selectionClick();
+    ref.read(selectedCategoryProvider.notifier).state = category;
     setState(() {});
   }
 
@@ -163,11 +166,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     setState(() {});
   }
 
+  void _scrollTo(GlobalKey key) {
+    final ctx = key.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 520),
+      curve: Curves.easeInOutCubicEmphasized,
+      alignment: 0.08,
+    );
+  }
+
   void _openFilterSheet() {
     HapticFeedback.selectionClick();
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.sheet,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
@@ -201,12 +215,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               const SizedBox(height: 16),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.clear_all_rounded, color: _kAccent),
+                leading: Icon(Icons.clear_all_rounded, color: _kTeal),
                 title: Text(
                   'پاککردنەوەی هەموو فلتەرەکان',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
                     fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 onTap: () {
@@ -216,18 +231,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.grid_view_rounded, color: _kAccent),
+                leading: Icon(Icons.grid_view_rounded, color: _kTeal),
                 title: Text(
                   'بینینی هەموو جۆرەکان',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
                     fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
-                  ref.read(selectedCategoryProvider.notifier).state = 'هەموو';
-                  setState(() {});
+                  _selectCategory('هەموو');
                 },
               ),
             ],
@@ -237,564 +252,595 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
+  String? _coverFor(String category, List<ProductModel> products) {
+    for (final p in products) {
+      if (p.category == category && p.imageUrls.isNotEmpty) {
+        return p.imageUrls.first;
+      }
+    }
+    return null;
+  }
+
+  int _countFor(String category, List<ProductModel> products) {
+    return products.where((p) => p.category == category).length;
+  }
+
   @override
   Widget build(BuildContext context) {
     final productsAsync = ref.watch(filteredProductsProvider);
     final allProductsAsync = ref.watch(productsProvider);
     final selectedCategory = ref.watch(selectedCategoryProvider);
     final query = ref.watch(searchQueryProvider);
-    final cartCount = ref.watch(cartItemCountProvider);
 
     final hasQuery = query.trim().isNotEmpty;
     final browsing = !hasQuery && selectedCategory == 'هەموو';
-
-    final counts = <String, int>{};
-    for (final p in allProductsAsync.valueOrNull ?? const []) {
-      counts[p.category] = (counts[p.category] ?? 0) + 1;
-    }
-
-    final visibleCats =
-        _categories.where((c) => c.audience == _audience).toList();
+    final allProducts = allProductsAsync.valueOrNull ?? const <ProductModel>[];
 
     return Scaffold(
-      backgroundColor: _kPageBg,
+      backgroundColor: AppColors.surface,
       body: SafeArea(
         bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-              child: Row(
-                children: [
-                  _RoundIconButton(
-                    icon: Icons.menu_rounded,
-                    onTap: () => context.go('/profile'),
-                  ),
-                  const Spacer(),
-                  _RoundIconButton(
-                    icon: Icons.shopping_bag_outlined,
-                    badge: cartCount > 0 ? cartCount : null,
-                    onTap: () => context.go('/cart'),
-                  ),
-                ],
-              ),
-            ).animate().fadeIn(duration: 350.ms),
-            Expanded(
-              child: CustomScrollView(
+        child: browsing
+            ? CustomScrollView(
+                controller: _scrollController,
                 physics: const BouncingScrollPhysics(),
                 slivers: [
+                  SliverToBoxAdapter(child: _buildHeader()),
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 22, 24, 0),
-                      child: Text(
-                        'دەتەوێت\nچی بدۆزیتەوە؟',
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          fontSize: 34,
-                          height: 1.15,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.6,
-                          color: AppColors.textPrimary,
-                        ),
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                      child: _SearchField(
+                        controller: _searchController,
+                        focusNode: _focusNode,
+                        onChanged: _setQuery,
+                        onClear: () {
+                          _searchController.clear();
+                          _setQuery('');
+                        },
+                        onFilterTap: _openFilterSheet,
                       )
                           .animate()
-                          .fadeIn(duration: 420.ms)
-                          .slideY(begin: 0.08, curve: Curves.easeOutCubic),
+                          .fadeIn(duration: 380.ms)
+                          .slideY(begin: 0.04, curve: Curves.easeOutCubic),
                     ),
                   ),
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 22, 24, 0),
+                      padding: const EdgeInsets.fromLTRB(20, 26, 20, 12),
+                      child: _SectionTitle(title: 'کڕین بەپێی پۆل'),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: 96,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        children: [
+                          _CategoryChip(
+                            label: 'هەموو',
+                            icon: Icons.grid_view_rounded,
+                            selected: true,
+                            onTap: () => _selectCategory('هەموو'),
+                          ),
+                          ..._chipCats.map(
+                            (c) => _CategoryChip(
+                              label: c.label,
+                              icon: c.icon,
+                              selected: false,
+                              onTap: () => _selectCategory(c.category),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                        .animate()
+                        .fadeIn(delay: 60.ms, duration: 400.ms),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 22, 20, 12),
+                      child: _SectionTitle(title: 'کڕین بەپێی ڕەگەز'),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Row(
                         children: [
                           Expanded(
-                            child: _PillSearchField(
-                              controller: _searchController,
-                              focusNode: _focusNode,
-                              onChanged: _setQuery,
-                              onClear: () {
-                                _searchController.clear();
-                                _setQuery('');
+                            child: _GenderCard(
+                              title: 'پیاوان',
+                              subtitle: 'کۆلێکشنە نوێیەکانی پیاوان ببینە',
+                              gradient: [
+                                const Color(0xFFD7ECEE),
+                                Color.lerp(
+                                      const Color(0xFFD7ECEE),
+                                      Colors.white,
+                                      0.55,
+                                    ) ??
+                                    Colors.white,
+                              ],
+                              accent: _kTeal,
+                              icon: Icons.man_rounded,
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                _scrollTo(_menKey);
                               },
                             ),
                           ),
                           const SizedBox(width: 12),
-                          _FilterFab(
-                            active: selectedCategory != 'هەموو' || hasQuery,
-                            onTap: _openFilterSheet,
+                          Expanded(
+                            child: _GenderCard(
+                              title: 'ژنان',
+                              subtitle: 'کۆلێکشنە نوێیەکانی ژنان ببینە',
+                              gradient: [
+                                const Color(0xFFFFE4D8),
+                                Color.lerp(
+                                      const Color(0xFFFFE4D8),
+                                      Colors.white,
+                                      0.55,
+                                    ) ??
+                                    Colors.white,
+                              ],
+                              accent: _kCoral,
+                              icon: Icons.woman_rounded,
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                _scrollTo(_womenKey);
+                              },
+                            ),
                           ),
                         ],
                       )
                           .animate()
-                          .fadeIn(delay: 80.ms, duration: 400.ms)
-                          .slideY(begin: 0.06, curve: Curves.easeOutCubic),
+                          .fadeIn(delay: 100.ms, duration: 420.ms)
+                          .slideY(begin: 0.05, curve: Curves.easeOutCubic),
                     ),
                   ),
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
-                      child: _AudienceToggle(
-                        value: _audience,
-                        onChanged: (v) {
-                          HapticFeedback.selectionClick();
-                          setState(() => _audience = v);
+                      key: _menKey,
+                      padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
+                      child: _SectionTitle(
+                        title: 'پۆلەکانی پیاوان',
+                        actionLabel: 'بینینی هەموو',
+                        onAction: () {
+                          if (_menCats.isNotEmpty) {
+                            _selectCategory(_menCats.first.category);
+                          }
                         },
-                      )
-                          .animate()
-                          .fadeIn(delay: 120.ms, duration: 400.ms)
-                          .slideY(begin: 0.05, curve: Curves.easeOutCubic),
+                      ),
                     ),
                   ),
-                  if (browsing)
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(24, 12, 24, 120),
-                      sliver: SliverGrid(
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 16,
-                          crossAxisSpacing: 16,
-                          childAspectRatio: 0.92,
-                        ),
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final cat = visibleCats[index];
-                            final count = counts[cat.category] ?? 0;
-                            return _CategoryCard(
-                              item: cat,
-                              count: count,
-                              onTap: () {
-                                HapticFeedback.selectionClick();
-                                ref
-                                    .read(selectedCategoryProvider.notifier)
-                                    .state = cat.category;
-                              },
-                            )
-                                .animate(delay: (40 + index * 50).ms)
-                                .fadeIn(
-                                  duration: AppAnimations.normal,
-                                  curve: AppAnimations.smooth,
-                                )
-                                .slideY(
-                                  begin: 0.08,
-                                  curve: AppAnimations.smooth,
-                                );
-                          },
-                          childCount: visibleCats.length,
-                        ),
-                      ),
-                    )
-                  else ...[
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
-                        child: Row(
-                          children: [
-                            if (selectedCategory != 'هەموو' || hasQuery)
-                              GestureDetector(
-                                onTap: _clearAll,
-                                child: Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: AppColors.border,
-                                    ),
-                                  ),
-                                  child: Icon(
-                                    Icons.arrow_back_rounded,
-                                    size: 18,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                              ),
-                            if (selectedCategory != 'هەموو' || hasQuery)
-                              const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                hasQuery
-                                    ? 'ئەنجامەکان'
-                                    : selectedCategory,
-                                style: TextStyle(
-                                  fontFamily: AppTheme.fontFamily,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                            ),
-                            productsAsync.maybeWhen(
-                              data: (list) => Text(
-                                '${list.length} دانە',
-                                style: TextStyle(
-                                  fontFamily: AppTheme.fontFamily,
-                                  fontSize: 13,
-                                  color: AppColors.textTertiary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              orElse: () => const SizedBox.shrink(),
-                            ),
-                          ],
-                        ),
+                  SliverToBoxAdapter(
+                    child: _CategoryCarousel(
+                      items: _menCats,
+                      products: allProducts,
+                      coverFor: _coverFor,
+                      countFor: _countFor,
+                      onTap: (c) => _selectCategory(c.category),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      key: _womenKey,
+                      padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                      child: _SectionTitle(
+                        title: 'پۆلەکانی ژنان',
+                        actionLabel: 'بینینی هەموو',
+                        onAction: () {
+                          if (_womenCats.isNotEmpty) {
+                            _selectCategory(_womenCats.first.category);
+                          }
+                        },
                       ),
                     ),
-                    productsAsync.when(
-                      loading: () => const SliverToBoxAdapter(
-                        child: ProductGridShimmer(count: 4),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        bottom: kPremiumBottomNavClearance + 16,
                       ),
-                      error: (e, _) => SliverFillRemaining(
-                        child: ErrorView(
-                          message: 'هەڵە لە گەڕان',
-                          onRetry: () =>
-                              ref.invalidate(filteredProductsProvider),
-                        ),
+                      child: _CategoryCarousel(
+                        items: _womenCats,
+                        products: allProducts,
+                        coverFor: _coverFor,
+                        countFor: _countFor,
+                        onTap: (c) => _selectCategory(c.category),
                       ),
-                      data: (products) {
-                        if (products.isEmpty) {
-                          return SliverFillRemaining(
-                            hasScrollBody: false,
-                            child: Padding(
-                              padding: EdgeInsets.only(
-                                bottom: kPremiumBottomNavClearance,
-                              ),
-                              child: EmptyView(
-                                message: 'هیچ ئەنجامێک نەدۆزرایەوە',
-                                icon: Icons.search_off_rounded,
-                                action: TextButton(
-                                  onPressed: _clearAll,
-                                  child: const Text('گەڕانەوە'),
-                                ),
-                              ),
-                            ),
-                          );
-                        }
-                        return SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
-                          sliver: SliverGrid(
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              childAspectRatio: 0.64,
-                              crossAxisSpacing: 16,
-                              mainAxisSpacing: 16,
-                            ),
-                            delegate: SliverChildBuilderDelegate(
-                              (context, index) {
-                                final product = products[index];
-                                final tag = productHeroTag(
-                                  product.id,
-                                  'search',
-                                  index,
-                                );
-                                return ProductCard(
-                                  product: product,
-                                  index: index,
-                                  heroTag: tag,
-                                  onTap: () => context.push(
-                                    '/product/${product.id}',
-                                    extra: tag,
-                                  ),
-                                );
-                              },
-                              childCount: products.length,
-                            ),
-                          ),
-                        );
+                    ),
+                  ),
+                ],
+              )
+            : Column(
+                children: [
+                  _buildHeader(showBack: true),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                    child: _SearchField(
+                      controller: _searchController,
+                      focusNode: _focusNode,
+                      onChanged: _setQuery,
+                      onClear: () {
+                        _searchController.clear();
+                        _setQuery('');
                       },
-                      skipLoadingOnReload: true,
-                      skipLoadingOnRefresh: true,
+                      onFilterTap: _openFilterSheet,
                     ),
-                  ],
+                  ),
+                  Expanded(child: _buildResults(productsAsync)),
                 ],
               ),
+      ),
+    );
+  }
+
+  Widget _buildHeader({bool showBack = false}) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
+      child: SizedBox(
+        height: 48,
+        child: Row(
+          children: [
+            if (showBack)
+              IconButton(
+                onPressed: _clearAll,
+                icon: Icon(
+                  Icons.arrow_back_rounded,
+                  color: AppColors.textPrimary,
+                ),
+              )
+            else
+              const SizedBox(width: 48),
+            Expanded(
+              child: Text(
+                'گەڕان',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
             ),
+            const SizedBox(width: 48),
           ],
         ),
       ),
     );
   }
-}
 
-class _RoundIconButton extends StatelessWidget {
-  final IconData icon;
-  final int? badge;
-  final VoidCallback onTap;
-
-  const _RoundIconButton({
-    required this.icon,
-    this.badge,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: Ink(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: _kAccent.withValues(alpha: 0.12),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
-            children: [
-              Icon(icon, size: 22, color: _kAccentDark),
-                  if (badge != null && badge! > 0)
-                    Positioned(
-                      top: 6,
-                      right: 6,
-                      child: Container(
-                        constraints: const BoxConstraints(minWidth: 18),
-                        height: 18,
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          gradient: AppColors.ctaGradient,
-                          borderRadius: BorderRadius.circular(9),
-                          border: Border.all(color: Colors.white, width: 1.5),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _kCta.withValues(alpha: 0.35),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          badge! > 9 ? '9+' : '$badge',
-                          style: const TextStyle(
-                            fontFamily: AppTheme.fontFamily,
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            height: 1,
-                          ),
-                        ),
-                      ),
-                    ),
-            ],
-          ),
-        ),
+  Widget _buildResults(AsyncValue<List<ProductModel>> productsAsync) {
+    return productsAsync.when(
+      loading: () => const ProductGridShimmer(count: 4),
+      error: (e, _) => ErrorView(
+        message: 'هەڵە لە گەڕان',
+        onRetry: () => ref.invalidate(filteredProductsProvider),
       ),
+      data: (products) {
+        if (products.isEmpty) {
+          return EmptyView(
+            message: 'هیچ ئەنجامێک نەدۆزرایەوە',
+            icon: Icons.search_off_rounded,
+            action: TextButton(
+              onPressed: _clearAll,
+              child: const Text('گەڕانەوە'),
+            ),
+          );
+        }
+        return GridView.builder(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            4,
+            20,
+            kPremiumBottomNavClearance + 20,
+          ),
+          physics: const BouncingScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 0.64,
+            crossAxisSpacing: 14,
+            mainAxisSpacing: 14,
+          ),
+          itemCount: products.length,
+          itemBuilder: (context, index) {
+            final product = products[index];
+            final tag = productHeroTag(product.id, 'search', index);
+            return ProductCard(
+              product: product,
+              index: index,
+              heroTag: tag,
+              onTap: () => context.push('/product/${product.id}', extra: tag),
+            );
+          },
+        );
+      },
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
     );
   }
 }
 
-class _PillSearchField extends StatelessWidget {
+class _SectionTitle extends StatelessWidget {
+  final String title;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  const _SectionTitle({
+    required this.title,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+        if (actionLabel != null)
+          GestureDetector(
+            onTap: onAction,
+            child: Text(
+              actionLabel!,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: _kTeal,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _SearchField extends StatefulWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
+  final VoidCallback onFilterTap;
 
-  const _PillSearchField({
+  const _SearchField({
     required this.controller,
     required this.focusNode,
     required this.onChanged,
     required this.onClear,
+    required this.onFilterTap,
   });
 
   @override
+  State<_SearchField> createState() => _SearchFieldState();
+}
+
+class _SearchFieldState extends State<_SearchField>
+    with SingleTickerProviderStateMixin {
+  static const _hints = <String>[
+    'گەڕان بۆ جل، پۆل، براند...',
+    'کراس، پێڵاو، جانتە...',
+    'دووکانی دڵخواز...',
+  ];
+
+  late final AnimationController _caret;
+  late final TextEditingController _textController;
+  late final FocusNode _focus;
+
+  Timer? _tick;
+  int _hintIndex = 0;
+  int _charIndex = 0;
+  bool _deleting = false;
+  String _visible = '';
+  bool _alive = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _textController = widget.controller;
+    _focus = widget.focusNode;
+    _caret = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 520),
+    )..repeat(reverse: true);
+    _textController.addListener(_refresh);
+    _focus.addListener(_refresh);
+    _scheduleTick(const Duration(milliseconds: 80));
+  }
+
+  @override
+  void dispose() {
+    _alive = false;
+    _tick?.cancel();
+    _tick = null;
+    _textController.removeListener(_refresh);
+    _focus.removeListener(_refresh);
+    _caret.dispose();
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (!_alive || !mounted) return;
+    setState(() {});
+    // Pause typing while user has text; resume when cleared.
+    if (_showHint && _tick == null) {
+      _scheduleTick(const Duration(milliseconds: 120));
+    }
+  }
+
+  bool get _showHint => _textController.text.isEmpty;
+
+  void _scheduleTick(Duration delay) {
+    _tick?.cancel();
+    if (!_alive) return;
+    _tick = Timer(delay, _onTick);
+  }
+
+  void _onTick() {
+    _tick = null;
+    if (!_alive || !mounted) return;
+
+    if (!_showHint) {
+      // Wait until field is empty again.
+      _scheduleTick(const Duration(milliseconds: 250));
+      return;
+    }
+
+    final full = _hints[_hintIndex];
+
+    if (!_deleting) {
+      if (_charIndex <= full.length) {
+        _visible = full.substring(0, _charIndex);
+        _charIndex++;
+        setState(() {});
+        _scheduleTick(const Duration(milliseconds: 48));
+      } else {
+        _deleting = true;
+        _scheduleTick(const Duration(milliseconds: 1400));
+      }
+      return;
+    }
+
+    if (_charIndex > 0) {
+      _charIndex--;
+      _visible = full.substring(0, _charIndex);
+      setState(() {});
+      _scheduleTick(const Duration(milliseconds: 28));
+      return;
+    }
+
+    _deleting = false;
+    _hintIndex = (_hintIndex + 1) % _hints.length;
+    _scheduleTick(const Duration(milliseconds: 220));
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final hasText = controller.text.isNotEmpty;
-    final focused = focusNode.hasFocus;
+    final hasText = _textController.text.isNotEmpty;
+    final focused = _focus.hasFocus;
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOutCubic,
+      duration: const Duration(milliseconds: 240),
       height: 56,
+      padding: const EdgeInsetsDirectional.only(start: 14, end: 6),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: focused
-              ? _kAccent.withValues(alpha: 0.45)
-              : Colors.white,
-          width: 1.5,
+              ? _kTeal.withValues(alpha: 0.45)
+              : AppColors.border.withValues(alpha: 0.65),
         ),
         boxShadow: [
           BoxShadow(
-            color: focused
-                ? _kAccent.withValues(alpha: 0.16)
-                : Colors.black.withValues(alpha: 0.05),
-            blurRadius: focused ? 22 : 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      alignment: Alignment.center,
-      child: TextField(
-        controller: controller,
-        focusNode: focusNode,
-        onChanged: onChanged,
-        textInputAction: TextInputAction.search,
-        style: TextStyle(
-          fontFamily: AppTheme.fontFamily,
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-          color: AppColors.textPrimary,
-        ),
-        cursorColor: _kAccent,
-        decoration: InputDecoration(
-          isDense: true,
-          hintText: 'گەڕان بەدوای بەرهەم...',
-          hintStyle: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            color: AppColors.textTertiary,
-            fontWeight: FontWeight.w400,
-            fontSize: 14,
-          ),
-          prefixIcon: Icon(
-            Icons.search_rounded,
-            color: focused ? _kAccent : AppColors.textTertiary,
-            size: 22,
-          ),
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 16,
-          ),
-          suffixIcon: hasText
-              ? IconButton(
-                  onPressed: onClear,
-                  icon: Container(
-                    width: 26,
-                    height: 26,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF5F5),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.close_rounded,
-                      size: 14,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                )
-              : null,
-        ),
-      ),
-    );
-  }
-}
-
-class _FilterFab extends StatefulWidget {
-  final bool active;
-  final VoidCallback onTap;
-
-  const _FilterFab({required this.active, required this.onTap});
-
-  @override
-  State<_FilterFab> createState() => _FilterFabState();
-}
-
-class _FilterFabState extends State<_FilterFab> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _pressed ? 0.92 : 1,
-        duration: const Duration(milliseconds: 140),
-        curve: Curves.easeOutCubic,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 280),
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            gradient: AppColors.ctaGradient,
-            shape: BoxShape.circle,
-            border: widget.active
-                ? Border.all(color: Colors.white, width: 2.5)
-                : null,
-            boxShadow: [
-              BoxShadow(
-                color: _kCta.withValues(alpha: 0.42),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.tune_rounded,
-            color: Colors.white,
-            size: 22,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AudienceToggle extends StatelessWidget {
-  final _SearchAudience value;
-  final ValueChanged<_SearchAudience> onChanged;
-
-  const _AudienceToggle({
-    required this.value,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 56,
-      padding: const EdgeInsets.all(5),
-      decoration: BoxDecoration(
-        gradient: AppColors.accentGradient,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: _kAccent.withValues(alpha: 0.32),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: AppColors.primary.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Row(
         children: [
+          Icon(
+            Icons.search_rounded,
+            color: focused ? _kTeal : AppColors.textTertiary,
+            size: 22,
+          ),
+          const SizedBox(width: 10),
           Expanded(
-            child: _AudienceSegment(
-              label: 'ژنان',
-              icon: Icons.woman_rounded,
-              selected: value == _SearchAudience.women,
-              onTap: () => onChanged(_SearchAudience.women),
+            child: Stack(
+              alignment: AlignmentDirectional.centerStart,
+              children: [
+                TextField(
+                  controller: _textController,
+                  focusNode: _focus,
+                  onChanged: widget.onChanged,
+                  textInputAction: TextInputAction.search,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                  cursorColor: _kTeal,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+                if (_showHint)
+                  IgnorePointer(
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            _visible,
+                            maxLines: 1,
+                            overflow: TextOverflow.clip,
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              color: AppColors.textTertiary,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        FadeTransition(
+                          opacity: _caret,
+                          child: Container(
+                            width: 1.4,
+                            height: 14,
+                            margin: const EdgeInsetsDirectional.only(start: 2),
+                            color: _kTeal.withValues(alpha: 0.8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
           ),
-          Expanded(
-            child: _AudienceSegment(
-              label: 'پیاوان',
-              icon: Icons.man_rounded,
-              selected: value == _SearchAudience.men,
-              onTap: () => onChanged(_SearchAudience.men),
+          if (hasText)
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              onPressed: widget.onClear,
+              icon: Icon(
+                Icons.close_rounded,
+                size: 18,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: widget.onFilterTap,
+              customBorder: const CircleBorder(),
+              child: Ink(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: _kTeal,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.tune_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
             ),
           ),
         ],
@@ -803,13 +849,13 @@ class _AudienceToggle extends StatelessWidget {
   }
 }
 
-class _AudienceSegment extends StatelessWidget {
+class _CategoryChip extends StatelessWidget {
   final String label;
   final IconData icon;
   final bool selected;
   final VoidCallback onTap;
 
-  const _AudienceSegment({
+  const _CategoryChip({
     required this.label,
     required this.icon,
     required this.selected,
@@ -818,217 +864,178 @@ class _AudienceSegment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 320),
-        curve: Curves.easeOutCubic,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(26),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.10),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 18,
-              color: selected ? _kAccentDark : Colors.white.withValues(alpha: 0.9),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: selected ? AppColors.textPrimary : Colors.white,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: GestureDetector(
+        onTap: onTap,
+        child: SizedBox(
+          width: 68,
+          child: Column(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeOutCubic,
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected
+                      ? _kTeal
+                      : _kTeal.withValues(alpha: 0.10),
+                  boxShadow: selected
+                      ? [
+                          BoxShadow(
+                            color: _kTeal.withValues(alpha: 0.28),
+                            blurRadius: 12,
+                            offset: const Offset(0, 6),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Icon(
+                  icon,
+                  color: selected ? Colors.white : _kTeal,
+                  size: 24,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? _kTeal : AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _CategoryCard extends StatefulWidget {
-  final _CatItem item;
-  final int count;
+class _GenderCard extends StatefulWidget {
+  final String title;
+  final String subtitle;
+  final List<Color> gradient;
+  final Color accent;
+  final IconData icon;
   final VoidCallback onTap;
 
-  const _CategoryCard({
-    required this.item,
-    required this.count,
+  const _GenderCard({
+    required this.title,
+    required this.subtitle,
+    required this.gradient,
+    required this.accent,
+    required this.icon,
     required this.onTap,
   });
 
   @override
-  State<_CategoryCard> createState() => _CategoryCardState();
+  State<_GenderCard> createState() => _GenderCardState();
 }
 
-class _CategoryCardState extends State<_CategoryCard> {
+class _GenderCardState extends State<_GenderCard> {
   bool _pressed = false;
 
   @override
   Widget build(BuildContext context) {
-    final item = widget.item;
-    final count = widget.count;
-
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) => setState(() => _pressed = false),
       onTapCancel: () => setState(() => _pressed = false),
       onTap: widget.onTap,
       child: AnimatedScale(
-        scale: _pressed ? 0.96 : 1,
-        duration: const Duration(milliseconds: 160),
+        scale: _pressed ? 0.97 : 1,
+        duration: const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 220),
+          height: 168,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: BorderRadius.circular(22),
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Color.lerp(item.bg, Colors.white, 0.22)!,
-                item.bg,
-                Color.lerp(item.bg, const Color(0xFF2A2A32), 0.06)!,
-              ],
+              colors: widget.gradient,
             ),
             boxShadow: [
               BoxShadow(
-                color: Color.lerp(item.bg, Colors.black, 0.35)!
-                    .withValues(alpha: 0.22),
-                blurRadius: 22,
-                offset: const Offset(0, 12),
-              ),
-              BoxShadow(
-                color: Colors.white.withValues(alpha: 0.65),
-                blurRadius: 0,
-                offset: const Offset(0, -1),
-                spreadRadius: 0,
+                color: widget.accent.withValues(alpha: 0.14),
+                blurRadius: _pressed ? 8 : 16,
+                offset: Offset(0, _pressed ? 4 : 8),
               ),
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: BorderRadius.circular(22),
             child: Stack(
               children: [
-                // Soft light blob
                 Positioned(
-                  top: -28,
-                  right: -20,
-                  child: Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withValues(alpha: 0.35),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: -36,
-                  left: -24,
-                  child: Container(
-                    width: 90,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.black.withValues(alpha: 0.03),
-                    ),
+                  left: -20,
+                  bottom: -30,
+                  child: Icon(
+                    widget.icon,
+                    size: 120,
+                    color: widget.accent.withValues(alpha: 0.10),
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
+                  padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.topCenter,
-                          child: Container(
-                            width: 78,
-                            height: 78,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.55),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.8),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.05),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 6),
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              item.icon,
-                              size: 36,
-                              color: const Color(0xFF2A2A32),
-                            ),
-                          ),
+                      Text(
+                        widget.title,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.isDark
+                              ? AppColors.textPrimary
+                              : const Color(0xFF16363A),
                         ),
                       ),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  item.label,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontFamily: AppTheme.fontFamily,
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  '$count دانە',
-                                  style: TextStyle(
-                                    fontFamily: AppTheme.fontFamily,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ],
+                      const SizedBox(height: 6),
+                      Text(
+                        widget.subtitle,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 11.5,
+                          height: 1.35,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.isDark
+                              ? AppColors.textSecondary
+                              : const Color(0xFF4A6568),
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: widget.accent,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: widget.accent.withValues(alpha: 0.35),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
                             ),
-                          ),
-                          Container(
-                            width: 30,
-                            height: 30,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.75),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.arrow_outward_rounded,
-                              size: 16,
-                              color: _kAccentDark,
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.arrow_forward_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
                       ),
                     ],
                   ),
@@ -1042,3 +1049,158 @@ class _CategoryCardState extends State<_CategoryCard> {
   }
 }
 
+class _CategoryCarousel extends StatelessWidget {
+  final List<_CatDef> items;
+  final List<ProductModel> products;
+  final String? Function(String category, List<ProductModel> products) coverFor;
+  final int Function(String category, List<ProductModel> products) countFor;
+  final ValueChanged<_CatDef> onTap;
+
+  const _CategoryCarousel({
+    required this.items,
+    required this.products,
+    required this.coverFor,
+    required this.countFor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 210,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: items.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final item = items[index];
+          final cover = coverFor(item.category, products);
+          final count = countFor(item.category, products);
+          return _PhotoCategoryCard(
+            label: item.label,
+            count: count,
+            coverUrl: cover,
+            icon: item.icon,
+            onTap: () => onTap(item),
+          )
+              .animate(delay: (40 + index * 40).ms)
+              .fadeIn(duration: AppAnimations.normal, curve: AppAnimations.smooth)
+              .slideX(begin: 0.06, curve: AppAnimations.smooth);
+        },
+      ),
+    );
+  }
+}
+
+class _PhotoCategoryCard extends StatefulWidget {
+  final String label;
+  final int count;
+  final String? coverUrl;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _PhotoCategoryCard({
+    required this.label,
+    required this.count,
+    required this.coverUrl,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  State<_PhotoCategoryCard> createState() => _PhotoCategoryCardState();
+}
+
+class _PhotoCategoryCardState extends State<_PhotoCategoryCard> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _pressed ? 0.97 : 1,
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOutCubic,
+        child: Container(
+          width: 148,
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppColors.border.withValues(alpha: 0.55),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.05),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(20),
+                  ),
+                  child: widget.coverUrl != null && widget.coverUrl!.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: widget.coverUrl!,
+                          fit: BoxFit.cover,
+                          placeholder: (_, _) => _fallback(),
+                          errorWidget: (_, _, _) => _fallback(),
+                        )
+                      : _fallback(),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${widget.count}+ دانە',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textTertiary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _fallback() {
+    return Container(
+      color: _kTeal.withValues(alpha: 0.10),
+      child: Icon(widget.icon, color: _kTeal, size: 36),
+    );
+  }
+}

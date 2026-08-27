@@ -1,265 +1,598 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/phone_utils.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 
-/// Professional multi-step signup for customers & shop owners.
+/// Single-page signup — polished boutique look.
 class SignupWizard extends ConsumerStatefulWidget {
   final VoidCallback? onSuccess;
+  final bool english;
+  final VoidCallback? onBack;
 
-  const SignupWizard({super.key, this.onSuccess});
+  const SignupWizard({
+    super.key,
+    this.onSuccess,
+    this.english = false,
+    this.onBack,
+  });
 
   @override
   ConsumerState<SignupWizard> createState() => _SignupWizardState();
 }
 
 class _SignupWizardState extends ConsumerState<SignupWizard> {
-  final _pageController = PageController();
-  final _stepKeys = List.generate(4, (_) => GlobalKey<FormState>());
-
+  final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
-  final _email = TextEditingController();
   final _phone = TextEditingController();
-  final _address = TextEditingController();
+  final _otp = TextEditingController();
   final _password = TextEditingController();
-  final _confirmPassword = TextEditingController();
+  final _confirm = TextEditingController();
   final _shopName = TextEditingController();
-  final _shopDesc = TextEditingController();
-  final _shopAddress = TextEditingController();
+  final _nameFocus = FocusNode();
+  final _phoneFocus = FocusNode();
+  final _otpFocus = FocusNode();
+  final _passFocus = FocusNode();
+  final _confirmFocus = FocusNode();
+  final _shopFocus = FocusNode();
 
   UserRole _role = UserRole.customer;
-  ShopTier _tier = ShopTier.gold;
-  int _step = 0;
   bool _obscurePass = true;
   bool _obscureConfirm = true;
+  bool _acceptedTerms = false;
+  String? _termsError;
+  bool _otpSending = false;
+  int _otpCooldownSecs = 0;
+  Timer? _otpCooldownTimer;
 
-  static const _stepTitles = [
-    'جۆری هەژمار',
-    'زانیاری کەسی',
-    'ناونیشان',
-    'پاراستن',
-  ];
+  bool get _en => widget.english;
+  String _t(String ku, String en) => _en ? en : ku;
 
-  static const _stepSubtitles = [
-    'کڕیار یان خاوەن دووکان هەڵبژێرە',
-    'ناو و پەیوەندی خۆت بنووسە',
-    'ناونیشان بۆ گەیاندن / دووکان',
-    'وشەی نهێنی دابنێ و دووبارەی بکەرەوە',
-  ];
+  @override
+  void initState() {
+    super.initState();
+    for (final n in [
+      _nameFocus,
+      _phoneFocus,
+      _otpFocus,
+      _passFocus,
+      _confirmFocus,
+      _shopFocus,
+    ]) {
+      n.addListener(() => setState(() {}));
+    }
+  }
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _otpCooldownTimer?.cancel();
     _name.dispose();
-    _email.dispose();
     _phone.dispose();
-    _address.dispose();
+    _otp.dispose();
     _password.dispose();
-    _confirmPassword.dispose();
+    _confirm.dispose();
     _shopName.dispose();
-    _shopDesc.dispose();
-    _shopAddress.dispose();
+    _nameFocus.dispose();
+    _phoneFocus.dispose();
+    _otpFocus.dispose();
+    _passFocus.dispose();
+    _confirmFocus.dispose();
+    _shopFocus.dispose();
     super.dispose();
   }
 
-  String get _step3Title =>
-      _role == UserRole.customer ? 'ناونیشانی گەیاندن' : 'زانیاری دووکان';
+  Future<void> _sendSignupOtp() async {
+    final phoneError = PhoneUtils.validate(_phone.text, english: _en);
+    if (phoneError != null) {
+      _showSnack(phoneError, error: true);
+      return;
+    }
+    if (_otpCooldownSecs > 0 || _otpSending) return;
 
-  Future<void> _goNext() async {
-    final form = _stepKeys[_step].currentState;
-    if (form != null && !form.validate()) return;
+    HapticFeedback.selectionClick();
+    setState(() => _otpSending = true);
+    final error =
+        await ref.read(authProvider.notifier).sendSignupOtp(_phone.text.trim());
+    if (!mounted) return;
+    setState(() => _otpSending = false);
 
-    if (_step < 3) {
-      HapticFeedback.selectionClick();
-      setState(() => _step++);
-      await _pageController.animateToPage(
-        _step,
-        duration: const Duration(milliseconds: 420),
-        curve: Curves.easeOutCubic,
-      );
+    if (error != null) {
+      _showSnack(error, error: true);
       return;
     }
 
-    await _submit();
+    _otpCooldownTimer?.cancel();
+    setState(() => _otpCooldownSecs = 45);
+    _otpCooldownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      if (_otpCooldownSecs <= 1) {
+        t.cancel();
+        setState(() => _otpCooldownSecs = 0);
+        } else {
+        setState(() => _otpCooldownSecs -= 1);
+      }
+    });
+    _otpFocus.requestFocus();
+    _showSnack(
+      _t(
+        'کۆد نێردرا (واتساپ یان SMS) — کۆدی ٦ ژمارەیی بنووسە',
+        'Code sent (WhatsApp or SMS) — enter the 6-digit code',
+      ),
+    );
   }
 
-  Future<void> _goBack() async {
-    if (_step == 0) return;
-    HapticFeedback.selectionClick();
-    setState(() => _step--);
-    await _pageController.animateToPage(
-      _step,
-      duration: const Duration(milliseconds: 380),
-      curve: Curves.easeOutCubic,
+  void _showSnack(String message, {bool error = false}) {
+        ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: error ? AppColors.error : AppColors.brand,
+            behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
     );
   }
 
   Future<void> _submit() async {
+    setState(() => _termsError = null);
+    if (!_formKey.currentState!.validate()) return;
+    if (!_acceptedTerms) {
+      setState(() {
+        _termsError = _t(
+          'تکایە مەرج و سیاسەت قبوڵ بکە',
+          'Please accept the terms',
+        );
+      });
+        return;
+    }
+
+    HapticFeedback.lightImpact();
     final success = await ref.read(authProvider.notifier).register(
           name: _name.text.trim(),
-          email: _email.text.trim(),
           phone: _phone.text.trim(),
           password: _password.text,
+          code: _otp.text.trim(),
           role: _role,
-          location: _role == UserRole.customer ? _address.text.trim() : null,
           shopName:
               _role == UserRole.shopOwner ? _shopName.text.trim() : null,
-          shopDescription:
-              _role == UserRole.shopOwner ? _shopDesc.text.trim() : null,
-          shopAddress:
-              _role == UserRole.shopOwner ? _shopAddress.text.trim() : null,
-          shopTier: _role == UserRole.shopOwner ? _tier : null,
+          shopTier: _role == UserRole.shopOwner ? ShopTier.gold : null,
         );
 
     if (!mounted) return;
-
     if (success) {
       widget.onSuccess?.call();
     } else {
-      final err = ref.read(authProvider).error ?? 'هەڵەیەک ڕوویدا';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(err),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
+      _showSnack(
+        ref.read(authProvider).error ?? 'هەڵەیەک ڕوویدا',
+        error: true,
       );
     }
+  }
+
+  InputDecoration _field({
+    required String hint,
+    required IconData icon,
+    required bool focused,
+    Widget? suffix,
+  }) {
+    const radius = BorderRadius.all(Radius.circular(22));
+    final borderColor = focused
+        ? AppColors.brand
+        : const Color(0xFFE2EBEC);
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(
+        fontFamily: AppTheme.fontFamily,
+        color: const Color(0xFFA0AEB0),
+        fontWeight: FontWeight.w500,
+        fontSize: 14.5,
+      ),
+      prefixIcon: Padding(
+        padding: const EdgeInsetsDirectional.only(start: 4),
+        child: Icon(
+          icon,
+          color: focused ? AppColors.brand : AppColors.brand.withValues(alpha: 0.85),
+          size: 22,
+        ),
+      ),
+      suffixIcon: suffix,
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
+      border: OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: BorderSide(color: borderColor),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: BorderSide(color: borderColor.withValues(alpha: 0.95)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: BorderSide(color: AppColors.brand, width: 1.6),
+      ),
+      errorBorder: const OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: BorderSide(color: AppColors.error),
+      ),
+      focusedErrorBorder: const OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: BorderSide(color: AppColors.error, width: 1.4),
+      ),
+      errorStyle: TextStyle(
+        fontFamily: AppTheme.fontFamily,
+        fontWeight: FontWeight.w700,
+        fontSize: 12,
+      ),
+    );
+  }
+
+  Widget _softField({required Widget child, required bool focused}) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: focused
+                ? AppColors.brand.withValues(alpha: 0.14)
+                : Colors.black.withValues(alpha: 0.045),
+            blurRadius: focused ? 18 : 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: child,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final isLoading = ref.watch(authProvider).isLoading;
-    final titles = [..._stepTitles];
-    titles[2] = _step3Title;
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
 
-    return Column(
+    return Scaffold(
+      backgroundColor: const Color(0xFFFAFCFC),
+      body: Stack(
+        children: [
+          const _SignupBackdrop(),
+          SafeArea(
+            child: Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
-          child: _StepHeader(
-            step: _step,
-            total: 4,
-            title: titles[_step],
-            subtitle: _step == 2
-                ? (_role == UserRole.customer
-                    ? 'ناونیشان پێویستە بۆ گەیاندنی داواکاری'
-                    : 'وردەکاری دووکان و پڕۆفایل هەڵبژێرە')
-                : _stepSubtitles[_step],
-          ),
-        ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: PageView(
-            controller: _pageController,
-            physics: const NeverScrollableScrollPhysics(),
-            children: [
-              _StepScroll(
-                formKey: _stepKeys[0],
-                child: _RoleStep(
-                  role: _role,
-                  onChanged: (r) => setState(() => _role = r),
-                ),
-              ),
-              _StepScroll(
-                formKey: _stepKeys[1],
-                child: _PersonalStep(
-                  name: _name,
-                  email: _email,
-                  phone: _phone,
-                ),
-              ),
-              _StepScroll(
-                formKey: _stepKeys[2],
-                child: _role == UserRole.customer
-                    ? _AddressStep(address: _address)
-                    : _ShopStep(
-                        shopName: _shopName,
-                        shopDesc: _shopDesc,
-                        shopAddress: _shopAddress,
-                        tier: _tier,
-                        onTier: (t) => setState(() => _tier = t),
+                  padding: const EdgeInsetsDirectional.only(start: 6, top: 2),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: IconButton(
+                      onPressed: widget.onBack,
+                      style: IconButton.styleFrom(
+                        foregroundColor: AppColors.brand,
+                        backgroundColor: Colors.white.withValues(alpha: 0.75),
                       ),
-              ),
-              _StepScroll(
-                formKey: _stepKeys[3],
-                child: _PasswordStep(
-                  password: _password,
-                  confirm: _confirmPassword,
-                  obscurePass: _obscurePass,
-                  obscureConfirm: _obscureConfirm,
-                  onTogglePass: () =>
-                      setState(() => _obscurePass = !_obscurePass),
-                  onToggleConfirm: () =>
-                      setState(() => _obscureConfirm = !_obscureConfirm),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-          child: Row(
-            children: [
-              if (_step > 0)
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: isLoading ? null : _goBack,
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 52),
-                      side: BorderSide(color: AppColors.border),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: Text(
-                      'پێشوو',
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
                     ),
                   ),
                 ),
-              if (_step > 0) const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: SizedBox(
-                  height: 52,
+        Expanded(
+                  child: Form(
+                    key: _formKey,
+                    child: ListView(
+                      padding: EdgeInsets.fromLTRB(26, 0, 26, 28 + bottom),
+                      physics: const BouncingScrollPhysics(),
+            children: [
+                        const _SignupHeroHeader()
+                            .animate()
+                            .fadeIn(duration: 500.ms)
+                            .slideY(begin: 0.04, curve: Curves.easeOutCubic),
+                        const SizedBox(height: 18),
+                        Text(
+                          _t('هەژمارێکی نوێ دروست بکە', 'Create a new account'),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 25,
+                            color: const Color(0xFF152426),
+                            height: 1.25,
+                            letterSpacing: -0.3,
+                          ),
+                        )
+                            .animate()
+                            .fadeIn(delay: 80.ms, duration: 420.ms)
+                            .slideY(begin: 0.05, curve: Curves.easeOutCubic),
+                        const SizedBox(height: 8),
+                        Text(
+                          _t(
+                            'بۆ ئەوەی باشترین جل و بەرگەکان ببینیتەوە',
+                            'So you can discover the best clothes',
+                          ),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 13.5,
+                            color: const Color(0xFF7E8E90),
+                            height: 1.45,
+                          ),
+                        )
+                            .animate()
+                            .fadeIn(delay: 120.ms, duration: 420.ms),
+                        const SizedBox(height: 20),
+                        _RoleToggle(
+                  role: _role,
+                          english: _en,
+                  onChanged: (r) => setState(() => _role = r),
+                        )
+                            .animate()
+                            .fadeIn(delay: 160.ms, duration: 400.ms),
+                        const SizedBox(height: 18),
+                        _softField(
+                          focused: _nameFocus.hasFocus,
+                          child: TextFormField(
+                            controller: _name,
+                            focusNode: _nameFocus,
+                            textInputAction: TextInputAction.next,
+                            decoration: _field(
+                              hint: _t('ناوی تەواو', 'Full name'),
+                              icon: Icons.person_outline_rounded,
+                              focused: _nameFocus.hasFocus,
+                            ),
+                            validator: (v) => v == null || v.trim().isEmpty
+                                ? _t('ناو بنووسە', 'Enter your name')
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _softField(
+                          focused: _phoneFocus.hasFocus,
+                          child: TextFormField(
+                            controller: _phone,
+                            focusNode: _phoneFocus,
+                            keyboardType: TextInputType.phone,
+                            textDirection: TextDirection.ltr,
+                            textInputAction: TextInputAction.done,
+                            onFieldSubmitted: (_) => _sendSignupOtp(),
+                            decoration: _field(
+                              hint: _t('ژمارەی مۆبایل', 'Mobile number'),
+                              icon: Icons.phone_outlined,
+                              focused: _phoneFocus.hasFocus,
+                              suffix: TextButton(
+                                onPressed: (isLoading ||
+                                        _otpSending ||
+                                        _otpCooldownSecs > 0)
+                                    ? null
+                                    : _sendSignupOtp,
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppColors.brand,
+                                  disabledForegroundColor:
+                                      const Color(0xFF9AA8AA),
+                                  padding: const EdgeInsetsDirectional.only(
+                                    end: 4,
+                                  ),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: _otpSending
+                                    ? SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: AppColors.brand,
+                                        ),
+                                      )
+                                    : Text(
+                                        _otpCooldownSecs > 0
+                                            ? '$_otpCooldownSecs'
+                                            : _t('ناردنی کۆد', 'Send code'),
+                                        style: TextStyle(
+                                          fontFamily: AppTheme.fontFamily,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 12.5,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                            validator: (v) =>
+                                PhoneUtils.validate(v, english: _en),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _softField(
+                          focused: _otpFocus.hasFocus,
+                          child: TextFormField(
+                            controller: _otp,
+                            focusNode: _otpFocus,
+                            keyboardType: TextInputType.number,
+                            textDirection: TextDirection.ltr,
+                            textInputAction: TextInputAction.next,
+                            maxLength: 6,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            style: const TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 5,
+                              fontSize: 17,
+                            ),
+                            decoration: _field(
+                              hint: _t('کۆدی پشتڕاستکردنەوە', 'OTP code'),
+                              icon: Icons.mark_unread_chat_alt_outlined,
+                              focused: _otpFocus.hasFocus,
+                            ).copyWith(counterText: ''),
+                            validator: (v) {
+                              if (v == null ||
+                                  !RegExp(r'^\d{6}$').hasMatch(v.trim())) {
+                                return _t(
+                                  'کۆدی ٦ ژمارەیی بنووسە',
+                                  'Enter the 6-digit code',
+                                );
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        if (_role == UserRole.shopOwner) ...[
+                          const SizedBox(height: 14),
+                          _softField(
+                            focused: _shopFocus.hasFocus,
+                            child: TextFormField(
+                              controller: _shopName,
+                              focusNode: _shopFocus,
+                              textInputAction: TextInputAction.next,
+                              decoration: _field(
+                                hint: _t('ناوی دووکان', 'Shop name'),
+                                icon: Icons.storefront_outlined,
+                                focused: _shopFocus.hasFocus,
+                              ),
+                              validator: (v) {
+                                if (_role != UserRole.shopOwner) return null;
+                                if (v == null || v.trim().isEmpty) {
+                                  return _t(
+                                    'ناوی دووکان بنووسە',
+                                    'Enter shop name',
+                                  );
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 14),
+                        _softField(
+                          focused: _passFocus.hasFocus,
+                          child: TextFormField(
+                            controller: _password,
+                            focusNode: _passFocus,
+                            obscureText: _obscurePass,
+                            textDirection: TextDirection.ltr,
+                            textInputAction: TextInputAction.next,
+                            decoration: _field(
+                              hint: _t('تێپەڕەوشە', 'Password'),
+                              icon: Icons.lock_outline_rounded,
+                              focused: _passFocus.hasFocus,
+                              suffix: IconButton(
+                                onPressed: () => setState(
+                                  () => _obscurePass = !_obscurePass,
+                                ),
+                                icon: Icon(
+                                  _obscurePass
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                  color: const Color(0xFF9AA8AA),
+                                  size: 21,
+                                ),
+                              ),
+                            ),
+                            validator: (v) {
+                              if (v == null || v.length < 6) {
+                                return _t(
+                                  'لانیکەم ٦ پیت بنووسە',
+                                  'At least 6 characters',
+                                );
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _softField(
+                          focused: _confirmFocus.hasFocus,
+                          child: TextFormField(
+                            controller: _confirm,
+                            focusNode: _confirmFocus,
+                            obscureText: _obscureConfirm,
+                            textDirection: TextDirection.ltr,
+                            textInputAction: TextInputAction.done,
+                            onFieldSubmitted: (_) => _submit(),
+                            decoration: _field(
+                              hint: _t(
+                                'دووبارە تێپەڕەوشە بنووسە',
+                                'Confirm password',
+                              ),
+                              icon: Icons.lock_outline_rounded,
+                              focused: _confirmFocus.hasFocus,
+                              suffix: IconButton(
+                                onPressed: () => setState(
+                                  () => _obscureConfirm = !_obscureConfirm,
+                                ),
+                                icon: Icon(
+                                  _obscureConfirm
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                  color: const Color(0xFF9AA8AA),
+                                  size: 21,
+                                ),
+                              ),
+                            ),
+                            validator: (v) {
+                              if (v != _password.text) {
+                                return _t(
+                                  'وشە نهێنییەکان یەک ناگرنەوە',
+                                  'Passwords do not match',
+                                );
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        _TermsRow(
+                          accepted: _acceptedTerms,
+                          english: _en,
+                          error: _termsError,
+                          onChanged: (v) => setState(() {
+                            _acceptedTerms = v;
+                            _termsError = null;
+                          }),
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          height: 56,
+                          width: double.infinity,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      gradient: _step == 3
-                          ? AppColors.ctaGradient
-                          : AppColors.accentGradient,
-                      borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(18),
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Color.lerp(AppColors.brand, Colors.white, 0.08) ??
+                                      AppColors.brand,
+                                  AppColors.brand,
+                                  Color.lerp(AppColors.brand, const Color(0xFF0A3D42), 0.25) ??
+                                      AppColors.brand,
+                                ],
+                              ),
                       boxShadow: [
                         BoxShadow(
-                          color: (_step == 3
-                                  ? AppColors.highlight
-                                  : AppColors.brand)
-                              .withValues(alpha: 0.28),
-                          blurRadius: 14,
-                          offset: const Offset(0, 6),
+                                  color: AppColors.brand.withValues(alpha: 0.32),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
                         ),
                       ],
                     ),
                     child: ElevatedButton(
-                      onPressed: isLoading ? null : _goNext,
+                              onPressed: isLoading ? null : _submit,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,
                         shadowColor: Colors.transparent,
                         foregroundColor: Colors.white,
+                                disabledBackgroundColor: Colors.transparent,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                                  borderRadius: BorderRadius.circular(18),
                         ),
                       ),
                       child: isLoading
@@ -272,14 +605,20 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
                               ),
                             )
                           : Text(
-                              _step == 3 ? 'دروستکردنی هەژمار' : 'هەنگاوی داهاتوو',
-                              style: const TextStyle(
+                                      _t('هەژمار دروست بکە', 'Create account'),
+                                      style: TextStyle(
                                 fontFamily: AppTheme.fontFamily,
                                 fontWeight: FontWeight.w800,
-                                fontSize: 15,
+                                        fontSize: 16.5,
                               ),
                             ),
                     ),
+                          ),
+                        )
+                            .animate()
+                            .fadeIn(delay: 220.ms, duration: 450.ms)
+                            .slideY(begin: 0.08, curve: Curves.easeOutCubic),
+                      ],
                   ),
                 ),
               ),
@@ -287,642 +626,511 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _StepHeader extends StatelessWidget {
-  final int step;
-  final int total;
-  final String title;
-  final String subtitle;
-
-  const _StepHeader({
-    required this.step,
-    required this.total,
-    required this.title,
-    required this.subtitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: List.generate(total, (i) {
-            final active = i <= step;
-            final current = i == step;
-            return Expanded(
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 320),
-                curve: Curves.easeOutCubic,
-                height: current ? 5 : 4,
-                margin: EdgeInsetsDirectional.only(
-                  end: i == total - 1 ? 0 : 6,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(4),
-                  gradient: active ? AppColors.accentGradient : null,
-                  color: active ? null : AppColors.border,
-                ),
-              ),
-            );
-          }),
-        ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: AppColors.brand.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                'هەنگاو ${step + 1} لە $total',
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.brand,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Text(
-          title,
-          style: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
-            color: AppColors.textPrimary,
-            letterSpacing: -0.3,
-          ),
-        ).animate(key: ValueKey('t-$step')).fadeIn(duration: 280.ms).slideX(
-              begin: 0.04,
-              curve: Curves.easeOutCubic,
-            ),
-        const SizedBox(height: 4),
-        Text(
-          subtitle,
-          style: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            fontSize: 13,
-            color: AppColors.textSecondary,
-            height: 1.35,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StepScroll extends StatelessWidget {
-  final GlobalKey<FormState> formKey;
-  final Widget child;
-
-  const _StepScroll({required this.formKey, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(
-        parent: AlwaysScrollableScrollPhysics(),
       ),
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      child: Form(key: formKey, child: child),
     );
   }
 }
 
-class _RoleStep extends StatelessWidget {
-  final UserRole role;
-  final ValueChanged<UserRole> onChanged;
-
-  const _RoleStep({required this.role, required this.onChanged});
+class _SignupBackdrop extends StatelessWidget {
+  const _SignupBackdrop();
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return IgnorePointer(
+      child: Stack(
+        fit: StackFit.expand,
       children: [
-        _RoleOption(
-          icon: Icons.shopping_bag_outlined,
-          title: 'کڕیار',
-          subtitle: 'گەڕان، کڕین، و گەیاندن بۆ ماڵەوە',
-          selected: role == UserRole.customer,
-          onTap: () => onChanged(UserRole.customer),
-        ),
-        const SizedBox(height: 14),
-        _RoleOption(
-          icon: Icons.storefront_rounded,
-          title: 'خاوەن دووکان',
-          subtitle: 'فرۆشتنی بەرهەم و بەڕێوەبردنی دووکان',
-          selected: role == UserRole.shopOwner,
-          onTap: () => onChanged(UserRole.shopOwner),
+          const ColoredBox(color: Color(0xFFFAFCFC)),
+          Positioned(
+            top: -40,
+            left: -30,
+            child: Container(
+              width: 180,
+              height: 180,
+                decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.brand.withValues(alpha: 0.05),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 40,
+            right: -50,
+            child: Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.highlight.withValues(alpha: 0.04),
+              ),
+            ),
+          ),
+          // Soft orange arc (mockup accent)
+          Positioned(
+            top: 12,
+            right: 36,
+            child: CustomPaint(
+              size: const Size(90, 70),
+              painter: _ArcPainter(
+                color: AppColors.highlight.withValues(alpha: 0.35),
+              ),
+          ),
         ),
       ],
+      ),
     );
   }
 }
 
-class _RoleOption extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final bool selected;
-  final VoidCallback onTap;
+class _ArcPainter extends CustomPainter {
+  final Color color;
+  const _ArcPainter({required this.color});
 
-  const _RoleOption({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.selected,
-    required this.onTap,
-  });
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round;
+    final path = Path()
+      ..moveTo(size.width * 0.1, size.height * 0.85)
+      ..quadraticBezierTo(
+        size.width * 0.55,
+        size.height * 0.05,
+        size.width * 0.95,
+        size.height * 0.45,
+      );
+    canvas.drawPath(path, paint);
+    final path2 = Path()
+      ..moveTo(size.width * 0.2, size.height * 0.95)
+      ..quadraticBezierTo(
+        size.width * 0.6,
+        size.height * 0.25,
+        size.width,
+        size.height * 0.55,
+      );
+    canvas.drawPath(path2, paint..color = color.withValues(alpha: 0.55));
+  }
+
+  @override
+  bool shouldRepaint(covariant _ArcPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+class _SignupHeroHeader extends StatelessWidget {
+  const _SignupHeroHeader();
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 280),
-          curve: Curves.easeOutCubic,
-          width: double.infinity,
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            gradient: selected ? AppColors.accentGradient : null,
-            color: selected ? null : AppColors.brandWhite,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-              color: selected ? Colors.transparent : AppColors.border,
-              width: 1.2,
+    return SizedBox(
+      height: 186,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+      children: [
+          // Dot grid
+          Positioned(
+            left: 18,
+            top: 6,
+            child: SizedBox(
+              width: 54,
+              height: 36,
+              child: CustomPaint(
+                painter: _DotGridPainter(
+                  color: AppColors.brand.withValues(alpha: 0.16),
+                ),
+              ),
             ),
-            boxShadow: selected
-                ? [
+          ),
+          Positioned(
+            left: -6,
+            top: 28,
+            child: _FashionBubble(
+              size: 118,
+              asset: 'assets/images/login_scene.png',
+              overlay: AppColors.brand.withValues(alpha: 0.38),
+              shape: BoxShape.circle,
+            ),
+          ),
+          Positioned(
+            right: -10,
+            top: 4,
+            child: Transform.rotate(
+              angle: 0.06,
+              child: _FashionBubble(
+                size: 128,
+                asset: 'assets/images/login_hero.png',
+                overlay: Colors.black.withValues(alpha: 0.04),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(78),
+                  topRight: Radius.circular(32),
+                  bottomLeft: Radius.circular(48),
+                  bottomRight: Radius.circular(78),
+                ),
+              ),
+            ),
+          ),
+          // Soft white veil behind logo so text stays readable
+          Container(
+            width: 150,
+            height: 150,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  Colors.white.withValues(alpha: 0.92),
+                  Colors.white.withValues(alpha: 0.0),
+                ],
+              ),
+            ),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
                     BoxShadow(
-                      color: AppColors.brand.withValues(alpha: 0.28),
+                      color: AppColors.brand.withValues(alpha: 0.12),
                       blurRadius: 18,
                       offset: const Offset(0, 8),
                     ),
-                  ]
-                : [
-                    BoxShadow(
-                      color: AppColors.brand.withValues(alpha: 0.04),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
                   ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: selected
-                      ? Colors.white.withValues(alpha: 0.18)
-                      : AppColors.surfaceVariant,
-                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: Icon(
-                  icon,
-                  color: selected ? Colors.white : AppColors.brand,
-                  size: 26,
+                child: ColorFiltered(
+                  colorFilter: ColorFilter.mode(
+                    AppColors.brand,
+                    BlendMode.srcIn,
+                  ),
+                  child: Image.asset('assets/images/qopcha_logo.png'),
                 ),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+              const SizedBox(height: 10),
                     Text(
-                      title,
+                AppConstants.appName,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 30,
+                  color: AppColors.brand,
+                  height: 1,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                'Q O P C H A',
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         fontWeight: FontWeight.w800,
-                        fontSize: 16,
-                        color: selected ? Colors.white : AppColors.textPrimary,
+                  fontSize: 11.5,
+                  letterSpacing: 3.6,
+                  color: AppColors.highlight,
                       ),
                     ),
-                    const SizedBox(height: 4),
+              const SizedBox(height: 5),
                     Text(
-                      subtitle,
+                AppConstants.appTagline,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        fontSize: 12.5,
-                        height: 1.35,
-                        color: selected
-                            ? Colors.white.withValues(alpha: 0.85)
-                            : AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11.5,
+                  color: AppColors.brand.withValues(alpha: 0.72),
                       ),
                     ),
                   ],
-                ),
-              ),
-              Icon(
-                selected
-                    ? Icons.check_circle_rounded
-                    : Icons.circle_outlined,
-                color: selected
-                    ? Colors.white
-                    : AppColors.textTertiary,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PersonalStep extends StatelessWidget {
-  final TextEditingController name;
-  final TextEditingController email;
-  final TextEditingController phone;
-
-  const _PersonalStep({
-    required this.name,
-    required this.email,
-    required this.phone,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        TextFormField(
-          controller: name,
-          textInputAction: TextInputAction.next,
-          decoration: const InputDecoration(
-            labelText: 'ناوی تەواو',
-            prefixIcon: Icon(Icons.person_outline_rounded),
-          ),
-          validator: (v) =>
-              v == null || v.trim().isEmpty ? 'ناو بنووسە' : null,
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: email,
-          keyboardType: TextInputType.emailAddress,
-          textDirection: TextDirection.ltr,
-          textInputAction: TextInputAction.next,
-          decoration: const InputDecoration(
-            labelText: 'ئیمەیڵ',
-            prefixIcon: Icon(Icons.email_outlined),
-          ),
-          validator: (v) {
-            if (v == null || v.trim().isEmpty) return 'ئیمەیڵ بنووسە';
-            if (!v.contains('@') || !v.contains('.')) {
-              return 'ئیمەیڵی دروست بنووسە';
-            }
-            return null;
-          },
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: phone,
-          keyboardType: TextInputType.phone,
-          textDirection: TextDirection.ltr,
-          textInputAction: TextInputAction.done,
-          decoration: const InputDecoration(
-            labelText: 'ژمارەی مۆبایل',
-            prefixIcon: Icon(Icons.phone_outlined),
-            hintText: '07xxxxxxxxx',
-          ),
-          validator: (v) =>
-              v == null || v.trim().length < 10 ? 'ژمارەی مۆبایل بنووسە' : null,
-        ),
-      ],
-    );
-  }
-}
-
-class _AddressStep extends StatelessWidget {
-  final TextEditingController address;
-
-  const _AddressStep({required this.address});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.brand.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: AppColors.brand.withValues(alpha: 0.18),
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.info_outline_rounded, color: AppColors.brand),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'ناونیشان پێویستە بۆ گەیاندنی داواکارییەکانت.',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: 13,
-                    color: AppColors.brand,
-                    fontWeight: FontWeight.w600,
-                    height: 1.35,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 18),
-        TextFormField(
-          controller: address,
-          maxLines: 3,
-          textInputAction: TextInputAction.done,
-          decoration: const InputDecoration(
-            labelText: 'ناونیشانی تەواو',
-            alignLabelWithHint: true,
-            prefixIcon: Padding(
-              padding: EdgeInsets.only(bottom: 48),
-              child: Icon(Icons.location_on_outlined),
-            ),
-            hintText: 'شار، گەڕەک، شەقام، ژمارەی خانوو...',
-          ),
-          validator: (v) => v == null || v.trim().length < 8
-              ? 'ناونیشانی تەواو بنووسە'
-              : null,
-        ),
-      ],
-    );
-  }
-}
-
-class _ShopStep extends StatelessWidget {
-  final TextEditingController shopName;
-  final TextEditingController shopDesc;
-  final TextEditingController shopAddress;
-  final ShopTier tier;
-  final ValueChanged<ShopTier> onTier;
-
-  const _ShopStep({
-    required this.shopName,
-    required this.shopDesc,
-    required this.shopAddress,
-    required this.tier,
-    required this.onTier,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        TextFormField(
-          controller: shopName,
-          textInputAction: TextInputAction.next,
-          decoration: const InputDecoration(
-            labelText: 'ناوی دووکان',
-            prefixIcon: Icon(Icons.store_outlined),
-          ),
-          validator: (v) =>
-              v == null || v.trim().isEmpty ? 'ناوی دووکان بنووسە' : null,
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: shopDesc,
-          maxLines: 2,
-          textInputAction: TextInputAction.next,
-          decoration: const InputDecoration(
-            labelText: 'وەسفی دووکان',
-            alignLabelWithHint: true,
-            prefixIcon: Padding(
-              padding: EdgeInsets.only(bottom: 24),
-              child: Icon(Icons.description_outlined),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: shopAddress,
-          textInputAction: TextInputAction.done,
-          decoration: const InputDecoration(
-            labelText: 'ناونیشانی دووکان',
-            prefixIcon: Icon(Icons.location_on_outlined),
-          ),
-          validator: (v) =>
-              v == null || v.trim().isEmpty ? 'ناونیشانی دووکان بنووسە' : null,
-        ),
-        const SizedBox(height: 20),
-        Text(
-          'جۆری پڕۆفایلی دووکان',
-          style: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 10),
-        ...ShopTier.values.map((t) {
-          final selected = t == tier;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => onTier(t),
-                borderRadius: BorderRadius.circular(16),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? AppColors.brand.withValues(alpha: 0.08)
-                        : AppColors.brandWhite,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: selected ? AppColors.brand : AppColors.border,
-                      width: selected ? 1.5 : 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${t.labelKu} · ${t.labelEn}',
-                              style: TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              t.subtitle,
-                              style: TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(
-                        selected
-                            ? Icons.radio_button_checked_rounded
-                            : Icons.radio_button_off_rounded,
-                        color: selected
-                            ? AppColors.brand
-                            : AppColors.textTertiary,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        }),
-      ],
-    );
-  }
-}
-
-class _PasswordStep extends StatelessWidget {
-  final TextEditingController password;
-  final TextEditingController confirm;
-  final bool obscurePass;
-  final bool obscureConfirm;
-  final VoidCallback onTogglePass;
-  final VoidCallback onToggleConfirm;
-
-  const _PasswordStep({
-    required this.password,
-    required this.confirm,
-    required this.obscurePass,
-    required this.obscureConfirm,
-    required this.onTogglePass,
-    required this.onToggleConfirm,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        TextFormField(
-          controller: password,
-          obscureText: obscurePass,
-          textDirection: TextDirection.ltr,
-          textInputAction: TextInputAction.next,
-          decoration: InputDecoration(
-            labelText: 'وشەی نهێنی',
-            prefixIcon: const Icon(Icons.lock_outline_rounded),
-            suffixIcon: IconButton(
-              icon: Icon(
-                obscurePass ? Icons.visibility_off : Icons.visibility,
-              ),
-              onPressed: onTogglePass,
-            ),
-          ),
-          validator: (v) {
-            if (v == null || v.length < 6) {
-              return 'لانیکەم ٦ پیت بنووسە';
-            }
-            return null;
-          },
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: confirm,
-          obscureText: obscureConfirm,
-          textDirection: TextDirection.ltr,
-          textInputAction: TextInputAction.done,
-          decoration: InputDecoration(
-            labelText: 'دووبارەکردنەوەی وشەی نهێنی',
-            prefixIcon: const Icon(Icons.lock_person_outlined),
-            suffixIcon: IconButton(
-              icon: Icon(
-                obscureConfirm ? Icons.visibility_off : Icons.visibility,
-              ),
-              onPressed: onToggleConfirm,
-            ),
-          ),
-          validator: (v) {
-            if (v == null || v.isEmpty) {
-              return 'وشەی نهێنی دووبارە بکەرەوە';
-            }
-            if (v != password.text) {
-              return 'وشە نهێنییەکان یەک ناگرنەوە';
-            }
-            return null;
-          },
-        ),
-        const SizedBox(height: 16),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceVariant,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'بۆ پاراستنی باشتر:',
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              _Tip('لانیکەم ٦ پیت'),
-              _Tip('تێکەڵەی پیت و ژمارە باشترە'),
-              _Tip('وشەی نهێنی هاوبەش مەکە'),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _Tip extends StatelessWidget {
-  final String text;
-
-  const _Tip(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        children: [
-          Icon(Icons.check_rounded, size: 16, color: AppColors.brand),
-          const SizedBox(width: 8),
-          Text(
-            text,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 12.5,
-              color: AppColors.textSecondary,
-            ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _DotGridPainter extends CustomPainter {
+  final Color color;
+  const _DotGridPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    const cols = 4;
+    const rows = 3;
+    for (var r = 0; r < rows; r++) {
+      for (var c = 0; c < cols; c++) {
+        final dx = (size.width / (cols - 1)) * c;
+        final dy = (size.height / (rows - 1)) * r;
+        canvas.drawCircle(Offset(dx, dy), 1.6, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DotGridPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+class _FashionBubble extends StatelessWidget {
+  final double size;
+  final String asset;
+  final Color? overlay;
+  final BoxShape shape;
+  final BorderRadius? borderRadius;
+
+  const _FashionBubble({
+    required this.size,
+    required this.asset,
+    required this.overlay,
+    this.shape = BoxShape.rectangle,
+    this.borderRadius,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = borderRadius ?? BorderRadius.circular(size / 2);
+    return Container(
+      width: size,
+      height: size,
+          decoration: BoxDecoration(
+        shape: shape,
+        borderRadius: shape == BoxShape.circle ? null : radius,
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.brand.withValues(alpha: 0.16),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        fit: StackFit.expand,
+            children: [
+          Image.asset(
+            asset,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => ColoredBox(
+              color: AppColors.brand.withValues(alpha: 0.12),
+            ),
+          ),
+          if (overlay != null) ColoredBox(color: overlay!),
+          // Soft edge fade
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.white.withValues(alpha: 0.05),
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.08),
+            ],
+          ),
+        ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoleToggle extends StatelessWidget {
+  final UserRole role;
+  final bool english;
+  final ValueChanged<UserRole> onChanged;
+
+  const _RoleToggle({
+    required this.role,
+    required this.english,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+        color: Colors.white,
+                          borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE4EEEE)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+                        ),
+                        child: Row(
+                          children: [
+          _chip(
+            selected: role == UserRole.customer,
+            label: english ? 'Customer' : 'کڕیار',
+            onTap: () => onChanged(UserRole.customer),
+          ),
+          _chip(
+            selected: role == UserRole.shopOwner,
+            label: english ? 'Shop' : 'دووکان',
+            onTap: () => onChanged(UserRole.shopOwner),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip({
+    required bool selected,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+          decoration: BoxDecoration(
+          color: selected ? AppColors.brand : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: AppColors.brand.withValues(alpha: 0.22),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+                : null,
+          ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontWeight: FontWeight.w800,
+                  fontSize: 13.5,
+                  color: selected ? Colors.white : AppColors.brand,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TermsRow extends StatelessWidget {
+  final bool accepted;
+  final bool english;
+  final String? error;
+  final ValueChanged<bool> onChanged;
+
+  const _TermsRow({
+    required this.accepted,
+    required this.english,
+    required this.error,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final base = TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+      fontSize: 12.8,
+      fontWeight: FontWeight.w600,
+      color: const Color(0xFF6A7A7C),
+      height: 1.45,
+    );
+    final accent = base.copyWith(
+      color: AppColors.highlight,
+                        fontWeight: FontWeight.w800,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkWell(
+          onTap: () => onChanged(!accepted),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+            width: 22,
+            height: 22,
+                  margin: const EdgeInsets.only(top: 1),
+            decoration: BoxDecoration(
+                    color: accepted ? AppColors.brand : Colors.white,
+                    borderRadius: BorderRadius.circular(7),
+              border: Border.all(
+                      color: error != null
+                          ? AppColors.error
+                          : accepted
+                              ? AppColors.brand
+                              : const Color(0xFFB8C6C7),
+                      width: 1.4,
+                    ),
+                  ),
+                  child: accepted
+                      ? const Icon(Icons.check_rounded, size: 15, color: Colors.white)
+                      : null,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: english
+                      ? Text.rich(
+                          TextSpan(
+                            style: base,
+                            children: [
+                              const TextSpan(text: 'I agree to the '),
+                              TextSpan(text: 'terms', style: accent),
+                              const TextSpan(text: ' and '),
+                              TextSpan(text: 'privacy policy', style: accent),
+                            ],
+                          ),
+                        )
+                    : Text.rich(
+                        TextSpan(
+                          style: base,
+                          children: [
+                            const TextSpan(text: 'من ڕازیم بە هەموو '),
+                            TextSpan(text: 'مەرج', style: accent),
+                            const TextSpan(text: ' و '),
+                            TextSpan(text: 'سیاسەتەکان', style: accent),
+                          ],
+                        ),
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (error != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            error!,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppColors.error,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/constants/admin_security.dart';
 import '../../core/constants/app_constants.dart';
-import '../../core/theme/app_animations.dart';
+import '../../core/platform/app_host.dart';
 import '../../core/theme/app_theme.dart';
-import '../onboarding/onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -16,144 +15,214 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
+    with TickerProviderStateMixin {
+  late final AnimationController _intro;
+  late final AnimationController _progress;
+  late final Animation<double> _fade;
+  late final Animation<double> _rise;
+  late final Animation<double> _scale;
+  bool _leaving = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    )..repeat(reverse: true);
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+    );
 
-    Future.delayed(const Duration(milliseconds: 2200), _goNext);
+    _intro = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    );
+    _progress = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    );
+
+    _fade = CurvedAnimation(parent: _intro, curve: Curves.easeOutCubic);
+    _rise = Tween<double>(begin: 18, end: 0).animate(
+      CurvedAnimation(parent: _intro, curve: Curves.easeOutCubic),
+    );
+    _scale = Tween<double>(begin: 0.92, end: 1).animate(
+      CurvedAnimation(parent: _intro, curve: Curves.easeOutCubic),
+    );
+
+    if (AppHost.isWeb) {
+      _intro.value = 1;
+      _progress.value = 1;
+      Future.delayed(const Duration(milliseconds: 400), _goNext);
+    } else {
+      _intro.forward();
+      Future.delayed(const Duration(milliseconds: 280), () {
+        if (mounted) _progress.forward();
+      });
+      Future.delayed(const Duration(milliseconds: 2400), _goNext);
+    }
   }
 
   Future<void> _goNext() async {
+    if (!mounted || _leaving) return;
+    setState(() => _leaving = true);
+    await Future.delayed(
+      Duration(milliseconds: AppHost.isWeb ? 80 : 380),
+    );
     if (!mounted) return;
-    final prefs = await SharedPreferences.getInstance();
-    final seen = prefs.getBool(OnboardingScreen.prefsKey) ?? false;
-    if (!mounted) return;
-    context.go(seen ? '/auth' : '/onboarding');
+
+    if (AppHost.isAdminWebConsole) {
+      context.go(AdminSecurity.loginPath);
+      return;
+    }
+    // Guests land on the store; signed-in users are redirected by the router.
+    context.go('/home');
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _intro.dispose();
+    _progress.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: AppColors.primaryGradient,
+      backgroundColor: const Color(0xFF0C3D42),
+      body: AnimatedOpacity(
+        opacity: _leaving ? 0 : 1,
+        duration: const Duration(milliseconds: 380),
+        curve: Curves.easeOutCubic,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFF15575C),
+                    Color(0xFF0F4A4F),
+                    Color(0xFF0A3338),
+                  ],
+                ),
+              ),
             ),
-          ),
-          AnimatedBuilder(
-            animation: _controller,
-            builder: (context, _) {
-              return Stack(
-                children: [
-                  Positioned(
-                    top: 80 + (_controller.value * 30),
-                    right: -60,
-                    child: _orb(
-                      180,
-                      AppColors.secondary.withValues(alpha: 0.2),
-                    ),
+            Positioned(
+              top: -120,
+              right: -80,
+              child: IgnorePointer(
+                child: Container(
+                  width: 280,
+                  height: 280,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.06),
                   ),
-                  Positioned(
-                    bottom: 120 - (_controller.value * 40),
-                    left: -80,
-                    child: _orb(220, AppColors.gold.withValues(alpha: 0.15)),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -140,
+              left: -100,
+              child: IgnorePointer(
+                child: Container(
+                  width: 320,
+                  height: 320,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.brand.withValues(alpha: 0.35),
                   ),
-                ],
-              );
-            },
-          ),
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                      width: 110,
-                      height: 110,
-                      decoration: BoxDecoration(
-                        gradient: AppColors.accentGradient,
-                        borderRadius: BorderRadius.circular(32),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.secondary.withValues(alpha: 0.4),
-                            blurRadius: 40,
-                            offset: const Offset(0, 16),
+                ),
+              ),
+            ),
+            SafeArea(
+              child: AnimatedBuilder(
+                animation: Listenable.merge([_intro, _progress]),
+                builder: (context, _) {
+                  return Opacity(
+                    opacity: _fade.value,
+                    child: Transform.translate(
+                      offset: Offset(0, _rise.value),
+                      child: Column(
+                        children: [
+                          const Spacer(flex: 5),
+                          Transform.scale(
+                            scale: _scale.value,
+                            child: Container(
+                              width: 88,
+                              height: 88,
+                              padding: const EdgeInsets.all(18),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(26),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.18),
+                                    blurRadius: 28,
+                                    offset: const Offset(0, 12),
+                                  ),
+                                ],
+                              ),
+                              child: Image.asset(
+                                'assets/images/qopcha_logo.png',
+                              ),
+                            ),
                           ),
+                          const SizedBox(height: 28),
+                          Text(
+                            AppConstants.appName,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              color: Colors.white,
+                              fontSize: 36,
+                              fontWeight: FontWeight.w900,
+                              height: 1.1,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            AppConstants.appTagline,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              color: Colors.white.withValues(alpha: 0.68),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              height: 1.45,
+                            ),
+                          ),
+                          const Spacer(flex: 4),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 88),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(99),
+                              child: SizedBox(
+                                height: 3,
+                                child: LinearProgressIndicator(
+                                  value: _progress.value,
+                                  backgroundColor:
+                                      Colors.white.withValues(alpha: 0.16),
+                                  color: Colors.white,
+                                  minHeight: 3,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 56),
                         ],
                       ),
-                      child: const Icon(
-                        Icons.checkroom_rounded,
-                        size: 56,
-                        color: Colors.white,
-                      ),
-                    )
-                    .animate()
-                    .scale(
-                      duration: AppAnimations.cinematic,
-                      curve: AppAnimations.smooth,
-                    )
-                    .fadeIn(duration: AppAnimations.slow),
-                const SizedBox(height: 36),
-                Text(
-                      AppConstants.appName,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 40,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1,
-                      ),
-                    )
-                    .animate()
-                    .fadeIn(delay: 300.ms, duration: AppAnimations.slow)
-                    .slideY(begin: 0.2, curve: AppAnimations.smooth),
-                const SizedBox(height: 12),
-                Text(
-                  AppConstants.appTagline,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ).animate().fadeIn(delay: 500.ms, duration: AppAnimations.slow),
-                const SizedBox(height: 56),
-                SizedBox(
-                  width: 36,
-                  height: 36,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white.withValues(alpha: 0.5),
-                    backgroundColor: Colors.white.withValues(alpha: 0.1),
-                  ),
-                ).animate().fadeIn(delay: 700.ms),
-              ],
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _orb(double size, Color color) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(colors: [color, color.withValues(alpha: 0)]),
+          ],
+        ),
       ),
     );
   }

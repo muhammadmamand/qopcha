@@ -1,11 +1,13 @@
-# قۆپچە — Codemagic CI/CD
+# قۆپچە / Qopcha — Codemagic CI/CD (build iOS from Windows via cloud Mac)
 # Docs: https://docs.codemagic.io/yaml-quick-start/building-a-flutter-app/
 #
-# Before first build:
+# Before first build (do this from Windows browser):
 # 1. Push this repo to GitHub / GitLab / Bitbucket
-# 2. Add the app in Codemagic → connect the repo
-# 3. iOS: connect App Store Connect + create app (bundle: com.shikposh.shikPosh)
-# 4. Replace APP_STORE_APPLE_ID and your email below
+# 2. Sign up at https://codemagic.io → add the app → connect the repo
+# 3. App Store Connect → create app (bundle: com.qopcha.Qopcha)
+# 4. Codemagic → Teams → Integrations → App Store Connect (API key .p8)
+# 5. Codemagic → Code signing identities → iOS (automatic via ASC integration)
+# 6. Replace APP_STORE_APPLE_ID + YOUR_EMAIL below, then start workflow "iOS TestFlight"
 
 workflows:
   # ---------- Android APK (download from Codemagic artifacts) ----------
@@ -16,6 +18,8 @@ workflows:
     environment:
       flutter: stable
       java: 17
+      vars:
+        API_BASE: https://169-58-230-144.sslip.io
     scripts:
       - name: Set up local.properties
         script: |
@@ -26,6 +30,7 @@ workflows:
       - name: Build release APK
         script: |
           flutter build apk --release \
+            --dart-define=API_BASE="$API_BASE" \
             --build-name=1.0.$BUILD_NUMBER \
             --build-number=$BUILD_NUMBER
     artifacts:
@@ -38,7 +43,7 @@ workflows:
           success: true
           failure: true
 
-  # ---------- iOS → TestFlight ----------
+  # ---------- iOS → TestFlight (use this from Windows) ----------
   ios-testflight:
     name: iOS TestFlight
     max_build_duration: 120
@@ -52,10 +57,11 @@ workflows:
       cocoapods: default
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.shikposh.shikPosh
+        bundle_identifier: com.qopcha.Qopcha
       vars:
-        # App Store Connect → Apps → your app → App Information → Apple ID (numeric)
+        # App Store Connect → Apps → Qopcha → App Information → Apple ID (numeric)
         APP_STORE_APPLE_ID: 0000000000
+        API_BASE: https://169-58-230-144.sslip.io
     scripts:
       - name: Set up code signing
         script: |
@@ -66,11 +72,12 @@ workflows:
       - name: Install CocoaPods
         script: |
           find . -name "Podfile" -execdir pod install \;
-      - name: Build IPA
+      - name: Build IPA (HTTPS Contabo API)
         script: |
           LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo 0)
           BUILD_NO=$((LATEST + 1))
           flutter build ipa --release \
+            --dart-define=API_BASE="$API_BASE" \
             --build-name=1.0.$BUILD_NO \
             --build-number=$BUILD_NO \
             --export-options-plist=/Users/builder/export_options.plist

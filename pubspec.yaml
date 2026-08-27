@@ -1,4 +1,4 @@
-name: shik_posh
+name: qopcha
 description: "قۆپچە - Clothing marketplace app for customers and shop owners."
 publish_to: 'none'
 version: 1.0.0+1
@@ -26,24 +26,76 @@ dependencies:
   firebase_auth: ^6.5.6
   cloud_firestore: ^6.7.1
   firebase_storage: ^13.4.5
+  http: ^1.6.0
+  firebase_messaging: ^16.4.3
+  flutter_local_notifications: ^22.2.0
+  url_launcher: ^6.3.2
+  cloud_functions: ^6.3.6
+  lottie: ^3.3.1
+  glassy_real_navbar: ^1.0.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.8
 
-# Patched to skip Windows auth EventChannels (wrong-thread plugin bug).
+# Patched Windows auth EventChannels + ATL-free notifications stub.
+# Local glassy navbar: no white specular spots on the selected lens.
 dependency_overrides:
   firebase_auth_platform_interface:
     path: packages/firebase_auth_platform_interface
+  flutter_local_notifications_windows:
+    path: packages/flutter_local_notifications_windows
+  glassy_real_navbar:
+    path: packages/glassy_real_navbar
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: "assets/images/qopcha_logo.png"
+  android: true
+  ios: true
+  web: true
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  image_path: "assets/images/qopcha_logo.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/qopcha_logo.png"
+  web:
+    generate: true
+    image_path: "assets/images/qopcha_logo.png"
+  windows:
+    generate: true
+    image_path: "assets/images/qopcha_logo.png"
 
 flutter:
   uses-material-design: true
   assets:
+    - assets/images/qopcha_logo.png
+    - assets/images/login_hero.png
     - assets/images/profile_wave.png
     - assets/images/onboarding_1.png
     - assets/images/onboarding_2.png
     - assets/images/onboarding_3.png
+    - assets/images/fib_logo.jpg
+    - assets/images/fastpay_logo.png
+    - assets/images/car.png
+    - assets/images/sewing_button.png
+    - assets/images/login_panel_texture.png
+    - assets/images/
+    - assets/images/category/t_shirt.png
+    - assets/images/category/shirt.png
+    - assets/images/category/shoes.png
+    - assets/images/category/formal.png
+    - assets/images/category/bag.png
+    - assets/images/category/cap.png
+    - assets/images/category/sports.png
+    - assets/lottie/empty_cart.json
+    - assets/lottie/order_packed.json
   fonts:
     - family: Rabar
       fonts:

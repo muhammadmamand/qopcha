@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_decorations.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/formatters.dart';
 import '../../models/product_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
@@ -15,8 +16,13 @@ import '../../widgets/product_image.dart';
 
 class AddEditProductScreen extends ConsumerStatefulWidget {
   final String? productId;
+  final bool isFabric;
 
-  const AddEditProductScreen({super.key, this.productId});
+  const AddEditProductScreen({
+    super.key,
+    this.productId,
+    this.isFabric = false,
+  });
 
   bool get isEditing => productId != null;
 
@@ -35,12 +41,24 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
   final _imageUrlController = TextEditingController();
   final _customColorController = TextEditingController();
   final _customCategoryController = TextEditingController();
+  final _metersController = TextEditingController(text: '10');
+  final _widthController = TextEditingController(text: '150');
+  final _weightController = TextEditingController();
+  final _originController = TextEditingController();
+  final _careController = TextEditingController();
 
   late List<String> _categoryOptions;
   late List<String> _colorOptions;
+  late bool _isFabric;
   String _category = AppConstants.categories[1];
+  String _fabricType = AppConstants.fabricTypes[1];
+  String _fabricQuality = AppConstants.fabricQualities[1];
+  String _fabricPattern = AppConstants.fabricPatterns[0];
   final Set<String> _selectedColors = {AppConstants.colors[0]};
   bool _isFeatured = false;
+  String _discountType = DiscountKind.percent;
+  double _discountPercent = 0;
+  final _discountAmountCtrl = TextEditingController();
   bool _isLoading = false;
   bool _isPickingImage = false;
   final List<String> _images = [];
@@ -55,6 +73,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     _categoryOptions =
         AppConstants.categories.where((c) => c != 'هەموو').toList();
     _colorOptions = List<String>.from(AppConstants.colors);
+    _isFabric = widget.isFabric;
     for (final size in AppConstants.sizes) {
       _sizeControllers[size] = TextEditingController(text: '0');
     }
@@ -71,7 +90,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
 
     _nameController.text = product.name;
     _descController.text = product.description;
-    _priceController.text = product.price.toStringAsFixed(0);
+    _priceController.text = Formatters.grouped(product.price);
     _brandController.text = product.brand;
     _materialController.text = product.material;
     setState(() {
@@ -94,6 +113,34 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
         _selectedColors.add(AppConstants.colors[0]);
       }
       _isFeatured = product.isFeatured;
+      _discountType = product.discountType == DiscountKind.amount
+          ? DiscountKind.amount
+          : DiscountKind.percent;
+      _discountPercent = product.discountPercent.clamp(0, 70).toDouble();
+      _discountAmountCtrl.text = product.discountAmount > 0
+          ? Formatters.grouped(product.discountAmount.round())
+          : '';
+      _isFabric = product.isFabric;
+      if (product.isFabric) {
+        _fabricType = product.fabricType.isNotEmpty
+            ? product.fabricType
+            : AppConstants.fabricTypes[1];
+        _fabricQuality = product.fabricQuality.isNotEmpty
+            ? product.fabricQuality
+            : AppConstants.fabricQualities[1];
+        _fabricPattern = product.fabricPattern.isNotEmpty
+            ? product.fabricPattern
+            : AppConstants.fabricPatterns[0];
+        _metersController.text = '${product.totalStock}';
+        if (product.fabricWidthCm > 0) {
+          _widthController.text = product.fabricWidthCm.toStringAsFixed(0);
+        }
+        if (product.fabricWeightGsm > 0) {
+          _weightController.text = '${product.fabricWeightGsm}';
+        }
+        _originController.text = product.fabricOrigin;
+        _careController.text = product.fabricCare;
+      }
       for (final ss in product.sizeStocks) {
         if (_sizeControllers.containsKey(ss.size)) {
           _sizeControllers[ss.size]!.text = ss.quantity.toString();
@@ -109,9 +156,15 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     _priceController.dispose();
     _brandController.dispose();
     _materialController.dispose();
+    _discountAmountCtrl.dispose();
     _imageUrlController.dispose();
     _customColorController.dispose();
     _customCategoryController.dispose();
+    _metersController.dispose();
+    _widthController.dispose();
+    _weightController.dispose();
+    _originController.dispose();
+    _careController.dispose();
     for (final c in _sizeControllers.values) {
       c.dispose();
     }
@@ -201,20 +254,36 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     }
 
     final sizeStocks = <SizeStock>[];
-    for (final entry in _sizeControllers.entries) {
-      final qty = int.tryParse(entry.value.text) ?? 0;
-      if (qty > 0) {
-        sizeStocks.add(SizeStock(size: entry.key, quantity: qty));
+    if (_isFabric) {
+      final meters = int.tryParse(_metersController.text.trim()) ?? 0;
+      if (meters <= 0) {
+        _showError('ژمارەی مەتری بەردەست بنووسە');
+        return;
       }
-    }
-
-    if (sizeStocks.isEmpty) {
-      _showError('لانیکەم یەک قیاس بە ژمارەی بەردەست زیاد بکە');
-      return;
+      sizeStocks.add(
+        SizeStock(size: AppConstants.fabricStockUnit, quantity: meters),
+      );
+    } else {
+      for (final entry in _sizeControllers.entries) {
+        final qty = int.tryParse(entry.value.text) ?? 0;
+        if (qty > 0) {
+          sizeStocks.add(SizeStock(size: entry.key, quantity: qty));
+        }
+      }
+      if (sizeStocks.isEmpty) {
+        _showError('لانیکەم یەک قیاس بە ژمارەی بەردەست زیاد بکە');
+        return;
+      }
     }
 
     if (_images.isEmpty) {
       _showError('لانیکەم یەک وێنە زیاد بکە');
+      return;
+    }
+
+    final price = Formatters.parseAmount(_priceController.text);
+    if (price == null || price <= 0) {
+      _showError('نرخی دروست بنووسە');
       return;
     }
 
@@ -226,14 +295,39 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       shopName: user.shopName ?? user.name,
       name: _nameController.text.trim(),
       description: _descController.text.trim(),
-      category: _category,
-      price: double.parse(_priceController.text),
+      category: _isFabric ? 'قوماش' : _category,
+      price: price,
       colors: _selectedColors.toList(),
       material: _materialController.text.trim(),
       brand: _brandController.text.trim(),
       imageUrls: List<String>.from(_images),
       sizeStocks: sizeStocks,
+      productType: _isFabric ? ProductKind.fabric : ProductKind.clothing,
+      fabricType: _isFabric ? _fabricType : '',
+      fabricQuality: _isFabric ? _fabricQuality : '',
+      fabricWidthCm: _isFabric
+          ? (double.tryParse(_widthController.text.trim()) ?? 0)
+          : 0,
+      fabricWeightGsm: _isFabric
+          ? (int.tryParse(_weightController.text.trim()) ?? 0)
+          : 0,
+      fabricPattern: _isFabric ? _fabricPattern : '',
+      fabricOrigin: _isFabric ? _originController.text.trim() : '',
+      fabricCare: _isFabric ? _careController.text.trim() : '',
       isFeatured: _isFeatured,
+      discountType: _discountType,
+      discountPercent:
+          _discountType == DiscountKind.percent ? _discountPercent : 0,
+      discountAmount: _discountType == DiscountKind.amount
+          ? (Formatters.parseAmount(_discountAmountCtrl.text.trim()) ?? 0)
+          : 0,
+      discountForAllCustomers: true,
+      discountCustomerIds: const [],
+      discountSetBy: (_discountType == DiscountKind.amount
+              ? (Formatters.parseAmount(_discountAmountCtrl.text.trim()) ?? 0) > 0
+              : _discountPercent > 0)
+          ? 'shop'
+          : '',
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
@@ -277,10 +371,14 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.isEditing ? 'دەستکاری بەرهەم' : 'بەرهەمی نوێ';
+    final title = widget.isEditing
+        ? (_isFabric ? 'دەستکاری قوماش' : 'دەستکاری بەرهەم')
+        : (_isFabric ? 'قوماشی نوێ' : 'بەرهەمی نوێ');
     final subtitle = widget.isEditing
         ? 'زانیارییەکان نوێ بکەرەوە'
-        : 'بەرهەمێکی نوێ بۆ دووکانەکەت زیاد بکە';
+        : (_isFabric
+            ? 'قوماش بڵاوبکەرەوە بۆ فرۆشتن بە مەتر'
+            : 'بەرهەمێکی نوێ بۆ دووکانەکەت زیاد بکە');
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -331,17 +429,27 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                             Expanded(
                               child: TextFormField(
                                 controller: _priceController,
-                                keyboardType: TextInputType.number,
+                                keyboardType: const TextInputType.numberWithOptions(
+                                  decimal: false,
+                                ),
                                 textDirection: TextDirection.ltr,
-                                decoration: const InputDecoration(
-                                  labelText: 'نرخ (IQD) *',
-                                  prefixIcon: Icon(Icons.payments_outlined),
+                                inputFormatters: [
+                                  ThousandsSeparatorFormatter(),
+                                ],
+                                onChanged: (_) => setState(() {}),
+                                decoration: InputDecoration(
+                                  labelText: _isFabric
+                                      ? 'نرخ بۆ هەر مەترێک (IQD) *'
+                                      : 'نرخ (IQD) *',
+                                  hintText: '25,000',
+                                  prefixIcon: const Icon(Icons.payments_outlined),
                                 ),
                                 validator: (v) {
-                                  if (v == null || v.isEmpty) {
+                                  if (v == null || v.trim().isEmpty) {
                                     return 'نرخ بنووسە';
                                   }
-                                  if (double.tryParse(v) == null) {
+                                  final amount = Formatters.parseAmount(v);
+                                  if (amount == null || amount <= 0) {
                                     return 'نرخی دروست';
                                   }
                                   return null;
@@ -360,19 +468,164 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                             ),
                           ],
                         ),
+                        const SizedBox(height: 16),
+                        _ShopDiscountEditor(
+                          type: _discountType,
+                          percent: _discountPercent,
+                          amountController: _discountAmountCtrl,
+                          price: Formatters.parseAmount(_priceController.text) ?? 0,
+                          onTypeChanged: (value) =>
+                              setState(() => _discountType = value),
+                          onPercentChanged: (value) =>
+                              setState(() => _discountPercent = value),
+                          onAmountChanged: () => setState(() {}),
+                        ),
                         const SizedBox(height: 14),
                         TextFormField(
                           controller: _materialController,
-                          decoration: const InputDecoration(
-                            labelText: 'ماددە (قوماش)',
-                            prefixIcon: Icon(Icons.texture_rounded),
+                          decoration: InputDecoration(
+                            labelText: _isFabric
+                                ? 'پێکهاتە (نموونە: ١٠٠٪ کتان)'
+                                : 'ماددە (قوماش)',
+                            prefixIcon: const Icon(Icons.texture_rounded),
                           ),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _SectionCard(
+                  if (_isFabric)
+                    _SectionCard(
+                      index: 1,
+                      title: 'وردەکاری قوماش',
+                      icon: Icons.texture_rounded,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'جۆر',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: AppConstants.fabricTypes
+                                .where((t) => t != 'هەموو')
+                                .map(
+                                  (type) => _ChoiceChip(
+                                    label: type,
+                                    selected: _fabricType == type,
+                                    onTap: () =>
+                                        setState(() => _fabricType = type),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'کوالێتی',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: AppConstants.fabricQualities
+                                .map(
+                                  (q) => _ChoiceChip(
+                                    label: q,
+                                    selected: _fabricQuality == q,
+                                    onTap: () =>
+                                        setState(() => _fabricQuality = q),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'نەخش',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: AppConstants.fabricPatterns
+                                .map(
+                                  (p) => _ChoiceChip(
+                                    label: p,
+                                    selected: _fabricPattern == p,
+                                    onTap: () =>
+                                        setState(() => _fabricPattern = p),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _widthController,
+                                  keyboardType: TextInputType.number,
+                                  textDirection: TextDirection.ltr,
+                                  decoration: const InputDecoration(
+                                    labelText: 'پانی (سم)',
+                                    prefixIcon:
+                                        Icon(Icons.straighten_rounded),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _weightController,
+                                  keyboardType: TextInputType.number,
+                                  textDirection: TextDirection.ltr,
+                                  decoration: const InputDecoration(
+                                    labelText: 'کێش (GSM)',
+                                    prefixIcon: Icon(Icons.fitness_center_outlined),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: _originController,
+                            decoration: const InputDecoration(
+                              labelText: 'وڵاتی بەرهەمهێنان',
+                              prefixIcon: Icon(Icons.public_outlined),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: _careController,
+                            maxLines: 2,
+                            decoration: const InputDecoration(
+                              labelText: 'چۆنیەتی پاراستن / شۆردن',
+                              prefixIcon: Icon(Icons.local_laundry_service_outlined),
+                              alignLabelWithHint: true,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    _SectionCard(
                     index: 1,
                     title: 'جۆری جلوبەرگ',
                     icon: Icons.category_outlined,
@@ -651,7 +904,31 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _SectionCard(
+                  if (_isFabric)
+                    _SectionCard(
+                      index: 4,
+                      title: 'کۆگا (مەتر)',
+                      icon: Icons.straighten_rounded,
+                      child: TextFormField(
+                        controller: _metersController,
+                        keyboardType: TextInputType.number,
+                        textDirection: TextDirection.ltr,
+                        decoration: const InputDecoration(
+                          labelText: 'چەند مەتر بەردەستە *',
+                          prefixIcon: Icon(Icons.layers_outlined),
+                          hintText: 'نموونە: ٥٠',
+                        ),
+                        validator: (v) {
+                          final n = int.tryParse(v ?? '');
+                          if (n == null || n <= 0) {
+                            return 'ژمارەی مەتر بنووسە';
+                          }
+                          return null;
+                        },
+                      ),
+                    )
+                  else
+                    _SectionCard(
                     index: 4,
                     title: 'قیاس و کۆگا',
                     icon: Icons.straighten_rounded,
@@ -728,7 +1005,7 @@ class _FormHeader extends StatelessWidget {
         20,
         20,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: AppColors.primaryGradient,
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(28),
@@ -884,7 +1161,7 @@ class _ChoiceChip extends StatelessWidget {
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),
                 child: selected
-                    ? const Padding(
+                    ? Padding(
                         key: ValueKey('check'),
                         padding: EdgeInsetsDirectional.only(end: 6),
                         child: Icon(
@@ -947,7 +1224,7 @@ class _ImagePickButton extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: AppColors.secondary,
@@ -1033,7 +1310,7 @@ class _SizeStockField extends StatelessWidget {
             child: Text(
               size,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w800,
                 color: AppColors.secondary,
               ),
@@ -1062,7 +1339,7 @@ class _SizeStockField extends StatelessWidget {
                 ),
                 borderSide: BorderSide(color: AppColors.border),
               ),
-              focusedBorder: const OutlineInputBorder(
+              focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.vertical(
                   bottom: Radius.circular(12),
                 ),
@@ -1071,6 +1348,202 @@ class _SizeStockField extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ShopDiscountEditor extends StatelessWidget {
+  final String type;
+  final double percent;
+  final TextEditingController amountController;
+  final double price;
+  final ValueChanged<String> onTypeChanged;
+  final ValueChanged<double> onPercentChanged;
+  final VoidCallback onAmountChanged;
+
+  const _ShopDiscountEditor({
+    required this.type,
+    required this.percent,
+    required this.amountController,
+    required this.price,
+    required this.onTypeChanged,
+    required this.onPercentChanged,
+    required this.onAmountChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isAmount = type == DiscountKind.amount;
+    final amount = Formatters.parseAmount(amountController.text.trim()) ?? 0;
+    final sale = isAmount
+        ? (price - amount).clamp(0, price).toDouble()
+        : (price <= 0 ? 0.0 : price * (1 - percent.clamp(0, 70) / 100));
+    final active = isAmount ? amount > 0 : percent > 0;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+      decoration: BoxDecoration(
+        color: AppColors.highlight.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.highlight.withValues(alpha: 0.22),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'داشکاندن بۆ هەموو کڕیارەکان',
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontWeight: FontWeight.w800,
+              fontSize: 13,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                _DiscountTypeTab(
+                  label: 'ڕێژە ٪',
+                  selected: !isAmount,
+                  onTap: () => onTypeChanged(DiscountKind.percent),
+                ),
+                _DiscountTypeTab(
+                  label: 'بڕ IQD',
+                  selected: isAmount,
+                  onTap: () => onTypeChanged(DiscountKind.amount),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (isAmount)
+            TextField(
+              controller: amountController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: false),
+              textDirection: TextDirection.ltr,
+              inputFormatters: [ThousandsSeparatorFormatter()],
+              onChanged: (_) => onAmountChanged(),
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+              decoration: InputDecoration(
+                labelText: 'چەند دینار دەکەیتەوە لە نرخ',
+                hintText: 'نموونە: 5,000',
+                prefixIcon: Icon(
+                  Icons.payments_outlined,
+                  color: AppColors.highlight,
+                ),
+                filled: true,
+                fillColor: AppColors.card,
+              ),
+            )
+          else ...[
+            Row(
+              children: [
+                Icon(Icons.percent_rounded, size: 18, color: AppColors.highlight),
+                const Spacer(),
+                Text(
+                  '${percent.round()}٪',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.highlight,
+                  ),
+                ),
+              ],
+            ),
+            Slider(
+              value: percent,
+              min: 0,
+              max: 70,
+              divisions: 14,
+              activeColor: AppColors.highlight,
+              onChanged: onPercentChanged,
+            ),
+          ],
+          const SizedBox(height: 8),
+          if (active && price > 0)
+            Text(
+              'نرخی دوای داشکاندن: ${Formatters.price(sale)}',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.brand,
+              ),
+            )
+          else
+            Text(
+              isAmount
+                  ? 'ژمارەی دینار بنووسە بۆ داشکاندن لە نرخ'
+                  : '٠٪ واتە بەبێ داشکاندن دەفرۆشرێت',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 11,
+                color: AppColors.textTertiary,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DiscountTypeTab extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _DiscountTypeTab({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.card : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: selected ? AppColors.highlight : AppColors.textTertiary,
+            ),
+          ),
+        ),
       ),
     );
   }

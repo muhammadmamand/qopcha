@@ -5,70 +5,140 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lottie/lottie.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_animations.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/utils/shop_navigation.dart';
 import '../../models/cart_item.dart';
+import '../../models/address_model.dart';
+import '../../providers/addresses_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/orders_provider.dart';
+import '../../widgets/login_required_dialog.dart';
 import '../../widgets/premium_bottom_nav.dart';
 import '../../widgets/product_image.dart';
 
-class CartScreen extends ConsumerWidget {
+class CartScreen extends ConsumerStatefulWidget {
   const CartScreen({super.key});
 
-  Future<void> _checkout(BuildContext context, WidgetRef ref) async {
+  @override
+  ConsumerState<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends ConsumerState<CartScreen> {
+  Future<void> _checkout() async {
     final user = ref.read(currentUserProvider);
-    final location = user?.location?.trim() ?? '';
-
-    if (location.isEmpty) {
-      if (!context.mounted) return;
-      final goSetLocation = await showGeneralDialog<bool>(
-        context: context,
-        barrierDismissible: true,
-        barrierLabel: 'location-warning',
-        barrierColor: Colors.black.withValues(alpha: 0.28),
-        transitionDuration: const Duration(milliseconds: 380),
-        pageBuilder: (dialogContext, animation, secondaryAnimation) {
-          return const SizedBox.shrink();
-        },
-        transitionBuilder:
-            (dialogContext, animation, secondaryAnimation, child) {
-          final curved = CurvedAnimation(
-            parent: animation,
-            curve: const Cubic(0.16, 1, 0.3, 1),
-            reverseCurve: Curves.easeInCubic,
-          );
-          return FadeTransition(
-            opacity: curved,
-            child: ScaleTransition(
-              scale: Tween<double>(begin: 0.94, end: 1).animate(curved),
-              child: const _IosLiquidGlassAlert(),
-            ),
-          );
-        },
+    if (user == null) {
+      await showLoginRequiredDialog(
+        context,
+        message:
+            'بۆ تەواوکردنی داواکاری پێویستە بچیتە ژوورەوە یان هەژمار دروست بکەیت.',
+        nextPath: '/cart',
       );
-
-      if (goSetLocation == true && context.mounted) {
-        context.push('/settings/edit-profile');
-      }
+      return;
+    }
+    if (!user.canPlaceOrders) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            user.isPending
+                ? 'هەژمارەکەت چاوەڕوانی پەسەندکردنە — دەتوانیت ببینیت بەڵام ناتوانیت داواکاری بکەیت'
+                : 'ناتوانیت داواکاری بکەیت',
+            style: const TextStyle(fontFamily: AppTheme.fontFamily),
+          ),
+          backgroundColor: AppColors.highlight,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       return;
     }
 
+    // Ensure addresses stream is warm; migrate legacy location if needed.
+    await ref.read(addressesProvider.future).catchError((_) => <AddressModel>[]);
+    var addresses = ref.read(addressesProvider).valueOrNull ?? const [];
+
+    if (addresses.isEmpty) {
+      final legacy = user.location?.trim() ?? '';
+      if (legacy.isEmpty) {
+        if (!mounted) return;
+        final goSetLocation = await showGeneralDialog<bool>(
+          context: context,
+          barrierDismissible: true,
+          barrierLabel: 'location-warning',
+          barrierColor: Colors.black.withValues(alpha: 0.28),
+          transitionDuration: const Duration(milliseconds: 380),
+          pageBuilder: (dialogContext, animation, secondaryAnimation) {
+            return const SizedBox.shrink();
+          },
+          transitionBuilder:
+              (dialogContext, animation, secondaryAnimation, child) {
+            final curved = CurvedAnimation(
+              parent: animation,
+              curve: const Cubic(0.16, 1, 0.3, 1),
+              reverseCurve: Curves.easeInCubic,
+            );
+            return FadeTransition(
+              opacity: curved,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.94, end: 1).animate(curved),
+                child: const _IosLiquidGlassAlert(),
+              ),
+            );
+          },
+        );
+
+        if (goSetLocation == true && mounted) {
+          context.push('/settings/addresses');
+        }
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    final selected = await showModalBottomSheet<AddressModel>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.sheet,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => _CheckoutAddressSheet(
+        addresses: addresses.isNotEmpty
+            ? addresses
+            : [
+                AddressModel.create(
+                  label: 'سەرەکی',
+                  location: user.location!.trim(),
+                  latitude: user.latitude,
+                  longitude: user.longitude,
+                  isDefault: true,
+                ),
+              ],
+      ),
+    );
+    if (selected == null || !mounted) return;
+
     final items = ref.read(cartProvider);
-    final order = await ref.read(ordersProvider.notifier).placeOrder(items);
-    if (order == null) return;
+    final created = await ref
+        .read(ordersProvider.notifier)
+        .placeOrder(items, deliveryAddress: selected);
+    if (created.isEmpty) return;
 
     await ref.read(cartProvider.notifier).clear();
-    if (!context.mounted) return;
+    if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text(
-          'داواکاریەکەت بە سەرکەوتوویی ناردرا',
-          style: TextStyle(fontFamily: AppTheme.fontFamily),
+        content: Text(
+          created.length == 1
+              ? 'داواکاریەکەت نێردرا بۆ دووکان — چاوەڕوانی قبوڵکردن'
+              : '${created.length} داواکاری نێردرا بۆ دووکانەکان',
+          style: const TextStyle(fontFamily: AppTheme.fontFamily),
         ),
         backgroundColor: AppColors.brand,
         behavior: SnackBarBehavior.floating,
@@ -80,11 +150,11 @@ class CartScreen extends ConsumerWidget {
     context.go('/orders');
   }
 
-  Future<void> _confirmClear(BuildContext context, WidgetRef ref) async {
+  Future<void> _confirmClear() async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.brandWhite,
+        backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         title: Text(
           'سڕینەوەی سەبەتە؟',
@@ -119,13 +189,14 @@ class CartScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final items = ref.watch(cartProvider);
     final total = ref.watch(cartTotalProvider);
     final count = ref.watch(cartItemCountProvider);
+    final user = ref.watch(currentUserProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.brandWhite,
+      backgroundColor: AppColors.surface,
       body: Stack(
         children: [
           Positioned(
@@ -142,7 +213,7 @@ class CartScreen extends ConsumerWidget {
                     colors: [
                       AppColors.brand.withValues(alpha: 0.10),
                       AppColors.brand.withValues(alpha: 0.02),
-                      AppColors.brandWhite.withValues(alpha: 0),
+                      AppColors.surface.withValues(alpha: 0),
                     ],
                   ),
                 ),
@@ -195,7 +266,7 @@ class CartScreen extends ConsumerWidget {
                       ),
                       if (items.isNotEmpty)
                         TextButton.icon(
-                          onPressed: () => _confirmClear(context, ref),
+                          onPressed: _confirmClear,
                           icon: Icon(
                             Icons.delete_sweep_rounded,
                             size: 18,
@@ -252,7 +323,10 @@ class CartScreen extends ConsumerWidget {
           : _CheckoutBar(
               itemCount: count,
               total: total,
-              onCheckout: () => _checkout(context, ref),
+              canCheckout: user == null || user.canPlaceOrders,
+              pendingAccount: user?.isPending ?? false,
+              guestCheckout: user == null,
+              onCheckout: _checkout,
               onContinue: () => context.go('/home'),
             ),
     );
@@ -270,33 +344,29 @@ class _EmptyCart extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 110,
-              height: 110,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppColors.brand.withValues(alpha: 0.16),
-                    AppColors.highlight.withValues(alpha: 0.10),
-                  ],
-                ),
-              ),
-              child: Icon(
-                Icons.shopping_bag_outlined,
-                size: 48,
-                color: AppColors.brand,
+            SizedBox(
+              width: 220,
+              height: 220,
+              child: Lottie.asset(
+                'assets/lottie/empty_cart.json',
+                fit: BoxFit.contain,
+                repeat: true,
+                errorBuilder: (context, error, stackTrace) {
+                  return Icon(
+                    Icons.shopping_bag_outlined,
+                    size: 72,
+                    color: AppColors.brand,
+                  );
+                },
               ),
             )
                 .animate()
                 .fadeIn(duration: 420.ms)
                 .scale(
-                  begin: const Offset(0.88, 0.88),
+                  begin: const Offset(0.92, 0.92),
                   curve: Curves.easeOutCubic,
                 ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
             Text(
               'سەبەتەکەت بەتاڵە',
               textAlign: TextAlign.center,
@@ -360,7 +430,7 @@ class _CartTile extends ConsumerWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.brandWhite,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppColors.border.withValues(alpha: 0.85)),
         boxShadow: [
@@ -400,7 +470,7 @@ class _CartTile extends ConsumerWidget {
                           padding: const EdgeInsets.symmetric(vertical: 4),
                           color: AppColors.brand.withValues(alpha: 0.85),
                           child: Text(
-                            'قیاس ${item.size}',
+                            'قیاس ${item.size == AppConstants.fabricStockUnit ? 'مەتر' : item.size}',
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               fontFamily: AppTheme.fontFamily,
@@ -461,15 +531,30 @@ class _CartTile extends ConsumerWidget {
                           ],
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          item.shopName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: AppTheme.fontFamily,
-                            fontSize: 12,
-                            color: AppColors.textTertiary,
-                            fontWeight: FontWeight.w500,
+                        GestureDetector(
+                          onTap: item.shopOwnerId.trim().isEmpty
+                              ? null
+                              : () {
+                                  HapticFeedback.selectionClick();
+                                  openShopStorefront(
+                                    context,
+                                    shopOwnerId: item.shopOwnerId,
+                                    shopName: item.shopName,
+                                  );
+                                },
+                          behavior: HitTestBehavior.opaque,
+                          child: Text(
+                            item.shopName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 12,
+                              color: item.shopOwnerId.trim().isEmpty
+                                  ? AppColors.textTertiary
+                                  : AppColors.brand,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                         const Spacer(),
@@ -600,12 +685,18 @@ class _QtyBtn extends StatelessWidget {
 class _CheckoutBar extends StatelessWidget {
   final int itemCount;
   final double total;
+  final bool canCheckout;
+  final bool pendingAccount;
+  final bool guestCheckout;
   final VoidCallback onCheckout;
   final VoidCallback onContinue;
 
   const _CheckoutBar({
     required this.itemCount,
     required this.total,
+    required this.canCheckout,
+    required this.pendingAccount,
+    this.guestCheckout = false,
     required this.onCheckout,
     required this.onContinue,
   });
@@ -618,7 +709,7 @@ class _CheckoutBar extends StatelessWidget {
     return Container(
       padding: EdgeInsets.fromLTRB(20, 16, 20, bottom),
       decoration: BoxDecoration(
-        color: AppColors.brandWhite,
+        color: AppColors.card,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         boxShadow: [
           BoxShadow(
@@ -631,6 +722,76 @@ class _CheckoutBar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (guestCheckout) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.brand.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppColors.brand.withValues(alpha: 0.22),
+                ),
+              ),
+              child: Text(
+                'بۆ داواکردن پێویستە بچیتە ژوورەوە',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.brand,
+                  height: 1.4,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ] else if (!canCheckout && pendingAccount) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.highlight.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppColors.highlight.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Text(
+                'هەژمارەکەت چاوەڕوانی پەسەندکردنە — دەتوانیت سەبەتە ببینیت بەڵام ناتوانیت داواکاری بکەیت',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.highlight,
+                  height: 1.4,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.brand.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: AppColors.brand.withValues(alpha: 0.18),
+              ),
+            ),
+            child: Text(
+              'نرخی گەیاندن لە کاتی گەیاندن وەردەگیرێت — شۆفێر بەپێی ناوچە دیاری دەکات '
+              '(ناو شار ٣٬٠٠٠ · ١٢٠ مەتری ٤٬٠٠٠ · ١٥٠ مەتری ٥٬٠٠٠ دینار)',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+                height: 1.45,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
@@ -658,15 +819,20 @@ class _CheckoutBar extends StatelessWidget {
             height: 54,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                gradient: AppColors.ctaGradient,
+                gradient: canCheckout ? AppColors.ctaGradient : null,
+                color: canCheckout
+                    ? null
+                    : AppColors.textTertiary.withValues(alpha: 0.35),
                 borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.highlight.withValues(alpha: 0.35),
-                    blurRadius: 16,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+                boxShadow: canCheckout
+                    ? [
+                        BoxShadow(
+                          color: AppColors.highlight.withValues(alpha: 0.35),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
+                        ),
+                      ]
+                    : null,
               ),
               child: ElevatedButton(
                 onPressed: onCheckout,
@@ -679,14 +845,25 @@ class _CheckoutBar extends StatelessWidget {
                     borderRadius: BorderRadius.circular(18),
                   ),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.lock_outline_rounded, size: 18),
-                    SizedBox(width: 8),
+                    Icon(
+                      guestCheckout
+                          ? Icons.login_rounded
+                          : canCheckout
+                              ? Icons.lock_outline_rounded
+                              : Icons.hourglass_top_rounded,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
                     Text(
-                      'تەواوکردنی کڕین',
-                      style: TextStyle(
+                      guestCheckout
+                          ? 'چوونەژوورەوە بۆ داواکردن'
+                          : canCheckout
+                              ? 'تەواوکردنی کڕین'
+                              : 'چاوەڕوانی پەسەندکردن',
+                      style: const TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         fontWeight: FontWeight.w800,
                         fontSize: 15,
@@ -948,6 +1125,168 @@ class _IosLiquidGlassAlert extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _CheckoutAddressSheet extends StatelessWidget {
+  final List<AddressModel> addresses;
+
+  const _CheckoutAddressSheet({required this.addresses});
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.paddingOf(context).bottom;
+    final defaultId = addresses
+        .firstWhere((a) => a.isDefault, orElse: () => addresses.first)
+        .id;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 12, 20, 16 + bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'ناونیشانی گەیاندن هەڵبژێرە',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'کام ناونیشان بۆ ئەم داواکاریە؟',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 14),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.45,
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: addresses.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final address = addresses[index];
+                final isDefault = address.id == defaultId;
+                return Material(
+                  color: AppColors.surfaceVariant.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    onTap: () => Navigator.pop(context, address),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isDefault
+                              ? AppColors.brand.withValues(alpha: 0.45)
+                              : AppColors.border.withValues(alpha: 0.7),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isDefault
+                                ? Icons.home_rounded
+                                : Icons.location_on_outlined,
+                            color: AppColors.brand,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        address.label,
+                                        style: TextStyle(
+                                          fontFamily: AppTheme.fontFamily,
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 14.5,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                    if (isDefault)
+                                      Text(
+                                        'سەرەکی',
+                                        style: TextStyle(
+                                          fontFamily: AppTheme.fontFamily,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppColors.brand,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  address.location,
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.fontFamily,
+                                    fontSize: 12.5,
+                                    height: 1.35,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_left_rounded,
+                            color: AppColors.textTertiary,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              context.push('/settings/addresses');
+            },
+            icon: const Icon(Icons.add_rounded),
+            label: Text(
+              'ناونیشانی نوێ زیاد بکە',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            style: TextButton.styleFrom(foregroundColor: AppColors.brand),
+          ),
+        ],
       ),
     );
   }

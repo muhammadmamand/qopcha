@@ -1,9 +1,11 @@
+import 'dart:math' as math;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../core/theme/app_animations.dart';
-import '../core/theme/app_decorations.dart';
 import '../core/theme/app_theme.dart';
 
 class LoadingView extends StatelessWidget {
@@ -13,38 +15,139 @@ class LoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Web hot-restart + repeating tickers → disposed EngineFlutterView asserts.
+    final loader = kIsWeb
+        ? const SizedBox(
+            width: 56,
+            height: 56,
+            child: CustomPaint(painter: _RingLoaderPainter(0.35)),
+          )
+        : const _PremiumLoader()
+            .animate()
+            .fadeIn(duration: 500.ms, curve: Curves.easeOutCubic)
+            .scale(
+              begin: const Offset(0.92, 0.92),
+              end: const Offset(1, 1),
+              duration: 650.ms,
+              curve: Curves.easeOutCubic,
+            );
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SizedBox(
-                width: 48,
-                height: 48,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: AppColors.secondary,
-                  backgroundColor: AppColors.secondary.withValues(alpha: 0.15),
-                ),
-              )
-              .animate(onPlay: (c) => c.repeat())
-              .shimmer(
-                duration: 1500.ms,
-                color: AppColors.secondaryLight.withValues(alpha: 0.4),
-              ),
+          loader,
           if (message != null) ...[
-            const SizedBox(height: 20),
+            const SizedBox(height: 22),
             Text(
               message!,
+              textAlign: TextAlign.center,
               style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
                 color: AppColors.textSecondary,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
+                fontSize: 13.5,
               ),
-            ).animate().fadeIn(delay: 200.ms),
+            ),
           ],
         ],
       ),
     );
   }
+}
+
+class _PremiumLoader extends StatefulWidget {
+  const _PremiumLoader();
+
+  @override
+  State<_PremiumLoader> createState() => _PremiumLoaderState();
+}
+
+class _PremiumLoaderState extends State<_PremiumLoader>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return SizedBox(
+          width: 56,
+          height: 56,
+          child: CustomPaint(
+            painter: _RingLoaderPainter(_controller.value),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RingLoaderPainter extends CustomPainter {
+  final double t;
+
+  const _RingLoaderPainter(this.t);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 3;
+
+    final track = Paint()
+      ..color = AppColors.brand.withValues(alpha: 0.12)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.2
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawCircle(center, radius, track);
+
+    final sweep = 1.6 + (0.6 * (0.5 + 0.5 * math.sin(t * math.pi * 2)));
+    final start = t * math.pi * 2;
+
+    final active = Paint()
+      ..shader = SweepGradient(
+        startAngle: start,
+        colors: [
+          AppColors.brand.withValues(alpha: 0.05),
+          AppColors.brand,
+          AppColors.highlight,
+          AppColors.brand.withValues(alpha: 0.05),
+        ],
+        stops: const [0.0, 0.35, 0.7, 1.0],
+        transform: GradientRotation(start),
+      ).createShader(Rect.fromCircle(center: center, radius: radius))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.2
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      start,
+      sweep,
+      false,
+      active,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _RingLoaderPainter oldDelegate) =>
+      oldDelegate.t != t;
 }
 
 class ProductGridShimmer extends StatelessWidget {
@@ -57,18 +160,23 @@ class ProductGridShimmer extends StatelessWidget {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 100),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.62,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
+        childAspectRatio: 0.54,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 14,
       ),
       itemCount: count,
       itemBuilder: (_, index) => Shimmer.fromColors(
         baseColor: AppColors.shimmerBase,
         highlightColor: AppColors.shimmerHighlight,
-        child: Container(decoration: AppDecorations.card()),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.shimmerBase,
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
       ),
     );
   }

@@ -1,0 +1,29 @@
+{
+	# Let's Encrypt / ZeroSSL account contact
+	email {$ACME_EMAIL:admin@qopcha.com}
+}
+
+# Default: free HTTPS hostname for Contabo IP (no domain purchase).
+# Override with DOMAIN=api.yourdomain.com when DNS A-record points here.
+{$DOMAIN:169-58-230-144.sslip.io} {
+	encode gzip
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options SAMEORIGIN
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+
+	# Flutter Admin Console at /staff-console/
+	redir /staff-console /staff-console/ permanent
+	handle_path /staff-console/* {
+		root * /srv/admin
+		try_files {path} /index.html
+		file_server
+	}
+
+	# API + uploads (Node)
+	handle {
+		reverse_proxy api:8080
+	}
+}

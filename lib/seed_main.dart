@@ -11,11 +11,13 @@ import 'services/product_service.dart';
 
 /// Demo credentials (Firebase Auth + Firestore).
 class DemoAccounts {
-  static const shopEmail = 'shop@shikposh.com';
+  static const adminEmail = 'admin@qopcha.com';
+  static const adminPassword = 'Admin123456';
+  static const shopEmail = 'shop@qopcha.com';
   static const shopPassword = 'Shop123456';
-  static const shopName = 'شیک پۆش بوتیک';
+  static const shopName = 'قۆپچە بوتیک';
 
-  static const customerEmail = 'customer@shikposh.com';
+  static const customerEmail = 'customer@qopcha.com';
   static const customerPassword = 'Customer123456';
 }
 
@@ -64,10 +66,11 @@ class _SeedScreenState extends State<_SeedScreen> {
   }
 
   Future<void> _run() async {
-    _log('Shik Posh seed starting…');
+    _log('Qopcha seed starting…');
     try {
       final result = await seedDemoShopAndClothes(_log);
       _log('── Seed OK');
+      _log('Admin:    ${DemoAccounts.adminEmail} / ${DemoAccounts.adminPassword}');
       _log('Shop:     ${DemoAccounts.shopEmail} / ${DemoAccounts.shopPassword}');
       _log(
         'Customer: ${DemoAccounts.customerEmail} / ${DemoAccounts.customerPassword}',
@@ -158,6 +161,16 @@ Future<SeedResult> seedDemoShopAndClothes(
   final products = ProductService();
   final db = FirebaseFirestore.instance;
 
+  await _ensureUser(
+    auth: auth,
+    log: log,
+    email: DemoAccounts.adminEmail,
+    password: DemoAccounts.adminPassword,
+    name: 'ئەدمین',
+    phone: '07500000000',
+    role: UserRole.admin,
+  );
+
   final shop = await _ensureUser(
     auth: auth,
     log: log,
@@ -184,7 +197,7 @@ Future<SeedResult> seedDemoShopAndClothes(
 
   // Re-login as shop so writes are attributed to shop owner if rules require auth.
   await auth.login(
-    email: DemoAccounts.shopEmail,
+    phone: '07501234567',
     password: DemoAccounts.shopPassword,
   );
 
@@ -204,7 +217,7 @@ Future<SeedResult> seedDemoShopAndClothes(
 
   var added = 0;
   for (final item in catalog) {
-    await products.addProduct(item);
+    await products.addProduct(item, announce: false);
     added++;
     log('  + ${item.name}');
   }
@@ -242,6 +255,7 @@ Future<UserModel> _ensureUser({
       email: email.trim(),
       phone: phone.trim(),
       role: role,
+      approvalStatus: ApprovalStatus.approved,
       shopName: shopName,
       shopDescription: shopDescription,
       shopAddress: shopAddress,
@@ -257,16 +271,17 @@ Future<UserModel> _ensureUser({
   try {
     final user = await auth.register(
       name: name,
-      email: email,
       phone: phone,
       password: password,
+      code: '000000',
       role: role,
       shopName: shopName,
       shopDescription: shopDescription,
       shopAddress: shopAddress,
       shopTier: shopTier,
+      approvalStatus: ApprovalStatus.approved,
     );
-    log('Created $role: $email');
+    log('Created $role: $phone');
     return user;
   } catch (e) {
     final msg = e.toString();

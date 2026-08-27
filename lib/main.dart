@@ -4,15 +4,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
 import 'firebase_options.dart';
+import 'services/push_notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  // Marketplace data uses the Contabo VPS API.
+  // Firebase is optional and only used for phone push notifications.
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    await PushNotificationService.instance.initialize();
+  } catch (e, st) {
+    debugPrint('Firebase/push optional init failed: $e\n$st');
+  }
   runApp(
     const ProviderScope(
-      child: ShikPoshApp(),
+      child: QopchaApp(),
     ),
   );
 }

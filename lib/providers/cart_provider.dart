@@ -33,7 +33,12 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
 
   double get total => state.fold(0.0, (sum, i) => sum + i.lineTotal);
 
-  Future<void> addFromProduct(ProductModel product, String size) async {
+  Future<void> addFromProduct(
+    ProductModel product,
+    String size, {
+    String? customerId,
+    double personalDiscountPercent = 0,
+  }) async {
     final index = state.indexWhere((i) => i.key == '${product.id}-$size');
     if (index >= 0) {
       final updated = List<CartItem>.from(state);
@@ -47,12 +52,30 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
         CartItem(
           productId: product.id,
           name: product.name,
-          imageUrl: product.imageUrls.first,
+          imageUrl: product.imageUrls.isNotEmpty ? product.imageUrls.first : '',
           shopName: product.shopName,
-          price: product.price,
+          shopOwnerId: product.shopOwnerId,
+          price: product.salePriceFor(
+            customerId,
+            personalDiscountPercent: personalDiscountPercent,
+          ),
           size: size,
         ),
       ];
+    }
+    await _save();
+  }
+
+  Future<void> addCartItem(CartItem item) async {
+    final index = state.indexWhere((i) => i.key == item.key);
+    if (index >= 0) {
+      final updated = List<CartItem>.from(state);
+      updated[index] = updated[index].copyWith(
+        quantity: updated[index].quantity + item.quantity,
+      );
+      state = updated;
+    } else {
+      state = [...state, item];
     }
     await _save();
   }

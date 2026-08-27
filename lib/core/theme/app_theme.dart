@@ -1,41 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-class AppColors {
-  // Brand mix: ~60% white · ~30% teal · ~10% orange
-  static const brand = Color(0xFF146B72); // RGB(20, 107, 114) — 30%
-  static const highlight = Color(0xFFF15C22); // RGB(241, 92, 34) — 10%
-  static const brandWhite = Color(0xFFFFFFFF); // RGB(255, 255, 255) — 60%
+import 'app_color_theme.dart';
 
-  static const primary = Color(0xFF0F0F14);
-  static const secondary = brand;
-  static const secondaryLight = Color(0xFF2A9AA3);
+class AppColors {
+  // Brand mix: ~60% white · ~30% brand · ~10% highlight
+  // Mutable so users can switch color packs from Settings.
+  static Color brand = const Color(0xFF116C71);
+  static Color highlight = const Color(0xFFF15C22);
+  static const brandWhite = Color(0xFFFFFFFF);
+
+  static Color primary = const Color(0xFF0F0F14);
+  static Color secondary = brand;
+  static Color secondaryLight = const Color(0xFF2A9AA3);
   static const accent = Color(0xFF2A2A38);
   static const gold = Color(0xFFC9A87C);
   static const success = Color(0xFF2D9B6A);
-  static const warning = highlight;
+  static Color warning = highlight;
   static const error = Color(0xFFD64550);
-  static const gradientStart = Color(0xFF0D3D42);
-  static const gradientMid = brand;
-  static const gradientEnd = Color(0xFF0A555C);
+  static Color gradientStart = const Color(0xFF0D3D42);
+  static Color gradientMid = brand;
+  static Color gradientEnd = const Color(0xFF0A555C);
 
-  static const primaryGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [gradientStart, gradientMid, gradientEnd],
-  );
+  static LinearGradient get primaryGradient => LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [gradientStart, gradientMid, gradientEnd],
+      );
 
-  static const accentGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [secondaryLight, brand],
-  );
+  static LinearGradient get accentGradient => LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [secondaryLight, brand],
+      );
 
-  static const ctaGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFFFF7A45), highlight],
-  );
+  static LinearGradient get ctaGradient => LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color.lerp(highlight, Colors.white, 0.18) ?? highlight,
+          highlight,
+        ],
+      );
 
   // ---- Theme-aware semantic colors ----
   // These are swapped at runtime by [applyBrightness] so hardcoded usages
@@ -66,8 +72,28 @@ class AppColors {
   static const _darkTextTertiary = Color(0xFF7A8A8C);
   static const _darkBorder = Color(0xFF2A3A3C);
 
+  /// On-brand solid white (buttons, icons on teal). Never changes with theme.
+  static const onBrand = Color(0xFFFFFFFF);
+
+  /// Sheet / dialog / nav fill — follows light/dark.
+  static Color sheet = _lightCard;
+
   static Brightness _brightness = Brightness.light;
+  static AppColorTheme _colorTheme = AppColorTheme.qopcha;
   static bool get isDark => _brightness == Brightness.dark;
+  static AppColorTheme get colorTheme => _colorTheme;
+
+  static void applyColorTheme(AppColorTheme theme) {
+    _colorTheme = theme;
+    brand = theme.brand;
+    highlight = theme.highlight;
+    secondary = theme.brand;
+    secondaryLight = theme.brandLight;
+    warning = theme.highlight;
+    gradientStart = theme.gradientStart;
+    gradientMid = theme.brand;
+    gradientEnd = theme.gradientEnd;
+  }
 
   static void applyBrightness(Brightness brightness) {
     _brightness = brightness;
@@ -75,6 +101,7 @@ class AppColors {
     surface = dark ? _darkSurface : _lightSurface;
     surfaceVariant = dark ? _darkSurfaceVariant : _lightSurfaceVariant;
     card = dark ? _darkCard : _lightCard;
+    sheet = dark ? _darkCard : _lightCard;
     textPrimary = dark ? _darkTextPrimary : _lightTextPrimary;
     textSecondary = dark ? _darkTextSecondary : _lightTextSecondary;
     textTertiary = dark ? _darkTextTertiary : _lightTextTertiary;
@@ -127,7 +154,7 @@ class AppTheme {
     return base.copyWith(
       colorScheme: ColorScheme.fromSeed(
         seedColor: AppColors.secondary,
-        primary: AppColors.primary,
+        primary: AppColors.secondary,
         secondary: AppColors.secondary,
         surface: AppColors.surface,
         error: AppColors.error,
@@ -173,7 +200,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: AppColors.secondary, width: 1.5),
+          borderSide: BorderSide(color: AppColors.secondary, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
@@ -261,33 +288,52 @@ class AppTheme {
         ).copyWith(
           primary: AppColors.secondaryLight,
           secondary: AppColors.secondary,
-          tertiary: AppColors.secondaryLight,
-          surface: const Color(0xFF16161D),
+          tertiary: AppColors.highlight,
+          surface: AppColors._darkCard,
+          onSurface: AppColors._darkTextPrimary,
         );
 
     return base.copyWith(
       colorScheme: darkScheme,
-      scaffoldBackgroundColor: const Color(0xFF101015),
-      textTheme: _textTheme(base.textTheme, primary: Colors.white),
-      primaryTextTheme: _textTheme(base.primaryTextTheme, primary: Colors.white),
-      appBarTheme: const AppBarTheme(
+      scaffoldBackgroundColor: AppColors._darkSurface,
+      canvasColor: AppColors._darkSurface,
+      textTheme: _textTheme(
+        base.textTheme,
+        primary: AppColors._darkTextPrimary,
+      ),
+      primaryTextTheme: _textTheme(
+        base.primaryTextTheme,
+        primary: AppColors._darkTextPrimary,
+      ),
+      appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
+        foregroundColor: AppColors._darkTextPrimary,
         centerTitle: true,
         titleTextStyle: TextStyle(
           fontFamily: fontFamily,
           fontSize: 18,
           fontWeight: FontWeight.w700,
-          color: Colors.white,
+          color: AppColors._darkTextPrimary,
         ),
       ),
       cardTheme: CardThemeData(
-        color: const Color(0xFF1A1A22),
+        color: AppColors._darkCard,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: AppColors._darkCard,
+        modalBackgroundColor: AppColors._darkCard,
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: AppColors._darkCard,
+      ),
       dividerTheme: DividerThemeData(
-        color: Colors.white.withValues(alpha: 0.08),
+        color: AppColors._darkBorder,
         thickness: 1,
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors._darkSurfaceVariant,
       ),
     );
   }

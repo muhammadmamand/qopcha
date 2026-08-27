@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,12 +9,15 @@ import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/orders_provider.dart';
 import '../../providers/product_provider.dart';
+import '../../providers/settings_provider.dart';
+import '../../widgets/profile_avatar.dart';
 
 class ShopProfileScreen extends ConsumerWidget {
   const ShopProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(appSettingsProvider.select((s) => s.themeMode));
     final user = ref.watch(currentUserProvider);
     if (user == null) {
       return const Scaffold(body: Center(child: Text('تکایە بچۆ ژوورەوە')));
@@ -194,7 +196,7 @@ class _ShopHeader extends StatelessWidget {
         24,
         56,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: AppColors.primaryGradient,
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(36),
@@ -249,22 +251,10 @@ class _ShopHeader extends StatelessWidget {
                     width: 2,
                   ),
                 ),
-                child: Container(
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: user.avatarUrl != null &&
-                          user.avatarUrl!.trim().isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: user.avatarUrl!,
-                          fit: BoxFit.cover,
-                          errorWidget: (_, _, _) => _ShopAvatarFallback(
-                            name: shopName,
-                          ),
-                        )
-                      : _ShopAvatarFallback(name: shopName),
+                child: ProfileAvatar(
+                  name: shopName,
+                  avatarValue: user.avatarUrl,
+                  size: 88,
                 ),
               ),
               Positioned(
@@ -356,28 +346,6 @@ class _TierBadge extends StatelessWidget {
   }
 }
 
-class _ShopAvatarFallback extends StatelessWidget {
-  final String name;
-
-  const _ShopAvatarFallback({required this.name});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: const Color(0xFFEAF1FF),
-      alignment: Alignment.center,
-      child: Text(
-        name.isEmpty ? 'د' : name[0],
-        style: const TextStyle(
-          color: AppColors.secondary,
-          fontSize: 34,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-}
-
 class _ShopInfoCard extends StatelessWidget {
   final UserModel user;
 
@@ -405,7 +373,7 @@ class _ShopInfoCard extends StatelessWidget {
                   color: AppColors.secondary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.info_outline_rounded,
                   color: AppColors.secondary,
                   size: 20,

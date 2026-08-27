@@ -9,29 +9,178 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Claim-only — safe for list/query evaluation (no get()).
+    function isAdminClaim() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
+    // Role fallback until bootstrapAdminClaim has run.
+    function isAdminRole() {
+      return signedIn() && userDoc().role == 'admin';
+    }
+
+    function isAdmin() {
+      return isAdminClaim() || isAdminRole();
+    }
+
+    function isBroadcastNotification() {
+      return resource.data.audience == 'all'
+        || resource.data.type in [
+          'new_product',
+          'admin_announcement',
+          'discount_assigned',
+        ]
+        || !('targetUserId' in resource.data)
+        || resource.data.targetUserId == null
+        || resource.data.targetUserId == '';
+    }
+
+    // List/query-safe broadcast check (only fields clients can constrain).
+    function isListableBroadcast() {
+      return resource.data.audience == 'all'
+        || resource.data.type in [
+          'new_product',
+          'admin_announcement',
+          'discount_assigned',
+        ];
+    }
+
+    function shopOrderStatusChange() {
+      return resource.data.shopOwnerId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'statusUpdatedAt', 'readyAt'])
+        && (
+          (resource.data.status == 'pending'
+            && request.resource.data.status in ['confirmed', 'cancelled'])
+          || (resource.data.status == 'confirmed'
+            && request.resource.data.status == 'ready')
+        );
+    }
+
     match /users/{userId} {
-      allow read: if signedIn();
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
+      // Own profile must not depend on isAdmin()/get() — survives claim bootstrap gaps.
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdminClaim() || isAdminRole();
+      // Admin role is claim/server-only — clients cannot self-promote.
+      allow create: if isOwner(userId)
+        && request.resource.data.role in ['customer', 'shopOwner'];
+      allow update: if isAdmin()
+        || (isOwner(userId)
+            && !request.resource.data.diff(resource.data)
+                .affectedKeys()
+                .hasAny([
+                  'role',
+                  'approvalStatus',
+                  'rejectionReason',
+                  'productDiscountPercent',
+                  'deliveryDiscountPercent',
+                  'shopTier',
+                ]));
       allow delete: if false;
+
+      match /addresses/{addressId} {
+        allow get: if isOwner(userId) || isAdmin();
+        allow list: if isOwner(userId) || isAdminClaim() || isAdminRole();
+        allow create, update, delete: if isOwner(userId);
+      }
     }
 
     match /products/{productId} {
       allow read: if true;
       allow create: if signedIn()
         && request.resource.data.shopOwnerId == request.auth.uid;
-      allow update, delete: if signedIn()
-        && resource.data.shopOwnerId == request.auth.uid;
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && resource.data.shopOwnerId == request.auth.uid
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'isFeatured',
+          ])
+        );
+      allow delete: if isAdmin()
+        || (signedIn() && resource.data.shopOwnerId == request.auth.uid);
     }
 
     match /orders/{orderId} {
-      allow read: if signedIn()
-        && (resource.data.userId == request.auth.uid || true);
-      // Shop owners need to read marketplace orders; for MVP allow signed-in read.
+      allow get: if isAdmin()
+        || (signedIn() && resource.data.userId == request.auth.uid)
+        || (signedIn() && resource.data.shopOwnerId == request.auth.uid);
+      // List without get() — clients must filter by userId or shopOwnerId.
+      allow list: if isAdminClaim()
+        || (signedIn() && resource.data.userId == request.auth.uid)
+        || (signedIn() && resource.data.shopOwnerId == request.auth.uid)
+        || isAdminRole();
       allow create: if signedIn()
         && request.resource.data.userId == request.auth.uid;
-      allow update: if signedIn();
+      allow update: if isAdmin() || shopOrderStatusChange();
       allow delete: if false;
+    }
+
+    match /banners/{bannerId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /appContent/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow get: if isAdmin()
+        || (signedIn() && resource.data.targetUserId == request.auth.uid)
+        || (signedIn() && isBroadcastNotification());
+      // No userDoc() get() here — otherwise scoped queries fail entirely.
+      allow list: if isAdminClaim()
+        || (signedIn() && resource.data.targetUserId == request.auth.uid)
+        || (signedIn() && isListableBroadcast())
+        || isAdminRole();
+      allow create: if signedIn() && (
+        (
+          request.resource.data.shopOwnerId == request.auth.uid
+          && request.resource.data.type == 'new_product'
+          && request.resource.data.audience == 'all'
+        )
+        || (
+          request.resource.data.shopOwnerId == request.auth.uid
+          && request.resource.data.type == 'order_ready'
+          && request.resource.data.audience == 'user'
+          && request.resource.data.targetUserId is string
+          && get(/databases/$(database)/documents/orders/$(request.resource.data.productId)).data.shopOwnerId
+              == request.auth.uid
+          && get(/databases/$(database)/documents/orders/$(request.resource.data.productId)).data.userId
+              == request.resource.data.targetUserId
+        )
+        || (
+          isAdmin()
+          && request.resource.data.type in [
+            'account_approved',
+            'admin_announcement',
+            'discount_assigned',
+            'order_delivered',
+          ]
+        )
+        || (
+          request.resource.data.shopOwnerId == request.auth.uid
+          && request.resource.data.type == 'discount_assigned'
+          && request.resource.data.audience == 'all'
+        )
+      );
+      allow update, delete: if isAdmin();
+    }
+
+    match /passwordResets/{id} {
+      allow read, write: if false;
+    }
+    match /mail/{id} {
+      allow read, write: if false;
+    }
+    match /adminAuditLogs/{id} {
+      allow read, write: if false;
     }
   }
 }

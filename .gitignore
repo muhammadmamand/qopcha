@@ -12,6 +12,30 @@
 .swiftpm/
 migrate_working_dir/
 
+# VPS API secrets / runtime data
+server/.env
+server/data/
+server/uploads/
+!server/data/.gitkeep
+!server/uploads/.gitkeep
+server/node_modules/
+functions/node_modules/
+.firebase/
+**/build/
+android/build/
+
+# Local scratch / large binaries
+*.lottie
+_rebuild_cart.py
+ChatGPT Image*.png
+IMG_*.png
+flutter_02.png
+unnamed.jpg
+car.png
+images.png
+Order packed.lottie
+
+
 # IntelliJ related
 *.iml
 *.ipr
@@ -43,3 +67,5 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+server/admin/canvaskit/

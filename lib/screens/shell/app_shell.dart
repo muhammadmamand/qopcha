@@ -1,10 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/orders_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../widgets/premium_bottom_nav.dart';
 
 export 'profile_screen.dart';
@@ -23,6 +24,9 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
 
   @override
   Widget build(BuildContext context) {
+    // Keep nav / scaffold colors fresh when theme changes.
+    ref.watch(appSettingsProvider.select((s) => s.themeMode));
+    ref.watch(appSettingsProvider.select((s) => s.colorTheme));
     final location = GoRouterState.of(context).matchedLocation;
 
     // Order matches screenshot layout: Home … Profile (bulb).
@@ -30,11 +34,13 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
       _currentIndex = 0;
     } else if (location.startsWith('/search')) {
       _currentIndex = 1;
-    } else if (location.startsWith('/favorites')) {
+    } else if (location.startsWith('/discounts')) {
       _currentIndex = 2;
     } else if (location.startsWith('/cart')) {
       _currentIndex = 3;
-    } else if (location.startsWith('/profile')) {
+    } else if (location.startsWith('/profile') ||
+        location.startsWith('/favorites')) {
+      // Favorites is opened from profile, not the center tab.
       _currentIndex = 4;
     }
 
@@ -54,7 +60,7 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
           } else if (index == 1) {
             context.go('/search');
           } else if (index == 2) {
-            context.go('/favorites');
+            context.go('/discounts');
           } else if (index == 3) {
             context.go('/cart');
           } else if (index == 4) {
@@ -63,7 +69,7 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
         },
         badges: [null, null, null, cartCount > 0 ? cartCount : null, null],
         animatedIndexes: animateCartEmptyIcon ? const [3] : const [],
-        // Layout: Home · Search | ♥ center | Cart · Profile
+        // Layout: Home · Search | Offers center | Cart · Profile
         items: const [
           NavItem(
             icon: Icons.home_outlined,
@@ -76,9 +82,9 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
             label: 'گەڕان',
           ),
           NavItem(
-            icon: Icons.favorite_border_rounded,
-            activeIcon: Icons.favorite_rounded,
-            label: 'دڵخواز',
+            icon: Icons.local_offer_outlined,
+            activeIcon: Icons.local_offer_rounded,
+            label: 'داشکاندن',
           ),
           NavItem(
             icon: Icons.shopping_bag_outlined,
@@ -110,6 +116,9 @@ class _ShopOwnerShellState extends ConsumerState<ShopOwnerShell> {
 
   @override
   Widget build(BuildContext context) {
+    // Keep nav / scaffold colors fresh when theme changes.
+    ref.watch(appSettingsProvider.select((s) => s.themeMode));
+    ref.watch(appSettingsProvider.select((s) => s.colorTheme));
     final location = GoRouterState.of(context).matchedLocation;
 
     if (location.startsWith('/shop-orders')) {
@@ -144,28 +153,31 @@ class _ShopOwnerShellState extends ConsumerState<ShopOwnerShell> {
         items: const [
           NavItem(
             icon: Icons.dashboard_outlined,
-            activeIcon: Icons.dashboard_outlined,
+            activeIcon: Icons.dashboard_rounded,
             label: 'داشبۆرد',
           ),
           NavItem(
             icon: Icons.receipt_long_outlined,
-            activeIcon: Icons.receipt_long_outlined,
+            activeIcon: Icons.receipt_long_rounded,
             label: 'داواکاری',
           ),
           NavItem(
             icon: Icons.person_outline_rounded,
-            activeIcon: Icons.person_outline_rounded,
+            activeIcon: Icons.person_rounded,
             label: 'پڕۆفایل',
           ),
         ],
       ),
       // Keep add-product off the center so it doesn't collide with the notched FAB.
       floatingActionButton: _currentIndex == 0
-          ? FloatingActionButton.extended(
-              onPressed: () => context.push('/shop/add-product'),
-              elevation: 12,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('بەرهەمی نوێ'),
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 70),
+              child: FloatingActionButton.extended(
+                onPressed: () => context.push('/shop/add-product'),
+                elevation: 8,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('بەرهەمی نوێ'),
+              ),
             )
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,

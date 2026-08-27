@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/constants/app_constants.dart';
+import 'core/platform/app_host.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/settings_provider.dart';
+import 'widgets/app_colors_theme_binder.dart';
+import 'widgets/telegram_theme_reveal.dart';
 
-class ShikPoshApp extends ConsumerWidget {
-  const ShikPoshApp({super.key});
+class QopchaApp extends ConsumerWidget {
+  const QopchaApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -21,23 +24,32 @@ class ShikPoshApp extends ConsumerWidget {
         : TextDirection.rtl;
 
     final platformBrightness = MediaQuery.platformBrightnessOf(context);
-    final effectiveBrightness = switch (settings.themeMode) {
-      ThemeMode.light => Brightness.light,
-      ThemeMode.dark => Brightness.dark,
-      ThemeMode.system => platformBrightness,
-    };
+    // Admin web console is always light — cleaner ERP look.
+    final effectiveBrightness = AppHost.isAdminWebConsole
+        ? Brightness.light
+        : switch (settings.themeMode) {
+            ThemeMode.light => Brightness.light,
+            ThemeMode.dark => Brightness.dark,
+            ThemeMode.system => platformBrightness,
+          };
+    AppColors.applyColorTheme(settings.colorTheme);
     AppColors.applyBrightness(effectiveBrightness);
 
     return MaterialApp.router(
-      title: AppConstants.appName,
+      title: AppHost.isAdminWebConsole
+          ? '${AppConstants.appName} | پانێڵی بەڕێوەبردن'
+          : AppConstants.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: settings.themeMode,
+      themeMode:
+          AppHost.isAdminWebConsole ? ThemeMode.light : settings.themeMode,
+      // Disable Material's fade so our circular wipe owns the transition.
+      themeAnimationDuration: Duration.zero,
       locale: locale,
       routerConfig: router,
       builder: (context, child) {
-        return Directionality(
+        final content = Directionality(
           textDirection: textDirection,
           child: DefaultTextStyle.merge(
             style: const TextStyle(
@@ -45,9 +57,16 @@ class ShikPoshApp extends ConsumerWidget {
               decorationColor: Colors.transparent,
               decorationThickness: 0,
             ),
-            child: child!,
+            child: AppColorsThemeBinder(
+              colorTheme: settings.colorTheme,
+              child: child ?? const SizedBox.shrink(),
+            ),
           ),
         );
+        // Snapshot theme wipe uses dart:ui Image and breaks Flutter Web hot restart
+        // (disposed EngineFlutterView). Keep it on mobile/desktop only.
+        if (AppHost.isWeb) return content;
+        return TelegramThemeReveal(child: content);
       },
     );
   }

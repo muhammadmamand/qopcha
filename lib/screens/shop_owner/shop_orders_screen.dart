@@ -67,8 +67,9 @@ class ShopOrdersScreen extends ConsumerWidget {
                     );
                   }
 
-                  final pending =
-                      orders.where((o) => o.status == OrderStatus.pending).length;
+                  final pending = orders
+                      .where((o) => o.status == OrderStatus.pending)
+                      .length;
                   final completed = orders
                       .where((o) => o.status == OrderStatus.completed)
                       .length;
@@ -116,13 +117,11 @@ class ShopOrdersScreen extends ConsumerWidget {
                           final order = entry.value;
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 12),
-                            child: _ShopOrderCard(
-                              order: order,
-                              shopName: shopName,
-                            )
-                                .animate()
-                                .fadeIn(delay: (40 * index).ms)
-                                .slideY(begin: 0.05),
+                            child:
+                                _ShopOrderCard(order: order, shopName: shopName)
+                                    .animate()
+                                    .fadeIn(delay: (40 * index).ms)
+                                    .slideY(begin: 0.05),
                           );
                         }),
                       ],
@@ -191,6 +190,40 @@ class _ShopOrderCard extends ConsumerStatefulWidget {
 
 class _ShopOrderCardState extends ConsumerState<_ShopOrderCard> {
   bool _expanded = false;
+  bool _busy = false;
+
+  Future<void> _setStatus(OrderStatus status) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(shopOrdersNotifierProvider.notifier)
+          .updateStatus(widget.order.id, status);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            status == OrderStatus.confirmed
+                ? 'داواکاری قبوڵ کرا'
+                : 'داواکاری ڕەتکرایەوە',
+          ),
+          backgroundColor: status == OrderStatus.cancelled
+              ? AppColors.error
+              : AppColors.success,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('نەتوانرا دۆخی داواکاری بگۆڕدرێت'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -198,13 +231,15 @@ class _ShopOrderCardState extends ConsumerState<_ShopOrderCard> {
     final shopItems = widget.shopName.isEmpty
         ? order.items
         : order.itemsForShop(widget.shopName);
-    final shopTotal = widget.shopName.isEmpty
-        ? order.total
-        : order.totalForShop(widget.shopName);
+    // Orders are per-shop; total already includes delivery fee.
+    final shopTotal = order.total;
 
     final statusColor = switch (order.status) {
       OrderStatus.completed => AppColors.success,
       OrderStatus.pending => AppColors.warning,
+      OrderStatus.confirmed => const Color(0xFFE67E22),
+      OrderStatus.ready => AppColors.brand,
+      OrderStatus.shipped => const Color(0xFF3B82F6),
       OrderStatus.cancelled => AppColors.error,
     };
 
@@ -229,7 +264,7 @@ class _ShopOrderCardState extends ConsumerState<_ShopOrderCard> {
                         color: AppColors.secondary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.person_outline_rounded,
                         color: AppColors.secondary,
                         size: 22,
@@ -256,6 +291,25 @@ class _ShopOrderCardState extends ConsumerState<_ShopOrderCard> {
                               color: AppColors.textTertiary,
                             ),
                           ),
+                          if ((order.deliveryAddress ?? '')
+                              .trim()
+                              .isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              order.deliveryAddressLabel?.trim().isNotEmpty ==
+                                      true
+                                  ? '${order.deliveryAddressLabel}: ${order.deliveryAddress}'
+                                  : order.deliveryAddress!,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                height: 1.3,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -293,7 +347,7 @@ class _ShopOrderCardState extends ConsumerState<_ShopOrderCard> {
                     const Spacer(),
                     Text(
                       Formatters.price(shopTotal),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: AppColors.secondary,
@@ -311,6 +365,43 @@ class _ShopOrderCardState extends ConsumerState<_ShopOrderCard> {
                   const SizedBox(height: 12),
                   Divider(color: AppColors.border.withValues(alpha: 0.7)),
                   const SizedBox(height: 8),
+                  if (order.customerMeasurements.isNotEmpty) ...[
+                    _CustomerMeasurementsCard(order: order),
+                    const SizedBox(height: 12),
+                  ],
+                  if (order.deliveryFee > 0) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.local_shipping_outlined,
+                            size: 16,
+                            color: AppColors.textTertiary,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'گەیاندن · ${order.deliveryZoneLabel}',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            Formatters.price(order.deliveryFee),
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   ...shopItems.map(
                     (item) => Padding(
                       padding: const EdgeInsets.only(bottom: 10),
@@ -367,9 +458,9 @@ class _ShopOrderCardState extends ConsumerState<_ShopOrderCard> {
                       children: [
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: () => ref
-                                .read(shopOrdersNotifierProvider.notifier)
-                                .updateStatus(order.id, OrderStatus.cancelled),
+                            onPressed: _busy
+                                ? null
+                                : () => _setStatus(OrderStatus.cancelled),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppColors.error,
                               side: BorderSide(
@@ -383,13 +474,33 @@ class _ShopOrderCardState extends ConsumerState<_ShopOrderCard> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: () => ref
-                                .read(shopOrdersNotifierProvider.notifier)
-                                .updateStatus(order.id, OrderStatus.completed),
+                            onPressed: _busy
+                                ? null
+                                : () => _setStatus(OrderStatus.confirmed),
                             style: ElevatedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 12),
                             ),
-                            child: const Text('قبوڵکردن'),
+                            child: Text(_busy ? '...' : 'قبوڵکردن'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (order.status == OrderStatus.confirmed) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => ref
+                                .read(shopOrdersNotifierProvider.notifier)
+                                .markReady(order),
+                            icon: const Icon(Icons.inventory_rounded, size: 18),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.brand,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            label: const Text('ئۆردەرەکە ئامادەیە'),
                           ),
                         ),
                       ],
@@ -400,6 +511,151 @@ class _ShopOrderCardState extends ConsumerState<_ShopOrderCard> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _CustomerMeasurementsCard extends StatelessWidget {
+  final OrderModel order;
+
+  const _CustomerMeasurementsCard({required this.order});
+
+  static String _number(double value) {
+    if (value == value.roundToDouble()) return value.toStringAsFixed(0);
+    return value.toStringAsFixed(1);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final m = order.customerMeasurements;
+    final values = <(String, double?, String)>[
+      ('باڵا', m.heightCm, 'سم'),
+      ('کێش', m.weightKg, 'کگم'),
+      ('شان', m.shoulderCm, 'سم'),
+      ('سنگ', m.chestCm, 'سم'),
+      ('کەمەر', m.waistCm, 'سم'),
+      ('کەڵک', m.hipCm, 'سم'),
+      ('قۆل', m.armLengthCm, 'سم'),
+      ('قاچ', m.legLengthCm, 'سم'),
+      ('مل', m.neckCm, 'سم'),
+      ('پێڵاو', m.shoeSizeEu, 'EU'),
+    ].where((entry) => entry.$2 != null).toList();
+    final size =
+        order.customerPreferredSize ?? order.customerMeasurements.suggestedSize;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.brand.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.brand.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: AppColors.brand.withValues(alpha: 0.13),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.straighten_rounded,
+                  size: 18,
+                  color: AppColors.brand,
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'قیاسەکانی کڕیار',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      'جلێکی گونجاو بەو قیاسانە هەڵبژێرە',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (size != null && size.trim().isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 11,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.brand,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    size,
+                    textDirection: TextDirection.ltr,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 7,
+            runSpacing: 7,
+            children: values.map((entry) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.border.withValues(alpha: 0.7),
+                  ),
+                ),
+                child: RichText(
+                  textDirection: TextDirection.rtl,
+                  text: TextSpan(
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                    ),
+                    children: [
+                      TextSpan(text: '${entry.$1}: '),
+                      TextSpan(
+                        text: '${_number(entry.$2!)} ${entry.$3}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }

@@ -13,6 +13,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     CreateAndAttachConsole();
   }
 
+  // Firebase Firestore (gRPC) often resolves AAAA first. On networks with
+  // link-local IPv6 only, that yields WatchStream "No route to host".
+  // Prefer the OS DNS path and let Windows fall back to IPv4.
+  ::SetEnvironmentVariableW(L"GRPC_DNS_RESOLVER", L"native");
+
   // Initialize COM, so that it is available for use in the library and/or
   // plugins.
   ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);

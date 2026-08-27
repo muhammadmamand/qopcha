@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,11 +8,14 @@ import '../../core/theme/app_animations.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/hero_tags.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notifications_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../widgets/category_chips.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/product_card.dart';
+import '../../widgets/profile_avatar.dart';
 import '../../widgets/promo_banner.dart';
+import '../../widgets/special_discount_banner.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -24,10 +26,12 @@ class HomeScreen extends ConsumerWidget {
     final productsAsync = ref.watch(filteredProductsProvider);
     final selectedCategory = ref.watch(selectedCategoryProvider);
     final allProductsAsync = ref.watch(productsProvider);
+    final notifBadge = ref.watch(totalNotificationBadgeProvider);
 
     final categoryOptions = <String>['هەموو', ...AppConstants.categories.where((c) => c != 'هەموو')];
     final productCats = allProductsAsync.valueOrNull
-            ?.map((p) => p.category)
+            ?.where((p) => p.isClothing)
+            .map((p) => p.category)
             .where((c) => c.isNotEmpty && !categoryOptions.contains(c))
             .toSet()
             .toList() ??
@@ -49,30 +53,71 @@ class HomeScreen extends ConsumerWidget {
             parent: AlwaysScrollableScrollPhysics(),
           ),
           slivers: [
+            if (user?.isPending == true)
+              SliverToBoxAdapter(
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 8, 18, 0),
+                    child: _PendingBrowseBanner(),
+                  ),
+                ),
+              ),
             SliverToBoxAdapter(
               child: SafeArea(
                 bottom: false,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    user?.isPending == true ? 8 : 8,
+                    20,
+                    0,
+                  ),
                   child: _Header(
-                    name: user?.name ?? 'هاوڕێ',
+                    name: user?.name ?? 'میوان',
                     avatarUrl: user?.avatarUrl,
+                    notificationCount: notifBadge,
                     onProfileTap: () => context.go('/profile'),
-                    onNotificationsTap: () =>
-                        _showNotificationsSheet(context),
+                    onNotificationsTap: () => context.push('/notifications'),
                   ),
                 ),
               ),
             ),
+            if (user?.hasUnreadApprovalNotice == true)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(18, 12, 18, 0),
+                  child: _ApprovalNoticeBanner(),
+                ),
+              ),
             const SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(18, 20, 18, 8),
+                padding: EdgeInsets.fromLTRB(8, 20, 8, 8),
                 child: PromoBanner(),
               ),
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.only(top: 12, bottom: 8),
+                padding: const EdgeInsets.fromLTRB(18, 4, 18, 8),
+                child: _FabricMarketCard(
+                  onTap: () => context.push('/fabrics'),
+                ),
+              ),
+            ),
+            if (user != null && user.hasSpecialDiscount)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 4, 18, 8),
+                  child: SpecialDiscountBanner(
+                    productPercent: user.productDiscountPercent,
+                    deliveryPercent: user.deliveryDiscountPercent,
+                    onShopNow: () => context.go('/discounts'),
+                  ),
+                ),
+              ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 12),
                 child: CategoryChips(
                   selected: selectedCategory,
                   categories: categoryOptions,
@@ -101,14 +146,14 @@ class HomeScreen extends ConsumerWidget {
                   );
                 }
                 return SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(24, 4, 24, 120),
+                  padding: const EdgeInsets.fromLTRB(14, 4, 14, 120),
                   sliver: SliverGrid(
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
-                          childAspectRatio: 0.66,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
+                          childAspectRatio: 0.54,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 14,
                         ),
                     delegate: SliverChildBuilderDelegate((context, index) {
                       final product = products[index];
@@ -117,6 +162,8 @@ class HomeScreen extends ConsumerWidget {
                         product: product,
                         index: index,
                         heroTag: tag,
+                        showShopName: false,
+                        showDiscountBadge: false,
                         onTap: () =>
                             context.push('/product/${product.id}', extra: tag),
                       );
@@ -252,7 +299,12 @@ class _HomeTopBar extends StatelessWidget {
                       const SizedBox(width: 9),
                       GestureDetector(
                         onTap: onProfileTap,
-                        child: _HeaderAvatar(name: name, avatarUrl: avatarUrl),
+                        child: ProfileAvatar(
+                          name: name,
+                          avatarValue: avatarUrl,
+                          size: 44,
+                          showBorder: true,
+                        ),
                       ),
                     ],
                   ),
@@ -300,7 +352,7 @@ class _HomeTopBar extends StatelessWidget {
                                 color: const Color(0xFFEDF3FF),
                                 borderRadius: BorderRadius.circular(11),
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.search_rounded,
                                 color: AppColors.secondary,
                                 size: 20,
@@ -370,165 +422,121 @@ class _HeaderCircleButton extends StatelessWidget {
   }
 }
 
-class _HeaderAvatar extends StatelessWidget {
-  final String name;
-  final String? avatarUrl;
-
-  const _HeaderAvatar({required this.name, required this.avatarUrl});
-
-  @override
-  Widget build(BuildContext context) {
-    final hasAvatar = avatarUrl != null && avatarUrl!.trim().isNotEmpty;
-
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: AppColors.border, width: 1.5),
-        color: AppColors.surfaceVariant,
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: hasAvatar
-          ? CachedNetworkImage(
-              imageUrl: avatarUrl!,
-              fit: BoxFit.cover,
-              errorWidget: (_, _, _) => _HeaderAvatarFallback(name: name),
-              placeholder: (_, _) => _HeaderAvatarFallback(name: name),
-            )
-          : _HeaderAvatarFallback(name: name),
-    );
-  }
-}
-
-class _HeaderAvatarFallback extends StatelessWidget {
-  final String name;
-
-  const _HeaderAvatarFallback({required this.name});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: AppColors.surfaceVariant,
-      alignment: Alignment.center,
-      child: Text(
-        name.isNotEmpty ? name[0].toUpperCase() : '?',
-        style: const TextStyle(
-          color: AppColors.brand,
-          fontWeight: FontWeight.w800,
-          fontSize: 17,
-        ),
-      ),
-    );
-  }
-}
-
 class _Header extends StatelessWidget {
   final String name;
   final String? avatarUrl;
+  final int notificationCount;
   final VoidCallback onProfileTap;
   final VoidCallback onNotificationsTap;
 
   const _Header({
     required this.name,
     required this.avatarUrl,
+    required this.notificationCount,
     required this.onProfileTap,
     required this.onNotificationsTap,
   });
 
-  static const _notificationCount = 2;
-
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.ltr,
-      child: Row(
-        children: [
-          // Left: profile + app name
-          GestureDetector(
-            onTap: onProfileTap,
-            behavior: HitTestBehavior.opaque,
-            child: Row(
-              children: [
-                _HeaderAvatar(name: name, avatarUrl: avatarUrl),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      AppConstants.appName,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.brand,
-                        letterSpacing: -0.4,
-                        height: 1.1,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      name.trim().isEmpty ? 'هاوڕێ' : name.trim().split(' ').first,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const Spacer(),
-          // Right: notification bell
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: onNotificationsTap,
-              customBorder: const CircleBorder(),
-              child: Ink(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceVariant,
-                  shape: BoxShape.circle,
-                ),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.center,
-                  children: [
-                    Icon(
-                      Icons.notifications_none_rounded,
-                      size: 24,
+    // Kurdish/Arabic RTL: profile + names on the start (right),
+    // notification bell on the end (left).
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: onProfileTap,
+          behavior: HitTestBehavior.opaque,
+          child: Row(
+            children: [
+              ProfileAvatar(
+                name: name,
+                avatarValue: avatarUrl,
+                size: 44,
+                showBorder: true,
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    AppConstants.appName,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
                       color: AppColors.brand,
+                      letterSpacing: -0.4,
+                      height: 1.1,
                     ),
-                    if (_notificationCount > 0)
-                      Positioned(
-                        top: 8,
-                        right: 9,
-                        child: Container(
-                          width: 9,
-                          height: 9,
-                          decoration: BoxDecoration(
-                            color: AppColors.highlight,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AppColors.brandWhite,
-                              width: 1.5,
-                            ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    name.trim().isEmpty
+                        ? 'میوان'
+                        : name.trim().split(' ').first,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const Spacer(),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onNotificationsTap,
+            customBorder: const CircleBorder(),
+            child: Ink(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariant,
+                shape: BoxShape.circle,
+              ),
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  Icon(
+                    notificationCount > 0
+                        ? Icons.notifications_active_rounded
+                        : Icons.notifications_none_rounded,
+                    size: 24,
+                    color: notificationCount > 0
+                        ? AppColors.highlight
+                        : AppColors.brand,
+                  ),
+                  if (notificationCount > 0)
+                    Positioned.directional(
+                      textDirection: Directionality.of(context),
+                      top: 8,
+                      end: 9,
+                      child: Container(
+                        width: 9,
+                        height: 9,
+                        decoration: BoxDecoration(
+                          color: AppColors.highlight,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.brandWhite,
+                            width: 1.5,
                           ),
                         ),
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     )
         .animate()
         .fadeIn(duration: AppAnimations.normal, curve: AppAnimations.smooth)
@@ -536,129 +544,142 @@ class _Header extends StatelessWidget {
   }
 }
 
-void _showNotificationsSheet(BuildContext context) {
-  showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: AppColors.brandWhite,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-    ),
-    builder: (ctx) {
-      return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Icon(Icons.notifications_rounded, color: AppColors.brand),
-                  const SizedBox(width: 10),
-                  Text(
-                    'ئاگادارییەکان',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _NotificationTile(
-                icon: Icons.local_offer_rounded,
-                color: AppColors.highlight,
-                title: 'داشکاندنی تایبەت',
-                subtitle: 'تا ٣٠٪ داشکاندن لەسەر کۆت و پێڵاو',
-              ),
-              const SizedBox(height: 10),
-              _NotificationTile(
-                icon: Icons.warning_amber_rounded,
-                color: AppColors.warning,
-                title: 'ئاگاداری',
-                subtitle: 'هەندێک بەرهەم کەم ماوە لە کۆگا',
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-}
-
-class _NotificationTile extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String subtitle;
-
-  const _NotificationTile({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.subtitle,
-  });
-
+class _PendingBrowseBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
+        color: AppColors.highlight.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.highlight.withValues(alpha: 0.28)),
       ),
       child: Row(
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          const SizedBox(width: 12),
+          Icon(Icons.info_outline_rounded, color: AppColors.highlight),
+          const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
+            child: Text(
+              'هەژمارەکەت چاوەڕوانە — دەتوانیت ببینیت بەڵام ناتوانیت داواکاری بکەیت',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+                height: 1.35,
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ApprovalNoticeBanner extends ConsumerWidget {
+  const _ApprovalNoticeBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.success.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.success.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.verified_rounded, color: AppColors.success),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'پیرۆزە! هەژمارەکەت پەسەند کرا — ئێستا دەتوانیت داواکاری بکەیت',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+                height: 1.35,
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: () =>
+                ref.read(authProvider.notifier).markApprovalNoticeSeen(),
+            icon: const Icon(Icons.close_rounded, size: 18),
+            color: AppColors.textSecondary,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FabricMarketCard extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _FabricMarketCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.brand,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.texture_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'بەشی قوماش',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'تەنها قوماش — جۆر، کوالێتی، ڕەنگ و نرخ بە مەتر',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        color: Colors.white.withValues(alpha: 0.86),
+                        fontSize: 12.5,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_left_rounded,
+                color: Colors.white.withValues(alpha: 0.9),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

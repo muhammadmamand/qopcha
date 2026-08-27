@@ -1,9 +1,12 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme/app_theme.dart';
+import '../models/banner_model.dart';
+import '../providers/admin_provider.dart';
 
 class PromoBannerData {
   final String title;
@@ -23,61 +26,42 @@ class PromoBannerData {
     required this.imageUrl,
     required this.colors,
   });
+
+  factory PromoBannerData.fromBanner(BannerModel b) {
+    return PromoBannerData(
+      title: b.title,
+      highlight: b.highlight,
+      subtitle: b.subtitle,
+      cta: b.cta,
+      tag: b.tag,
+      imageUrl: b.imageUrl,
+      colors: const [Color(0xFF0D3D42), Color(0xFF146B72)],
+    );
+  }
 }
 
-const _banners = <PromoBannerData>[
-  PromoBannerData(
-    title: 'داشکاندن بگرە تا',
-    highlight: '٪٥٠',
-    subtitle: 'تەنها بۆ ماوەیەکی کەم',
-    cta: 'ئیستا کڕین بکە',
-    tag: 'AD',
-    imageUrl:
-        'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=600',
-    colors: [Color(0xFF1A1520), Color(0xFF2D1F2E)],
-  ),
-  PromoBannerData(
-    title: 'کۆلێکشنی نوێی',
-    highlight: 'زستان',
-    subtitle: 'ستایلی گەرم و مۆدێرن',
-    cta: 'بینینی کۆلێکشن',
-    tag: 'NEW',
-    imageUrl:
-        'https://images.unsplash.com/photo-1539533018447-63fcce2678e3?w=600',
-    colors: [Color(0xFF0F3460), Color(0xFF16213E)],
-  ),
-  PromoBannerData(
-    title: 'پێڵاوی وەرزشی بۆ',
-    highlight: 'هەمووان',
-    subtitle: 'ئاسوودەیی + کوالیتی بەرز',
-    cta: 'بینی پێڵاوەکان',
-    tag: 'HOT',
-    imageUrl: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=600',
-    colors: [Color(0xFF3D2C2E), Color(0xFF1A1A2E)],
-  ),
-];
-
-class PromoBanner extends StatefulWidget {
+class PromoBanner extends ConsumerStatefulWidget {
   const PromoBanner({super.key});
 
   @override
-  State<PromoBanner> createState() => _PromoBannerState();
+  ConsumerState<PromoBanner> createState() => _PromoBannerState();
 }
 
-class _PromoBannerState extends State<PromoBanner> {
-  final _controller = PageController(viewportFraction: 0.9);
+class _PromoBannerState extends ConsumerState<PromoBanner> {
+  final _controller = PageController(viewportFraction: 0.98);
   int _current = 0;
   Timer? _timer;
+  int _bannerCount = 1;
 
   @override
   void initState() {
     super.initState();
     _timer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (!_controller.hasClients) return;
-      final next = (_current + 1) % _banners.length;
+      if (!_controller.hasClients || _bannerCount < 2) return;
+      final next = (_current + 1) % _bannerCount;
       _controller.animateToPage(
         next,
-        duration: const Duration(milliseconds: 600),
+        duration: const Duration(milliseconds: 650),
         curve: Curves.easeOutCubic,
       );
     });
@@ -92,33 +76,78 @@ class _PromoBannerState extends State<PromoBanner> {
 
   @override
   Widget build(BuildContext context) {
+    final content = ref.watch(resolvedAppContentProvider);
+    final fallback = [
+      PromoBannerData(
+        title: content.homePromoTitle,
+        highlight: content.homeTagline,
+        subtitle: content.homePromoSubtitle,
+        cta: content.homeCta,
+        tag: 'AD',
+        imageUrl:
+            'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=900',
+        colors: const [Color(0xFF0D3D42), Color(0xFF146B72)],
+      ),
+    ];
+    final bannersAsync = ref.watch(activeBannersProvider);
+    final banners = bannersAsync.when(
+      data: (list) {
+        if (list.isEmpty) return fallback;
+        return list.map(PromoBannerData.fromBanner).toList();
+      },
+      loading: () => fallback,
+      error: (_, _) => fallback,
+    );
+    _bannerCount = banners.length;
+
     return Column(
       children: [
         SizedBox(
-          height: 170,
+          height: BannerModel.sliderHeight,
           child: PageView.builder(
             controller: _controller,
-            itemCount: _banners.length,
+            itemCount: banners.length,
             onPageChanged: (i) => setState(() => _current = i),
-            itemBuilder: (context, index) => _BannerCard(data: _banners[index]),
+            itemBuilder: (context, index) {
+              final active = index == _current;
+              return AnimatedScale(
+                scale: active ? 1 : 0.96,
+                duration: const Duration(milliseconds: 320),
+                curve: Curves.easeOutCubic,
+                child: _BannerCard(data: banners[index]),
+              );
+            },
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 14),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(
-            _banners.length,
-            (i) => AnimatedContainer(
-              duration: const Duration(milliseconds: 380),
-              curve: Curves.easeInOutCubic,
-              width: _current == i ? 26 : 8,
-              height: 8,
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                color: _current == i ? AppColors.secondary : AppColors.border,
-              ),
-            ),
+            banners.length,
+            (i) {
+              final selected = _current == i;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 380),
+                curve: Curves.easeInOutCubic,
+                width: selected ? 28 : 8,
+                height: 8,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  gradient: selected ? AppColors.ctaGradient : null,
+                  color: selected ? null : AppColors.border,
+                  boxShadow: selected
+                      ? [
+                          BoxShadow(
+                            color: AppColors.highlight.withValues(alpha: 0.35),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+              );
+            },
           ),
         ),
       ],
@@ -134,172 +163,175 @@ class _BannerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 6),
+      margin: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: data.colors,
-        ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: data.colors.first.withValues(alpha: 0.35),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: AppColors.brand.withValues(alpha: 0.22),
+            blurRadius: 28,
+            offset: const Offset(0, 14),
           ),
         ],
       ),
       clipBehavior: Clip.antiAlias,
       child: Stack(
+        fit: StackFit.expand,
         children: [
+          // Brand fill behind image (letterbox when aspect doesn't match)
+          _FallbackBackdrop(colors: data.colors),
+
+          // Show the full ad image — no cropping
+          if (data.imageUrl.isNotEmpty)
+            CachedNetworkImage(
+              imageUrl: data.imageUrl,
+              fit: BoxFit.contain,
+              alignment: Alignment.center,
+              width: double.infinity,
+              height: double.infinity,
+              errorWidget: (_, _, _) => const SizedBox.shrink(),
+            ),
+
+          // Light wash so text stays readable without covering the art
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.08),
+                  Colors.transparent,
+                  data.colors.first.withValues(alpha: 0.35),
+                  data.colors.first.withValues(alpha: 0.78),
+                ],
+                stops: const [0.0, 0.35, 0.72, 1.0],
+              ),
+            ),
+          ),
+
+          // Decorative glow
           Positioned(
-            right: -30,
-            top: -20,
+            top: -40,
+            left: -30,
             child: Container(
               width: 140,
               height: 140,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.06),
+                color: AppColors.highlight.withValues(alpha: 0.18),
               ),
             ),
           ),
-          Positioned(
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: 170,
-            child: ShaderMask(
-              shaderCallback: (rect) => LinearGradient(
-                begin: Alignment.centerRight,
-                end: Alignment.centerLeft,
-                colors: [Colors.transparent, data.colors.last],
-              ).createShader(rect),
-              blendMode: BlendMode.dstIn,
-              child: CachedNetworkImage(
-                imageUrl: data.imageUrl,
-                fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => const SizedBox(),
-              ),
-            ),
-          ),
+
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.24),
-                        ),
-                      ),
-                      child: Text(
-                        data.tag,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.4,
-                        ),
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.14),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.22),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      data.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        height: 1.1,
-                      ),
+                    child: const Icon(
+                      Icons.local_offer_rounded,
+                      color: Colors.white,
+                      size: 16,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      data.highlight,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.gold,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w900,
-                        height: 1.0,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      data.subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.82),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
                   ),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppColors.secondary, AppColors.secondaryLight],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.secondary.withValues(alpha: 0.4),
-                        blurRadius: 10,
+                ),
+                const Spacer(),
+                Text(
+                  data.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: Colors.white.withValues(alpha: 0.92),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    height: 1.25,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  data.highlight,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    height: 1.05,
+                    letterSpacing: -0.8,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
                     ],
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        data.cta,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      const Icon(
-                        Icons.arrow_forward_rounded,
-                        color: Colors.white,
-                        size: 14,
-                      ),
-                    ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  data.subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                    height: 1.35,
                   ),
                 ),
-                const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: LinearProgressIndicator(
-                    value: 0.72,
-                    minHeight: 3,
-                    backgroundColor: Colors.white.withValues(alpha: 0.2),
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Colors.white.withValues(alpha: 0.85),
+                const SizedBox(height: 14),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: AppColors.ctaGradient,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.highlight.withValues(alpha: 0.4),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          data.cta,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(
+                          Icons.arrow_forward_rounded,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -307,6 +339,25 @@ class _BannerCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _FallbackBackdrop extends StatelessWidget {
+  final List<Color> colors;
+
+  const _FallbackBackdrop({required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: colors,
+        ),
       ),
     );
   }

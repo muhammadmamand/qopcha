@@ -1,33 +1,25 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../models/product_model.dart';
+import 'api_client.dart';
+import 'notification_service.dart';
 
 class ProductService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-
-  CollectionReference<Map<String, dynamic>> get _products =>
-      _db.collection('products');
+  final _api = ApiClient.instance;
 
   Future<List<ProductModel>> getAllProducts() async {
-    final snap = await _products.get();
-    final list = snap.docs.map(_fromDoc).toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return list;
+    final data = await _api.getJson('/api/products');
+    return _list(data)..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
   Future<List<ProductModel>> getProductsByShop(String shopOwnerId) async {
-    final snap =
-        await _products.where('shopOwnerId', isEqualTo: shopOwnerId).get();
-    final list = snap.docs.map(_fromDoc).toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return list;
+    final data = await _api.getJson('/api/products', query: {
+      'shopOwnerId': shopOwnerId,
+    });
+    return _list(data)..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
   Future<List<ProductModel>> getFeaturedProducts() async {
-    final snap = await _products.where('isFeatured', isEqualTo: true).get();
-    final list = snap.docs.map(_fromDoc).toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return list;
+    final data = await _api.getJson('/api/products', query: {'featured': '1'});
+    return _list(data)..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
   Future<List<ProductModel>> searchProducts(String query) async {
@@ -44,45 +36,138 @@ class ProductService {
 
   Future<List<ProductModel>> getProductsByCategory(String category) async {
     if (category == 'هەموو') return getAllProducts();
-    final snap = await _products.where('category', isEqualTo: category).get();
-    final list = snap.docs.map(_fromDoc).toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return list;
+    final data = await _api.getJson('/api/products', query: {
+      'category': category,
+    });
+    return _list(data)..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
   Future<ProductModel?> getProductById(String id) async {
-    final doc = await _products.doc(id).get();
-    if (!doc.exists || doc.data() == null) return null;
-    return _fromDoc(doc);
+    try {
+      final data = await _api.getJson('/api/products/$id');
+      return _one(data['product']);
+    } catch (_) {
+      return null;
+    }
   }
 
-  Future<ProductModel> addProduct(ProductModel product) async {
-    final now = DateTime.now();
-    final ref = _products.doc();
-    final newProduct = product.copyWith(
-      id: ref.id,
-      createdAt: now,
-      updatedAt: now,
-    );
-    await ref.set(newProduct.toJson());
+  Future<ProductModel> addProduct(
+    ProductModel product, {
+    bool announce = true,
+  }) async {
+    final payload = product.toJson();
+    payload.remove('id');
+    final data = await _api.postJson('/api/products', payload);
+    final newProduct = _one(data['product'])!;
+    if (announce) {
+      try {
+        await NotificationService().announceNewProduct(newProduct);
+      } catch (e, st) {
+        assert(() {
+          // ignore: avoid_print
+          print('announceNewProduct failed: $e\n$st');
+          return true;
+        }());
+      }
+      await _announceShopDiscount(newProduct);
+    }
     return newProduct;
   }
 
   Future<ProductModel> updateProduct(ProductModel product) async {
+    ProductModel? previous;
+    try {
+      previous = await getProductById(product.id);
+    } catch (_) {
+      previous = null;
+    }
     final updated = product.copyWith(updatedAt: DateTime.now());
-    await _products
-        .doc(product.id)
-        .set(updated.toJson(), SetOptions(merge: true));
-    return updated;
+    final data = await _api.patchJson('/api/products/${product.id}', updated.toJson());
+    final saved = _one(data['product']) ?? updated;
+    if (_discountBecameActiveOrChanged(previous, saved)) {
+      await _announceShopDiscount(saved);
+    }
+    return saved;
+  }
+
+  Future<void> setProductDiscount({
+    required ProductModel product,
+    required String shopOwnerId,
+    String type = DiscountKind.percent,
+    double percent = 0,
+    double amount = 0,
+  }) async {
+    if (product.shopOwnerId != shopOwnerId) {
+      throw Exception('ناتوانیت داشکاندن بۆ بەرهەمی دووکانێکی تر دابنێیت');
+    }
+    final isAmount = type == DiscountKind.amount;
+    final clampedPercent = percent.clamp(0, 70).toDouble();
+    final maxAmount = product.price > 1 ? product.price - 1 : product.price;
+    var clampedAmount = amount < 0 ? 0.0 : amount;
+    if (clampedAmount > maxAmount) clampedAmount = maxAmount;
+    final active = isAmount ? clampedAmount > 0 : clampedPercent > 0;
+    await _api.patchJson('/api/products/${product.id}', {
+      'discountType': isAmount ? DiscountKind.amount : DiscountKind.percent,
+      'discountPercent': isAmount ? 0 : clampedPercent,
+      'discountAmount': isAmount ? clampedAmount : 0,
+      'discountForAllCustomers': true,
+      'discountCustomerIds': <String>[],
+      'discountSetBy': active ? 'shop' : '',
+    });
+    if (active) {
+      final updated = product.copyWith(
+        discountType: isAmount ? DiscountKind.amount : DiscountKind.percent,
+        discountPercent: isAmount ? 0 : clampedPercent,
+        discountAmount: isAmount ? clampedAmount : 0,
+        discountForAllCustomers: true,
+        discountCustomerIds: const [],
+      );
+      if (_discountBecameActiveOrChanged(product, updated)) {
+        await _announceShopDiscount(updated);
+      }
+    }
+  }
+
+  bool _discountBecameActiveOrChanged(
+    ProductModel? before,
+    ProductModel after,
+  ) {
+    if (!after.hasDiscount) return false;
+    if (before == null || !before.hasDiscount) return true;
+    return before.discountType != after.discountType ||
+        before.discountPercent != after.discountPercent ||
+        before.discountAmount != after.discountAmount;
+  }
+
+  Future<void> _announceShopDiscount(ProductModel product) async {
+    if (!product.hasDiscount) return;
+    try {
+      await NotificationService().announceProductDiscount(
+        product: product,
+        percent: product.equivalentDiscountPercent,
+        forAllCustomers: true,
+      );
+    } catch (e, st) {
+      assert(() {
+        // ignore: avoid_print
+        print('announceProductDiscount failed: $e\n$st');
+        return true;
+      }());
+    }
   }
 
   Future<void> deleteProduct(String id) async {
-    await _products.doc(id).delete();
+    await _api.delete('/api/products/$id');
   }
 
-  ProductModel _fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = Map<String, dynamic>.from(doc.data()!);
-    data['id'] = doc.id;
-    return ProductModel.fromJson(data);
+  List<ProductModel> _list(Map<String, dynamic> data) {
+    final raw = data['products'];
+    if (raw is! List) return const [];
+    return raw.map(_one).whereType<ProductModel>().toList();
+  }
+
+  ProductModel? _one(Object? raw) {
+    if (raw is! Map) return null;
+    return ProductModel.fromJson(Map<String, dynamic>.from(raw));
   }
 }

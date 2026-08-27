@@ -1,0 +1,39 @@
+# Push notifications (closed / background app)
+
+Customers see **in-app** alerts while the app is open (Firestore `notifications`).
+
+To also show a **system notification when the app is fully closed**, you need FCM + Cloud Function on **Blaze**.
+
+## Why Android may not notify
+1. **Blaze plan required** for closed-app push — deploy fails on Spark (free).
+   Upgrade: https://console.firebase.google.com/project/qopchaapp/usage/details
+2. Customer must allow notification permission on the phone.
+3. Rebuild/reinstall the Android APK after pull.
+4. With the app **open**, local alerts work via Firestore even without Blaze.
+5. With the app **fully closed**, Blaze + Cloud Function is required.
+
+## 1. App side (already in code)
+- Customers subscribe to topic `new_products` after login
+- Live Firestore → local notification while app is running
+- Android / iOS show local + system notifications
+- **Windows desktop does not support FCM push** when the app is closed
+
+## 2. Deploy Cloud Function (required for closed-app push)
+
+1. Enable **Blaze** plan: https://console.firebase.google.com/project/qopchaapp/usage/details
+2. From the project root:
+   ```bash
+   cd functions
+   npm install
+   cd ..
+   firebase deploy --only functions --project qopchaapp
+   ```
+3. Confirm function `onNewProductNotification` in Firebase Console → Functions.
+
+## 3. Test
+1. Log in as **customer** on Android → allow notifications.
+2. Keep customer app open → shop adds product → alert should appear.
+3. For closed-app: upgrade Blaze, deploy function, force-close app, add product.
+
+## 4. Firestore
+Shop owners can `create` in `notifications` (see `firestore.rules`).

@@ -2,31 +2,76 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/theme/app_color_theme.dart';
+
 enum AppLanguage { kurdish, english }
 
 class AppSettingsState {
   final ThemeMode themeMode;
+  final AppColorTheme colorTheme;
   final AppLanguage language;
+
+  /// Master switch — when false, all notification channels are muted.
   final bool notificationsEnabled;
+
+  /// Offers / product & delivery discounts.
+  final bool notifyDiscounts;
+
+  /// New products from shops.
+  final bool notifyNewProducts;
+
+  /// App updates, admin announcements, policy changes.
+  final bool notifyAppUpdates;
+
   final bool isLoaded;
 
   const AppSettingsState({
     this.themeMode = ThemeMode.system,
+    this.colorTheme = AppColorTheme.qopcha,
     this.language = AppLanguage.kurdish,
     this.notificationsEnabled = true,
+    this.notifyDiscounts = true,
+    this.notifyNewProducts = true,
+    this.notifyAppUpdates = true,
     this.isLoaded = false,
   });
 
+  bool allowsNotificationType(String type, {String category = ''}) {
+    if (!notificationsEnabled) return false;
+    final cat = category.trim().toLowerCase();
+    if (type == 'new_product') return notifyNewProducts;
+    if (type == 'admin_announcement') {
+      if (cat == 'discount' || cat == 'promo' || cat == 'offer') {
+        return notifyDiscounts;
+      }
+      return notifyAppUpdates;
+    }
+    if (cat == 'discount' || cat == 'promo' || cat == 'offer') {
+      return notifyDiscounts;
+    }
+    // Account / system notices follow app-updates preference.
+    if (type == 'account_approved') return notifyAppUpdates;
+    return true;
+  }
+
   AppSettingsState copyWith({
     ThemeMode? themeMode,
+    AppColorTheme? colorTheme,
     AppLanguage? language,
     bool? notificationsEnabled,
+    bool? notifyDiscounts,
+    bool? notifyNewProducts,
+    bool? notifyAppUpdates,
     bool? isLoaded,
   }) {
     return AppSettingsState(
       themeMode: themeMode ?? this.themeMode,
+      colorTheme: colorTheme ?? this.colorTheme,
       language: language ?? this.language,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+      notifyDiscounts: notifyDiscounts ?? this.notifyDiscounts,
+      notifyNewProducts: notifyNewProducts ?? this.notifyNewProducts,
+      notifyAppUpdates: notifyAppUpdates ?? this.notifyAppUpdates,
       isLoaded: isLoaded ?? this.isLoaded,
     );
   }
@@ -38,21 +83,39 @@ class AppSettingsNotifier extends StateNotifier<AppSettingsState> {
   }
 
   static const _themeKey = 'settings_theme_mode';
+  static const _colorThemeKey = 'settings_color_theme';
   static const _languageKey = 'settings_language';
   static const _notificationsKey = 'settings_notifications';
+  static const _notifyDiscountsKey = 'settings_notify_discounts';
+  static const _notifyNewProductsKey = 'settings_notify_new_products';
+  static const _notifyAppUpdatesKey = 'settings_notify_app_updates';
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     final themeIndex = prefs.getInt(_themeKey);
+    final colorName = prefs.getString(_colorThemeKey);
     final lang = prefs.getString(_languageKey);
-    final notifications = prefs.getBool(_notificationsKey);
+
+    var colorTheme = AppColorTheme.qopcha;
+    if (colorName != null) {
+      for (final t in AppColorTheme.values) {
+        if (t.name == colorName) {
+          colorTheme = t;
+          break;
+        }
+      }
+    }
 
     state = state.copyWith(
       themeMode: themeIndex == null
           ? ThemeMode.system
           : ThemeMode.values[themeIndex],
+      colorTheme: colorTheme,
       language: lang == 'en' ? AppLanguage.english : AppLanguage.kurdish,
-      notificationsEnabled: notifications ?? true,
+      notificationsEnabled: prefs.getBool(_notificationsKey) ?? true,
+      notifyDiscounts: prefs.getBool(_notifyDiscountsKey) ?? true,
+      notifyNewProducts: prefs.getBool(_notifyNewProductsKey) ?? true,
+      notifyAppUpdates: prefs.getBool(_notifyAppUpdatesKey) ?? true,
       isLoaded: true,
     );
   }
@@ -63,16 +126,43 @@ class AppSettingsNotifier extends StateNotifier<AppSettingsState> {
     await prefs.setInt(_themeKey, mode.index);
   }
 
+  Future<void> setColorTheme(AppColorTheme theme) async {
+    state = state.copyWith(colorTheme: theme);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_colorThemeKey, theme.name);
+  }
+
   Future<void> setLanguage(AppLanguage language) async {
     state = state.copyWith(language: language);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_languageKey, language == AppLanguage.english ? 'en' : 'ku');
+    await prefs.setString(
+      _languageKey,
+      language == AppLanguage.english ? 'en' : 'ku',
+    );
   }
 
   Future<void> setNotifications(bool enabled) async {
     state = state.copyWith(notificationsEnabled: enabled);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_notificationsKey, enabled);
+  }
+
+  Future<void> setNotifyDiscounts(bool enabled) async {
+    state = state.copyWith(notifyDiscounts: enabled);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_notifyDiscountsKey, enabled);
+  }
+
+  Future<void> setNotifyNewProducts(bool enabled) async {
+    state = state.copyWith(notifyNewProducts: enabled);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_notifyNewProductsKey, enabled);
+  }
+
+  Future<void> setNotifyAppUpdates(bool enabled) async {
+    state = state.copyWith(notifyAppUpdates: enabled);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_notifyAppUpdatesKey, enabled);
   }
 }
 
