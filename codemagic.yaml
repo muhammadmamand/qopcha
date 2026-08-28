@@ -67,12 +67,24 @@ workflows:
       - name: Set up code signing
         script: |
           xcode-project use-profiles
-      - name: Get Flutter packages
+      - name: Prepare Flutter and Firebase deps
         script: |
+          flutter config --no-enable-swift-package-manager
+          flutter clean
+          rm -rf ~/Library/Caches/org.swift.swiftpm || true
+          rm -rf ios/Pods ios/.symlinks ios/Podfile.lock || true
           flutter pub get
       - name: Install CocoaPods
         script: |
-          find . -name "Podfile" -execdir pod install \;
+          if [ -f ios/Podfile ]; then
+            cd ios && pod install --repo-update
+          else
+            flutter precache --ios
+            flutter build ios --config-only --release
+            if [ -f ios/Podfile ]; then
+              cd ios && pod install --repo-update
+            fi
+          fi
       - name: Build IPA (HTTPS Contabo API)
         script: |
           if [ "$APP_STORE_APPLE_ID" != "0" ] && [ -n "$APP_STORE_APPLE_ID" ]; then
