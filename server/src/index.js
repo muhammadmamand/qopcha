@@ -17,6 +17,7 @@ const { sendOtpWithFallback, toE164Iraq } = require('./verifyway');
 const ROOT = path.join(__dirname, '..');
 const DATA_DIR = path.join(ROOT, 'data');
 const UPLOAD_DIR = path.join(ROOT, 'uploads');
+const PUBLIC_DIR = path.join(ROOT, 'public');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const store = createStore(DATA_DIR);
@@ -268,6 +269,7 @@ app.use(
         req.path.startsWith('/api/products/') ||
         req.path === '/api/banners' ||
         req.path === '/api/content' ||
+        req.path === '/privacy' ||
         req.path.startsWith('/uploads')),
   }),
 );
@@ -279,6 +281,10 @@ const authLimit = rateLimit({
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, service: 'qopcha', time: new Date().toISOString() });
+});
+
+app.get('/privacy', (_req, res) => {
+  res.type('html').sendFile(path.join(PUBLIC_DIR, 'privacy.html'));
 });
 
 app.post('/api/auth/register', authLimit, async (req, res) => {
