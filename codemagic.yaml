@@ -76,15 +76,7 @@ workflows:
           flutter pub get
       - name: Install CocoaPods
         script: |
-          if [ -f ios/Podfile ]; then
-            cd ios && pod install --repo-update
-          else
-            flutter precache --ios
-            flutter build ios --config-only --release
-            if [ -f ios/Podfile ]; then
-              cd ios && pod install --repo-update
-            fi
-          fi
+          cd ios && pod install --repo-update
       - name: Build IPA (HTTPS Contabo API)
         script: |
           if [ "$APP_STORE_APPLE_ID" != "0" ] && [ -n "$APP_STORE_APPLE_ID" ]; then
