@@ -270,6 +270,8 @@ app.use(
         req.path === '/api/banners' ||
         req.path === '/api/content' ||
         req.path === '/privacy' ||
+        req.path === '/qopcha_logo.png' ||
+        req.path.startsWith('/public') ||
         req.path.startsWith('/uploads')),
   }),
 );
@@ -283,8 +285,17 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true, service: 'qopcha', time: new Date().toISOString() });
 });
 
+app.use(
+  '/public',
+  express.static(PUBLIC_DIR, { maxAge: '7d', fallthrough: false }),
+);
+
 app.get('/privacy', (_req, res) => {
   res.type('html').sendFile(path.join(PUBLIC_DIR, 'privacy.html'));
+});
+
+app.get('/qopcha_logo.png', (_req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'qopcha_logo.png'));
 });
 
 app.post('/api/auth/register', authLimit, async (req, res) => {

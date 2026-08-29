@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="Qopcha privacy policy — English, Kurdish, and Arabic." />
   <title>Qopcha — Privacy Policy</title>
+  <link rel="icon" href="/qopcha_logo.png" type="image/png" />
+  <link rel="apple-touch-icon" href="/qopcha_logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -137,16 +139,24 @@
     }
 
     .logo {
-      width: 52px;
-      height: 52px;
+      width: 56px;
+      height: 56px;
       border-radius: 16px;
-      background: rgba(255, 255, 255, 0.18);
-      backdrop-filter: blur(8px);
+      background: #fff;
       display: grid;
       place-items: center;
-      font-size: 1.6rem;
-      font-weight: 700;
-      border: 1px solid rgba(255, 255, 255, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      padding: 6px;
     }
 
     .brand-name {
@@ -381,7 +391,9 @@
     <header class="hero">
       <div class="hero-inner">
         <div class="brand-row">
-          <div class="logo" aria-hidden="true">ق</div>
+          <div class="logo" aria-hidden="true">
+            <img src="/qopcha_logo.png" alt="Qopcha" width="56" height="56" />
+          </div>
           <div>
             <div class="brand-name">Qopcha · قۆپچە</div>
             <div class="brand-tag" data-i18n="brandTag">Clothing marketplace</div>
