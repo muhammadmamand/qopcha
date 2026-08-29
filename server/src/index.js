@@ -271,6 +271,7 @@ app.use(
         req.path === '/api/content' ||
         req.path === '/privacy' ||
         req.path === '/qopcha_logo.png' ||
+        req.path === '/Rabar_038.ttf' ||
         req.path.startsWith('/public') ||
         req.path.startsWith('/uploads')),
   }),
@@ -296,6 +297,10 @@ app.get('/privacy', (_req, res) => {
 
 app.get('/qopcha_logo.png', (_req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, 'qopcha_logo.png'));
+});
+
+app.get('/Rabar_038.ttf', (_req, res) => {
+  res.type('font/ttf').sendFile(path.join(PUBLIC_DIR, 'Rabar_038.ttf'));
 });
 
 app.post('/api/auth/register', authLimit, async (req, res) => {
