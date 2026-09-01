@@ -59,8 +59,9 @@ workflows:
         distribution_type: app_store
         bundle_identifier: com.qopcha.Qopcha
       vars:
-        # Optional: App Store Connect → Qopcha → App Information → Apple ID
-        # Leave 0 to start from build 1 on first TestFlight upload
+        # App Store Connect → Qopcha → App Information → Apple ID (numeric).
+        # Set this so each build auto-bumps past the latest TestFlight number.
+        # Leave "0" to use Codemagic BUILD_NUMBER only (minimum 2).
         APP_STORE_APPLE_ID: "0"
         API_BASE: https://169-58-230-144.sslip.io
     scripts:
@@ -79,12 +80,19 @@ workflows:
           cd ios && pod install --repo-update
       - name: Build IPA (HTTPS Contabo API)
         script: |
-          if [ "$APP_STORE_APPLE_ID" != "0" ] && [ -n "$APP_STORE_APPLE_ID" ]; then
-            LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo 0)
-          else
-            LATEST=0
+          # Codemagic BUILD_NUMBER increments every workflow run.
+          BUILD_NO="${BUILD_NUMBER:-2}"
+          if [ "$BUILD_NO" -le 1 ]; then
+            BUILD_NO=2
           fi
-          BUILD_NO=$((LATEST + 1))
+          # When App Store Connect app ID is set, always beat the latest TestFlight build.
+          if [ -n "${APP_STORE_APPLE_ID}" ] && [ "${APP_STORE_APPLE_ID}" != "0" ]; then
+            LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo 0)
+            if [ "$LATEST" -ge "$BUILD_NO" ]; then
+              BUILD_NO=$((LATEST + 1))
+            fi
+          fi
+          echo "Using iOS build number: $BUILD_NO"
           flutter build ipa --release \
             --dart-define=API_BASE="$API_BASE" \
             --build-name=1.0.$BUILD_NO \
