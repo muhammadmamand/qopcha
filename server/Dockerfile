@@ -4,6 +4,7 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install --omit=dev
 COPY src ./src
+COPY scripts ./scripts
 COPY public ./public
 
 RUN mkdir -p /app/data /app/uploads \
