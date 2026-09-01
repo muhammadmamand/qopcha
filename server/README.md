@@ -11,6 +11,29 @@ npm install
 PORT=8090 PUBLIC_URL=http://127.0.0.1:8090 node src/index.js
 ```
 
+Without `DATABASE_URL`, data is stored in `data/store.json`.  
+With Docker Compose, PostgreSQL is used automatically.
+
+### PostgreSQL (recommended)
+
+```bash
+docker compose up -d
+# API uses postgres://qopcha:...@postgres:5432/qopcha from docker-compose.yml
+```
+
+Migrate existing JSON data once:
+
+```bash
+DATABASE_URL=postgres://qopcha:password@localhost:5432/qopcha node scripts/migrate_json_to_pg.js
+```
+
+Health check shows storage backend:
+
+```bash
+curl http://127.0.0.1:8080/api/health
+# {"ok":true,"storage":"postgres","products":4,...}
+```
+
 Seed demo products:
 
 ```bash

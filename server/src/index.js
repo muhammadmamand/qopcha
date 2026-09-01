@@ -11,7 +11,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
-const { createStore } = require('./store');
+const { createAppStore } = require('./create_store');
 const { sendOtpWithFallback, toE164Iraq } = require('./verifyway');
 
 const ROOT = path.join(__dirname, '..');
@@ -20,7 +20,34 @@ const UPLOAD_DIR = path.join(ROOT, 'uploads');
 const PUBLIC_DIR = path.join(ROOT, 'public');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-const store = createStore(DATA_DIR);
+let store;
+let storageBackend = 'json';
+
+async function read(col, id) {
+  return store.read(col, id);
+}
+
+async function write(col, id, data) {
+  return store.write(col, id, data);
+}
+
+async function merge(col, id, patch) {
+  const current = (await read(col, id)) || { id };
+  const next = { ...current };
+  for (const [key, value] of Object.entries(patch)) {
+    if (key.includes('.')) {
+      const [a, b] = key.split('.');
+      next[a] = { ...(next[a] || {}), [b]: value };
+    } else {
+      next[key] = value;
+    }
+  }
+  return write(col, id, next);
+}
+
+async function all(col) {
+  return store.all(col);
+}
 
 function loadEnvFile() {
   const envPath = path.join(ROOT, '.env');
@@ -65,32 +92,6 @@ function normalizePhone(raw) {
 
 function isValidPhone(phone) {
   return /^07[0-9]{9}$/.test(phone);
-}
-
-function read(col, id) {
-  return store.read(col, id);
-}
-
-function write(col, id, data) {
-  return store.write(col, id, data);
-}
-
-function merge(col, id, patch) {
-  const current = read(col, id) || { id };
-  const next = { ...current };
-  for (const [key, value] of Object.entries(patch)) {
-    if (key.includes('.')) {
-      const [a, b] = key.split('.');
-      next[a] = { ...(next[a] || {}), [b]: value };
-    } else {
-      next[key] = value;
-    }
-  }
-  return write(col, id, next);
-}
-
-function all(col) {
-  return store.all(col);
 }
 
 function publicUser(doc) {
@@ -211,11 +212,11 @@ function shopMayTransitionOrder(from, to) {
 }
 
 async function seedAdmin() {
-  if (store.getAuthByEmail(ADMIN_EMAIL) || store.getAuthByPhone(ADMIN_PHONE)) return;
+  if ((await store.getAuthByEmail(ADMIN_EMAIL)) || (await store.getAuthByPhone(ADMIN_PHONE))) return;
   const id = uuidv4();
   const password_hash = await bcrypt.hash(ADMIN_PASSWORD, 12);
-  store.insertAuth({ id, email: ADMIN_EMAIL, phone: ADMIN_PHONE, password_hash });
-  write('users', id, {
+  await store.insertAuth({ id, email: ADMIN_EMAIL, phone: ADMIN_PHONE, password_hash });
+  await write('users', id, {
     id,
     name: 'ئەدمین',
     email: ADMIN_EMAIL,
@@ -226,6 +227,88 @@ async function seedAdmin() {
     createdAt: new Date().toISOString(),
   });
   console.log(`Seeded admin ${ADMIN_EMAIL} / ${ADMIN_PHONE}`);
+}
+
+async function seedStarterProducts() {
+  if ((await all('products')).length > 0) return;
+  const adminAuth = await store.getAuthByEmail(ADMIN_EMAIL);
+  if (!adminAuth) return;
+  const adminUser = await read('users', adminAuth.id);
+  if (!adminUser) return;
+
+  const shopName = 'قۆپچە';
+  const now = new Date().toISOString();
+  const demos = [
+    {
+      name: 'کاتی شەرت کلاسیک',
+      description: 'شەرتی نەرم و ڕۆژانە',
+      category: 'پۆشاک',
+      price: 35000,
+      colors: ['سپی', 'ڕەش'],
+      material: 'کاتن',
+      brand: 'قۆپچە',
+      imageUrls: ['https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800'],
+      sizeStocks: [{ size: 'M', quantity: 8 }, { size: 'L', quantity: 10 }],
+      isFeatured: true,
+      productType: 'clothing',
+    },
+    {
+      name: 'جلکی هاوینەی ئافرەتان',
+      description: 'جلکی سووک و مۆدێرن',
+      category: 'کراس',
+      price: 55000,
+      colors: ['پەمەیی', 'سپی'],
+      material: 'لینن',
+      brand: 'قۆپچە',
+      imageUrls: ['https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=800'],
+      sizeStocks: [{ size: 'S', quantity: 5 }, { size: 'M', quantity: 7 }],
+      isFeatured: true,
+      discountPercent: 15,
+      discountType: 'percent',
+      discountForAllCustomers: true,
+      discountSetBy: 'shop',
+      productType: 'clothing',
+    },
+    {
+      name: 'پانتۆڵی جین',
+      description: 'جینی نەرم بۆ ڕۆژانە',
+      category: 'پانتۆڵ',
+      price: 48000,
+      colors: ['شینی جین'],
+      material: 'دینم',
+      brand: 'قۆپچە',
+      imageUrls: ['https://images.unsplash.com/photo-1542272604-787c3835535d?w=800'],
+      sizeStocks: [{ size: '32', quantity: 6 }, { size: '34', quantity: 5 }],
+      isFeatured: false,
+      productType: 'clothing',
+    },
+    {
+      name: 'کۆتی زستانە',
+      description: 'کۆتی گەرم و مۆدێرن',
+      category: 'کۆت',
+      price: 89000,
+      colors: ['ڕەش', 'قاوەیی'],
+      material: 'وۆڵ',
+      brand: 'قۆپچە',
+      imageUrls: ['https://images.unsplash.com/photo-1544022613-e87ca75a784a?w=800'],
+      sizeStocks: [{ size: 'L', quantity: 4 }, { size: 'XL', quantity: 3 }],
+      isFeatured: true,
+      productType: 'clothing',
+    },
+  ];
+
+  for (const demo of demos) {
+    const id = uuidv4();
+    await write('products', id, {
+      ...demo,
+      id,
+      shopOwnerId: adminUser.id,
+      shopName,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+  console.log(`Seeded ${demos.length} starter products`);
 }
 
 const storage = multer.diskStorage({
@@ -282,8 +365,55 @@ const authLimit = rateLimit({
   message: { error: 'هەوڵی زۆر درا — دواتر هەوڵبدەرەوە' },
 });
 
-app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, service: 'qopcha', time: new Date().toISOString() });
+app.get('/api/health', async (_req, res) => {
+  const products = await all('products');
+  res.json({
+    ok: true,
+    service: 'qopcha',
+    storage: storageBackend,
+    time: new Date().toISOString(),
+    products: products.length,
+  });
+});
+
+app.post('/api/setup/seed-starter', async (_req, res) => {
+  try {
+    const before = (await all('products')).length;
+    if (before > 0) {
+      return res.json({ ok: true, skipped: true, products: before });
+    }
+    await seedStarterProducts();
+    const after = (await all('products')).length;
+    res.json({ ok: true, seeded: after > before, products: after });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'هەڵەیەک ڕوویدا' });
+  }
+});
+
+app.get('/', (_req, res) => {
+  res.type('html').send(`<!DOCTYPE html>
+<html lang="ku" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>قۆپچە — Qopcha API</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 520px; margin: 48px auto; padding: 0 20px; color: #152426; line-height: 1.6; }
+    h1 { color: #116c71; margin-bottom: 0.25rem; }
+    p { color: #5a6a6c; }
+    a { color: #116c71; font-weight: 600; }
+    .ok { display: inline-block; background: #e8f5f0; color: #1b7a4e; padding: 6px 12px; border-radius: 8px; font-size: 14px; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <h1>قۆپچە · Qopcha</h1>
+  <p>API سێرڤەرەکە کار دەکات — ئەم بەستەرە بۆ ئەپەکەی مۆبایلە، نەک ماڵپەڕی تەواو.</p>
+  <p class="ok">✓ Server online</p>
+  <p><a href="/privacy">Privacy Policy / سیاسەتی تایبەتمەندی</a></p>
+  <p><a href="/api/health">API health check</a></p>
+</body>
+</html>`);
 });
 
 app.use(
@@ -323,19 +453,19 @@ app.post('/api/auth/register', authLimit, async (req, res) => {
     if (password.length < 6) {
       return res.status(400).json({ error: 'وشەی نهێنی لاوازە (لانیکەم ٦ پیت)' });
     }
-    if (store.getAuthByPhone(phone)) {
+    if (await store.getAuthByPhone(phone)) {
       return res.status(400).json({ error: 'ئەم ژمارەیە پێشتر تۆمارکراوە' });
     }
-    const otp = store.getOtp(phone, 'signup');
+    const otp = await store.getOtp(phone, 'signup');
     if (!otp || otp.code !== code || otp.expires_at < Date.now()) {
       return res.status(400).json({ error: 'کۆد نادروستە یان بەسەرچووە' });
     }
-    store.deleteOtp(phone, 'signup');
+    await store.deleteOtp(phone, 'signup');
     const id = uuidv4();
     const password_hash = await bcrypt.hash(password, 12);
-    store.insertAuth({ id, phone, password_hash });
+    await store.insertAuth({ id, phone, password_hash });
     // OTP-verified accounts are auto-accepted — no admin approval queue.
-    const user = write('users', id, {
+    const user = await write('users', id, {
       id,
       name,
       email: '',
@@ -360,11 +490,11 @@ app.post('/api/auth/register', authLimit, async (req, res) => {
   }
 });
 
-function finalizeAuthUser(row) {
-  let user = read('users', row.id);
+async function finalizeAuthUser(row) {
+  let user = await read('users', row.id);
   if (!user) return null;
   if ((row.email || user.email || '').toLowerCase() === ADMIN_EMAIL && user.role !== 'admin') {
-    user = merge('users', user.id, {
+    user = await merge('users', user.id, {
       role: 'admin',
       approvalStatus: 'approved',
       approvalNoticeSeen: true,
@@ -373,13 +503,13 @@ function finalizeAuthUser(row) {
   if (user.role === 'admin') return user;
   // OTP / phone-verified accounts stay approved without admin review.
   if (user.phoneVerified === true && user.approvalStatus === 'pending') {
-    user = merge('users', user.id, {
+    user = await merge('users', user.id, {
       approvalStatus: 'approved',
       approvalNoticeSeen: true,
     });
   }
   if (user.role === 'customer' && user.approvalStatus === 'pending') {
-    user = merge('users', user.id, {
+    user = await merge('users', user.id, {
       approvalStatus: 'approved',
       approvalNoticeSeen: true,
     });
@@ -390,9 +520,9 @@ function finalizeAuthUser(row) {
 async function sendPhoneOtp(phone, purpose) {
   const code = String(crypto.randomInt(100000, 999999));
   const expiresAt = Date.now() + 10 * 60 * 1000;
-  store.setOtp(phone, purpose, code, expiresAt);
+  await store.setOtp(phone, purpose, code, expiresAt);
   if (purpose === 'reset') {
-    store.setResetCode(phone, code, expiresAt);
+    await store.setResetCode(phone, code, expiresAt);
   }
   const result = await sendOtpWithFallback({
     recipientE164: toE164Iraq(phone),
@@ -413,16 +543,16 @@ app.post('/api/auth/login', authLimit, async (req, res) => {
   // Staff console may still log in with admin email.
   let row = null;
   if (email && email.includes('@')) {
-    row = store.getAuthByEmail(email);
+    row = await store.getAuthByEmail(email);
   }
   if (!row && phone) {
-    row = store.getAuthByPhone(phone);
+    row = await store.getAuthByPhone(phone);
   }
 
   if (!row || !(await bcrypt.compare(password, row.password_hash))) {
     return res.status(401).json({ error: 'ژمارەی مۆبایل یان وشەی نهێنی هەڵەیە' });
   }
-  const user = finalizeAuthUser(row);
+  const user = await finalizeAuthUser(row);
   if (!user) return res.status(401).json({ error: 'هەژمارەکە نەدۆزرایەوە' });
   res.json({ token: signToken(user), user: publicUser(user) });
 });
@@ -437,7 +567,7 @@ app.post('/api/auth/otp/send', authLimit, async (req, res) => {
     if (!isValidPhone(phone)) {
       return res.status(400).json({ error: 'ژمارەی مۆبایل دروست نییە (07xxxxxxxxx)' });
     }
-    const row = store.getAuthByPhone(phone);
+    const row = await store.getAuthByPhone(phone);
     if (purpose === 'signup') {
       if (row) {
         return res.status(400).json({ error: 'ئەم ژمارەیە پێشتر تۆمارکراوە' });
@@ -477,25 +607,25 @@ app.post('/api/auth/otp/login', authLimit, async (req, res) => {
   if (!isValidPhone(phone) || !/^\d{6}$/.test(code)) {
     return res.status(400).json({ error: 'ژمارە یان کۆد هەڵەیە' });
   }
-  const otp = store.getOtp(phone, 'login');
+  const otp = await store.getOtp(phone, 'login');
   if (!otp || otp.code !== code || otp.expires_at < Date.now()) {
     return res.status(401).json({ error: 'کۆد نادروستە یان بەسەرچووە' });
   }
-  const row = store.getAuthByPhone(phone);
+  const row = await store.getAuthByPhone(phone);
   if (!row) return res.status(401).json({ error: 'هەژمارەکە نەدۆزرایەوە' });
-  store.deleteOtp(phone, 'login');
-  const user = finalizeAuthUser(row);
+  await store.deleteOtp(phone, 'login');
+  const user = await finalizeAuthUser(row);
   if (!user) return res.status(401).json({ error: 'هەژمارەکە نەدۆزرایەوە' });
   res.json({ token: signToken(user), user: publicUser(user) });
 });
 
-app.get('/api/auth/me', authRequired, (req, res) => {
-  const user = publicUser(read('users', req.auth.sub));
+app.get('/api/auth/me', authRequired, async (req, res) => {
+  const user = publicUser(await read('users', req.auth.sub));
   if (!user) return res.status(401).json({ error: 'تکایە دووبارە بچۆ ژوورەوە' });
   res.json({ user });
 });
 
-app.patch('/api/auth/me', authRequired, (req, res) => {
+app.patch('/api/auth/me', authRequired, async (req, res) => {
   const body = req.body || {};
   const patch = {};
   for (const [key, value] of Object.entries(body)) {
@@ -510,14 +640,14 @@ app.patch('/api/auth/me', authRequired, (req, res) => {
     if (!isValidPhone(phone)) {
       return res.status(400).json({ error: 'ژمارەی مۆبایل دروست نییە (07xxxxxxxxx)' });
     }
-    const existing = store.getAuthByPhone(phone);
+    const existing = await store.getAuthByPhone(phone);
     if (existing && existing.id !== req.auth.sub) {
       return res.status(400).json({ error: 'ئەم ژمارەیە پێشتر تۆمارکراوە' });
     }
-    store.updateAuthPhone(req.auth.sub, phone);
+    await store.updateAuthPhone(req.auth.sub, phone);
     patch.phone = phone;
   }
-  const user = merge('users', req.auth.sub, patch);
+  const user = await merge('users', req.auth.sub, patch);
   res.json({ user: publicUser(user) });
 });
 
@@ -527,12 +657,12 @@ app.post('/api/auth/change-password', authRequired, async (req, res) => {
   if (newPassword.length < 6) {
     return res.status(400).json({ error: 'وشەی نهێنی نوێ لانیکەم ٦ پیت بێت' });
   }
-  const row = store.getAuthById(req.auth.sub);
+  const row = await store.getAuthById(req.auth.sub);
   if (!row || !(await bcrypt.compare(currentPassword, row.password_hash))) {
     return res.status(400).json({ error: 'وشەی نهێنی ئێستات هەڵەیە' });
   }
   const password_hash = await bcrypt.hash(newPassword, 12);
-  store.updateAuthPassword(req.auth.sub, password_hash);
+  await store.updateAuthPassword(req.auth.sub, password_hash);
   res.json({ ok: true });
 });
 
@@ -542,7 +672,7 @@ app.post('/api/auth/forgot', authLimit, async (req, res) => {
     if (!isValidPhone(phone)) {
       return res.status(400).json({ error: 'ژمارەی مۆبایل دروست نییە (07xxxxxxxxx)' });
     }
-    const row = store.getAuthByPhone(phone);
+    const row = await store.getAuthByPhone(phone);
     if (row) {
       const sent = await sendPhoneOtp(phone, 'reset');
       return res.json({ ok: true, channel: sent.channel });
@@ -570,20 +700,20 @@ app.post('/api/auth/reset', authLimit, async (req, res) => {
   if (!/^\d{6}$/.test(code) || newPassword.length < 6) {
     return res.status(400).json({ error: 'کۆد یان وشەی نهێنی هەڵەیە' });
   }
-  const otp = store.getOtp(phone, 'reset');
-  const legacy = store.getResetCode(phone);
+  const otp = await store.getOtp(phone, 'reset');
+  const legacy = await store.getResetCode(phone);
   const match =
     (otp && otp.code === code && otp.expires_at >= Date.now()) ||
     (legacy && legacy.code === code && legacy.expires_at >= Date.now());
   if (!match) {
     return res.status(400).json({ error: 'کۆد نادروستە یان بەسەرچووە' });
   }
-  const auth = store.getAuthByPhone(phone);
+  const auth = await store.getAuthByPhone(phone);
   if (!auth) return res.status(400).json({ error: 'هەژمار نەدۆزرایەوە' });
   const password_hash = await bcrypt.hash(newPassword, 12);
-  store.updateAuthPassword(auth.id, password_hash);
-  store.deleteOtp(phone, 'reset');
-  store.deleteResetCode(phone);
+  await store.updateAuthPassword(auth.id, password_hash);
+  await store.deleteOtp(phone, 'reset');
+  await store.deleteResetCode(phone);
   res.json({ ok: true });
 });
 
@@ -595,11 +725,11 @@ app.post('/api/upload', authRequired, (req, res) => {
   });
 });
 
-app.get('/api/products', (_req, res) => {
+app.get('/api/products', async (_req, res) => {
   const shopOwnerId = String(_req.query.shopOwnerId || '');
   const featured = String(_req.query.featured || '') === '1';
   const category = String(_req.query.category || '');
-  let list = all('products');
+  let list = await all('products');
   if (shopOwnerId) list = list.filter((p) => p.shopOwnerId === shopOwnerId);
   if (featured) list = list.filter((p) => p.isFeatured === true);
   if (category && category !== 'هەموو') list = list.filter((p) => p.category === category);
@@ -607,19 +737,19 @@ app.get('/api/products', (_req, res) => {
   res.json({ products: list });
 });
 
-app.get('/api/products/:id', (req, res) => {
-  const product = read('products', req.params.id);
+app.get('/api/products/:id', async (req, res) => {
+  const product = await read('products', req.params.id);
   if (!product) return res.status(404).json({ error: 'بەرهەم نەدۆزرایەوە' });
   res.json({ product });
 });
 
-app.post('/api/products', authRequired, (req, res) => {
+app.post('/api/products', authRequired, async (req, res) => {
   if (!['shopOwner', 'admin'].includes(req.auth.role)) {
     return res.status(403).json({ error: 'ناتوانیت بەرهەم زیاد بکەیت' });
   }
   const id = uuidv4();
   const now = new Date().toISOString();
-  const product = write('products', id, {
+  const product = await write('products', id, {
     ...(req.body || {}),
     id,
     shopOwnerId: req.auth.role === 'admin' ? (req.body?.shopOwnerId || req.auth.sub) : req.auth.sub,
@@ -629,31 +759,31 @@ app.post('/api/products', authRequired, (req, res) => {
   res.json({ product });
 });
 
-app.patch('/api/products/:id', authRequired, (req, res) => {
-  const current = read('products', req.params.id);
+app.patch('/api/products/:id', authRequired, async (req, res) => {
+  const current = await read('products', req.params.id);
   if (!current) return res.status(404).json({ error: 'بەرهەم نەدۆزرایەوە' });
   if (req.auth.role !== 'admin' && current.shopOwnerId !== req.auth.sub) {
     return res.status(403).json({ error: 'ناتوانیت ئەم بەرهەمە بگۆڕیت' });
   }
-  const product = merge('products', current.id, {
+  const product = await merge('products', current.id, {
     ...(req.body || {}),
     updatedAt: new Date().toISOString(),
   });
   res.json({ product });
 });
 
-app.delete('/api/products/:id', authRequired, (req, res) => {
-  const current = read('products', req.params.id);
+app.delete('/api/products/:id', authRequired, async (req, res) => {
+  const current = await read('products', req.params.id);
   if (!current) return res.status(404).json({ error: 'بەرهەم نەدۆزرایەوە' });
   if (req.auth.role !== 'admin' && current.shopOwnerId !== req.auth.sub) {
     return res.status(403).json({ error: 'ناتوانیت ئەم بەرهەمە بسڕیتەوە' });
   }
-  store.deleteDoc('products', current.id);
+  await store.deleteDoc('products', current.id);
   res.json({ ok: true });
 });
 
-app.get('/api/orders', authRequired, (req, res) => {
-  let list = all('orders');
+app.get('/api/orders', authRequired, async (req, res) => {
+  let list = await all('orders');
   if (req.auth.role === 'admin') {
     // all
   } else if (req.auth.role === 'shopOwner') {
@@ -665,13 +795,13 @@ app.get('/api/orders', authRequired, (req, res) => {
   res.json({ orders: list });
 });
 
-app.post('/api/orders', authRequired, (req, res) => {
+app.post('/api/orders', authRequired, async (req, res) => {
   const items = Array.isArray(req.body?.orders) ? req.body.orders : [req.body];
   const created = [];
   for (const raw of items) {
     if (!raw) continue;
     const id = uuidv4();
-    const order = write('orders', id, {
+    const order = await write('orders', id, {
       ...raw,
       id,
       userId: req.auth.sub,
@@ -683,8 +813,8 @@ app.post('/api/orders', authRequired, (req, res) => {
   res.json({ orders: created });
 });
 
-app.patch('/api/orders/:id', authRequired, (req, res) => {
-  const current = read('orders', req.params.id);
+app.patch('/api/orders/:id', authRequired, async (req, res) => {
+  const current = await read('orders', req.params.id);
   if (!current) return res.status(404).json({ error: 'داواکاری نەدۆزرایەوە' });
   const shop = current.shopOwnerId === req.auth.sub;
   const admin = req.auth.role === 'admin';
@@ -711,13 +841,13 @@ app.patch('/api/orders/:id', authRequired, (req, res) => {
     patch.deliveryFee = fee;
   }
   patch.statusUpdatedAt = new Date().toISOString();
-  const order = merge('orders', current.id, patch);
+  const order = await merge('orders', current.id, patch);
   res.json({ order });
 });
 
-app.get('/api/notifications', authRequired, (req, res) => {
+app.get('/api/notifications', authRequired, async (req, res) => {
   const uid = req.auth.sub;
-  const list = all('notifications').filter((n) => {
+  const list = (await all('notifications')).filter((n) => {
     const target = (n.targetUserId || '').trim();
     if (target) return target === uid;
     return n.audience === 'all' || !target;
@@ -726,7 +856,7 @@ app.get('/api/notifications', authRequired, (req, res) => {
   res.json({ notifications: list.slice(0, 60) });
 });
 
-app.post('/api/notifications', authRequired, (req, res) => {
+app.post('/api/notifications', authRequired, async (req, res) => {
   const body = req.body || {};
   const type = String(body.type || '').trim();
   if (!ALLOWED_NOTIFICATION_TYPES.has(type)) {
@@ -773,7 +903,7 @@ app.post('/api/notifications', authRequired, (req, res) => {
   }
 
   const id = String(body.id || uuidv4()).slice(0, 120);
-  const notification = write('notifications', id, {
+  const notification = await write('notifications', id, {
     ...fields,
     id,
     audience: targetUserId ? 'user' : 'all',
@@ -782,16 +912,16 @@ app.post('/api/notifications', authRequired, (req, res) => {
   res.json({ notification });
 });
 
-app.get('/api/users', authRequired, adminRequired, (_req, res) => {
-  const users = all('users')
+app.get('/api/users', authRequired, adminRequired, async (_req, res) => {
+  const users = (await all('users'))
     .map(publicUser)
     .filter((u) => u.role !== 'admin');
   users.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
   res.json({ users });
 });
 
-app.patch('/api/users/:id', authRequired, adminRequired, (req, res) => {
-  const current = read('users', req.params.id);
+app.patch('/api/users/:id', authRequired, adminRequired, async (req, res) => {
+  const current = await read('users', req.params.id);
   if (!current) return res.status(404).json({ error: 'بەکارهێنەر نەدۆزرایەوە' });
   const body = { ...(req.body || {}) };
   delete body.id;
@@ -802,21 +932,21 @@ app.patch('/api/users/:id', authRequired, adminRequired, (req, res) => {
   if (body.role === 'admin' || current.role === 'admin') {
     delete body.role;
   }
-  const user = merge('users', current.id, body);
+  const user = await merge('users', current.id, body);
   res.json({ user: publicUser(user) });
 });
 
-app.get('/api/banners', (_req, res) => {
+app.get('/api/banners', async (_req, res) => {
   const activeOnly = String(_req.query.active || '') === '1';
-  let list = all('banners');
+  let list = await all('banners');
   if (activeOnly) list = list.filter((b) => b.active !== false);
   list.sort((a, b) => (a.order || 0) - (b.order || 0));
   res.json({ banners: list });
 });
 
-app.post('/api/banners', authRequired, adminRequired, (req, res) => {
+app.post('/api/banners', authRequired, adminRequired, async (req, res) => {
   const id = req.body?.id || uuidv4();
-  const banner = write('banners', id, {
+  const banner = await write('banners', id, {
     ...(req.body || {}),
     id,
     createdAt: req.body?.createdAt || new Date().toISOString(),
@@ -824,50 +954,50 @@ app.post('/api/banners', authRequired, adminRequired, (req, res) => {
   res.json({ banner });
 });
 
-app.delete('/api/banners/:id', authRequired, adminRequired, (req, res) => {
-  store.deleteDoc('banners', req.params.id);
+app.delete('/api/banners/:id', authRequired, adminRequired, async (req, res) => {
+  await store.deleteDoc('banners', req.params.id);
   res.json({ ok: true });
 });
 
-app.get('/api/content', (_req, res) => {
-  res.json({ content: read('appContent', 'main') || {} });
+app.get('/api/content', async (_req, res) => {
+  res.json({ content: (await read('appContent', 'main')) || {} });
 });
 
-app.put('/api/content', authRequired, adminRequired, (req, res) => {
-  const content = write('appContent', 'main', {
+app.put('/api/content', authRequired, adminRequired, async (req, res) => {
+  const content = await write('appContent', 'main', {
     ...(req.body || {}),
     updatedAt: new Date().toISOString(),
   });
   res.json({ content });
 });
 
-app.get('/api/addresses', authRequired, (req, res) => {
-  const list = all(`addresses:${req.auth.sub}`);
+app.get('/api/addresses', authRequired, async (req, res) => {
+  const list = await all(`addresses:${req.auth.sub}`);
   list.sort((a, b) => Number(b.isDefault) - Number(a.isDefault));
   res.json({ addresses: list });
 });
 
-app.post('/api/addresses', authRequired, (req, res) => {
+app.post('/api/addresses', authRequired, async (req, res) => {
   const col = `addresses:${req.auth.sub}`;
   const id = req.body?.id || uuidv4();
   if (req.body?.isDefault) {
-    for (const item of all(col)) {
-      if (item.id !== id && item.isDefault) merge(col, item.id, { isDefault: false });
+    for (const item of await all(col)) {
+      if (item.id !== id && item.isDefault) await merge(col, item.id, { isDefault: false });
     }
   }
-  const address = write(col, id, {
+  const address = await write(col, id, {
     ...(req.body || {}),
     id,
     updatedAt: new Date().toISOString(),
   });
   if (address.location) {
-    merge('users', req.auth.sub, { location: address.location });
+    await merge('users', req.auth.sub, { location: address.location });
   }
   res.json({ address });
 });
 
-app.delete('/api/addresses/:id', authRequired, (req, res) => {
-  store.deleteDoc(`addresses:${req.auth.sub}`, req.params.id);
+app.delete('/api/addresses/:id', authRequired, async (req, res) => {
+  await store.deleteDoc(`addresses:${req.auth.sub}`, req.params.id);
   res.json({ ok: true });
 });
 
@@ -876,13 +1006,21 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: 'هەڵەیەک ڕوویدا' });
 });
 
-seedAdmin()
-  .then(() => {
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`قۆپچە API listening on ${PORT} (${PUBLIC_URL})`);
-    });
-  })
-  .catch((err) => {
-    console.error(err);
-    process.exit(1);
+async function boot() {
+  const created = await createAppStore({
+    dataDir: DATA_DIR,
+    databaseUrl: process.env.DATABASE_URL,
   });
+  store = created.store;
+  storageBackend = created.backend;
+  await seedAdmin();
+  await seedStarterProducts();
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`قۆپچە API listening on ${PORT} (${PUBLIC_URL}) [${storageBackend}]`);
+  });
+}
+
+boot().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

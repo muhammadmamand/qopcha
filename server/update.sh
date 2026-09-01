@@ -26,6 +26,13 @@ rsync -a \
   --exclude 'node_modules/' \
   "$SRC/" "$APP_DIR/"
 
+# Ensure PostgreSQL vars exist on older installs (does not overwrite existing values).
+if [ -f .env ]; then
+  grep -q '^POSTGRES_USER=' .env || echo 'POSTGRES_USER=qopcha' >> .env
+  grep -q '^POSTGRES_PASSWORD=' .env || echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" >> .env
+  grep -q '^POSTGRES_DB=' .env || echo 'POSTGRES_DB=qopcha' >> .env
+fi
+
 docker compose up -d --build
 docker image prune -f >/dev/null 2>&1 || true
 curl -fsS http://127.0.0.1:8080/api/health

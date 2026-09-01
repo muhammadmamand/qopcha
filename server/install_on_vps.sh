@@ -49,6 +49,9 @@ ADMIN_EMAIL=admin@qopcha.com
 ADMIN_PASSWORD=Admin123456
 ADMIN_PHONE=07500000000
 ALLOWED_ORIGIN=*
+POSTGRES_USER=qopcha
+POSTGRES_PASSWORD=$(openssl rand -hex 24)
+POSTGRES_DB=qopcha
 VERIFYWAY_API_URL=https://gateway.standingtech.com/api/v4/sms/send
 STANDING_API_URL=https://gateway.standingtech.com/api/v4/sms/send
 VERIFYWAY_API_TOKEN=
@@ -69,6 +72,9 @@ else
   grep -q '^VERIFYWAY_FALLBACK_CHANNEL=' .env || echo 'VERIFYWAY_FALLBACK_CHANNEL=sms' >> .env
   grep -q '^VERIFYWAY_SENDER=' .env || echo 'VERIFYWAY_SENDER=QopchaApp' >> .env
   grep -q '^STANDING_SENDER_ID=' .env || echo 'STANDING_SENDER_ID=QopchaApp' >> .env
+  grep -q '^POSTGRES_USER=' .env || echo 'POSTGRES_USER=qopcha' >> .env
+  grep -q '^POSTGRES_PASSWORD=' .env || echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" >> .env
+  grep -q '^POSTGRES_DB=' .env || echo 'POSTGRES_DB=qopcha' >> .env
 fi
 
 mkdir -p data uploads
