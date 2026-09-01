@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/l10n/app_strings.dart';
 import '../../core/theme/app_animations.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/hero_tags.dart';
@@ -20,6 +21,7 @@ class DiscountsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider);
     final user = ref.watch(currentUserProvider);
     final customerId = user?.id;
     final personalDiscount = user?.productDiscountPercent ?? 0;
@@ -81,18 +83,19 @@ class DiscountsScreen extends ConsumerWidget {
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
-                  child: const _DiscountsHeader(),
+                  child: _DiscountsHeader(strings: s),
                 ),
                 Expanded(
                   child: productsAsync.when(
                     loading: () => const ProductGridShimmer(count: 6),
                     error: (e, _) => ErrorView(
-                      message: 'هەڵە لە بارکردنی داشکاندنەکان',
+                      message: s.discountsLoadError,
                       onRetry: () => ref.invalidate(productsProvider),
                     ),
                     data: (_) {
                       if (!hasAnyDiscount) {
                         return _DiscountsEmpty(
+                          strings: s,
                           onBrowse: () => context.go('/home'),
                         );
                       }
@@ -106,6 +109,7 @@ class DiscountsScreen extends ConsumerWidget {
                             child: Padding(
                               padding: const EdgeInsets.fromLTRB(18, 0, 18, 4),
                               child: _ActiveDiscountsPanel(
+                                strings: s,
                                 productCount: discounted.length,
                                 productPercent: topPercent,
                                 personalPercent: personalDiscount,
@@ -117,7 +121,7 @@ class DiscountsScreen extends ConsumerWidget {
                             child: Padding(
                               padding: const EdgeInsets.fromLTRB(18, 22, 18, 10),
                               child: _SectionTitle(
-                                title: 'بەرهەمی داشکاندراو',
+                                title: s.discountedProducts,
                                 trailing: discounted.isEmpty
                                     ? null
                                     : '${discounted.length}',
@@ -133,7 +137,7 @@ class DiscountsScreen extends ConsumerWidget {
                                   18,
                                   kPremiumBottomNavClearance + 24,
                                 ),
-                                child: const _NoProductOffersNote(),
+                                child: _NoProductOffersNote(strings: s),
                               ),
                             )
                           else
@@ -227,7 +231,9 @@ class _AmbientGlow extends StatelessWidget {
 }
 
 class _DiscountsHeader extends StatelessWidget {
-  const _DiscountsHeader();
+  final AppStrings strings;
+
+  const _DiscountsHeader({required this.strings});
 
   @override
   Widget build(BuildContext context) {
@@ -259,7 +265,7 @@ class _DiscountsHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'داشکاندنەکان',
+                strings.discountsPageTitle,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 26,
@@ -271,7 +277,7 @@ class _DiscountsHeader extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                'هەموو جۆرەکانی داشکاندن لە یەک شوێن',
+                strings.discountsPageSubtitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -293,12 +299,14 @@ class _DiscountsHeader extends StatelessWidget {
 }
 
 class _ActiveDiscountsPanel extends StatelessWidget {
+  final AppStrings strings;
   final int productCount;
   final double productPercent;
   final double personalPercent;
   final double deliveryPercent;
 
   const _ActiveDiscountsPanel({
+    required this.strings,
     required this.productCount,
     required this.productPercent,
     required this.personalPercent,
@@ -307,16 +315,17 @@ class _ActiveDiscountsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = strings;
     return Column(
       children: [
         if (personalPercent > 0)
           _TypeCard(
             icon: Icons.workspace_premium_rounded,
             color: AppColors.brand,
-            title: 'داشکاندنی کەسی',
+            title: s.personalDiscount,
             value: '${personalPercent.round()}٪',
-            subtitle: 'لە هەموو بەرهەمێکدا جێبەجێ دەبێت',
-            note: 'ئەگەر ئۆفەری بەرهەم زیاتر بێت، ئۆفەری بەرهەم دەگیرێتەوە',
+            subtitle: s.personalDiscountSub,
+            note: s.personalDiscountNote,
           ),
         if (personalPercent > 0 &&
             (deliveryPercent > 0 || productCount > 0 || productPercent > 0))
@@ -325,9 +334,9 @@ class _ActiveDiscountsPanel extends StatelessWidget {
           _TypeCard(
             icon: Icons.local_shipping_rounded,
             color: AppColors.success,
-            title: 'داشکاندنی گەیاندن',
+            title: s.deliveryDiscount,
             value: '${deliveryPercent.round()}٪',
-            subtitle: 'لە کاتی تەواوکردنی داواکارییەکەتدا دەخرێتە سەر',
+            subtitle: s.deliveryDiscountSub,
           ),
         if (deliveryPercent > 0 &&
             (productCount > 0 || productPercent > 0))
@@ -336,13 +345,13 @@ class _ActiveDiscountsPanel extends StatelessWidget {
           _TypeCard(
             icon: Icons.sell_rounded,
             color: AppColors.highlight,
-            title: 'ئۆفەری بەرهەم',
+            title: s.productOffer,
             value: productPercent > 0
-                ? 'تا ${productPercent.round()}٪'
+                ? s.upToPercent(productPercent.round())
                 : '$productCount',
             subtitle: productCount > 0
-                ? '$productCount بەرهەم ئۆفەری خۆی هەیە'
-                : 'ئۆفەرێکی بەرهەم چالاکە',
+                ? s.productsWithOwnOffer(productCount)
+                : s.productOfferActive,
           ),
       ],
     )
@@ -498,7 +507,9 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _NoProductOffersNote extends StatelessWidget {
-  const _NoProductOffersNote();
+  final AppStrings strings;
+
+  const _NoProductOffersNote({required this.strings});
 
   @override
   Widget build(BuildContext context) {
@@ -520,7 +531,7 @@ class _NoProductOffersNote extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'ئێستا هیچ بەرهەمێک ئۆفەری خۆی نییە. داشکاندنەکانی سەرەوە هێشتا چالاکن.',
+              strings.noProductOffersNote,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 fontSize: 13,
@@ -536,9 +547,10 @@ class _NoProductOffersNote extends StatelessWidget {
 }
 
 class _DiscountsEmpty extends StatelessWidget {
+  final AppStrings strings;
   final VoidCallback onBrowse;
 
-  const _DiscountsEmpty({required this.onBrowse});
+  const _DiscountsEmpty({required this.strings, required this.onBrowse});
 
   @override
   Widget build(BuildContext context) {
@@ -594,7 +606,7 @@ class _DiscountsEmpty extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              'ئێستا هیچ داشکاندنێک نییە',
+              strings.noDiscountsYet,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
@@ -605,7 +617,7 @@ class _DiscountsEmpty extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'کاتێک ئۆفەری نوێ دەبێت، لێرە دەردەکەوێت',
+              strings.noDiscountsHint,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
@@ -648,7 +660,7 @@ class _DiscountsEmpty extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'گەڕان بۆ بەرهەم',
+                          strings.browseProducts,
                           style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
                             fontSize: 14,

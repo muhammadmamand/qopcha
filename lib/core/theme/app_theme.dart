@@ -79,7 +79,7 @@ class AppColors {
   static Color sheet = _lightCard;
 
   static Brightness _brightness = Brightness.light;
-  static AppColorTheme _colorTheme = AppColorTheme.qopcha;
+  static AppColorTheme _colorTheme = AppColorTheme.teal;
   static bool get isDark => _brightness == Brightness.dark;
   static AppColorTheme get colorTheme => _colorTheme;
 

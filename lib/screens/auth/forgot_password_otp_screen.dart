@@ -9,6 +9,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/phone_utils.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../widgets/language_switcher.dart';
 
 /// Full-page forgot password: phone → OTP → new password.
 class ForgotPasswordOtpScreen extends ConsumerStatefulWidget {
@@ -40,9 +41,9 @@ class _ForgotPasswordOtpScreenState
   int _cooldownSecs = 0;
   Timer? _cooldownTimer;
 
-  bool get _en =>
-      ref.watch(appSettingsProvider).language == AppLanguage.english;
-  String _t(String ku, String en) => _en ? en : ku;
+  AppLanguage get _lang => ref.watch(appSettingsProvider).language;
+  String _t(String ku, String en, [String? ar]) =>
+      tr(_lang, ku, en, ar ?? ku);
 
   @override
   void initState() {
@@ -95,7 +96,7 @@ class _ForgotPasswordOtpScreenState
       return;
     }
     final phone = PhoneUtils.normalize(_phoneController.text);
-    final phoneError = PhoneUtils.validate(phone, english: _en);
+    final phoneError = PhoneUtils.validate(phone, language: _lang);
     if (phoneError != null) {
       setState(() => _error = phoneError);
       return;
@@ -231,20 +232,22 @@ class _ForgotPasswordOtpScreenState
     }
 
     final title = _step == 0
-        ? _t('وشەی نهێنیم لەبیرچووە', 'Forgot password')
-        : _t('وشەی نهێنی نوێ', 'New password');
+        ? _t('وشەی نهێنیم لەبیرچووە', 'Forgot password', 'نسيت كلمة المرور')
+        : _t('وشەی نهێنی نوێ', 'New password', 'كلمة مرور جديدة');
     final subtitle = _step == 0
         ? _t(
             'ژمارەی مۆبایلەکەت بنووسە — کۆد بە واتساپ یان SMS دەنێردرێت.',
             'Enter your phone — a code will be sent by WhatsApp or SMS.',
+            'أدخل رقم هاتفك — سيتم إرسال الرمز عبر واتساب أو SMS.',
           )
         : _t(
             'وشەی نهێنی نوێ دابنێ و دووبارەی بکەرەوە.',
             'Set a new password and confirm it.',
+            'ضع كلمة مرور جديدة ثم أكدها.',
           );
     final cta = _step == 0
-        ? _t('ناردنی کۆد', 'Send code')
-        : _t('گۆڕینی وشەی نهێنی', 'Reset password');
+        ? _t('ناردنی کۆد', 'Send code', 'إرسال الرمز')
+        : _t('گۆڕینی وشەی نهێنی', 'Reset password', 'إعادة تعيين كلمة المرور');
 
     return Scaffold(
       backgroundColor: pageBg,
@@ -266,6 +269,12 @@ class _ForgotPasswordOtpScreenState
           ),
         ),
         centerTitle: true,
+        actions: const [
+          Padding(
+            padding: EdgeInsetsDirectional.only(end: 8),
+            child: LanguageSwitcherButton(),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Form(
@@ -326,7 +335,7 @@ class _ForgotPasswordOtpScreenState
                   onFieldSubmitted: (_) => _sendCode(),
                   style: _fieldStyle,
                   cursorColor: AppColors.brand,
-                  validator: (v) => PhoneUtils.validate(v, english: _en),
+                  validator: (v) => PhoneUtils.validate(v, language: _lang),
                   decoration: _decoration(
                     hint: '07xxxxxxxxx',
                     icon: Icons.phone_outlined,

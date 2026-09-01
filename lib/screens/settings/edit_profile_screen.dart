@@ -1,4 +1,5 @@
 ﻿import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,9 +7,11 @@ import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/constants/kurdistan_locations.dart';
 import '../../core/constants/profile_avatars.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/l10n/app_strings.dart';
 import '../../core/utils/phone_utils.dart';
 import '../../models/address_model.dart';
 import '../../models/user_model.dart';
@@ -142,7 +145,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Ù†Û•ØªÙˆØ§Ù†Ø±Ø§ ÙˆÛŽÙ†Û• Ù‡Û•ÚµØ¨Ú˜ÛŽØ±Ø¯Ø±ÛŽØª'),
+          content: Text('نەتوانرا وێنە هەڵبژێردرێت'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -177,7 +180,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Ø¨Ø§Ø±Ú©Ø±Ø¯Ù†ÛŒ ÙˆÛŽÙ†Û•ÛŒ Ø¯ÙˆÙˆÚ©Ø§Ù† Ø³Û•Ø±Ú©Û•ÙˆØªÙˆÙˆ Ù†Û•Ø¨ÙˆÙˆ'),
+          content: Text('بارکردنی وێنەی دووکان سەرکەوتوو نەبوو'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -219,7 +222,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 );
           final next = defaultAddr == null
               ? AddressModel.create(
-                  label: 'Ø³Û•Ø±Û•Ú©ÛŒ',
+                  label: 'سەرەکی',
                   location: composed,
                   latitude: _latitude,
                   longitude: _longitude,
@@ -246,7 +249,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Ù¾Ú•Û†ÙØ§ÛŒÙ„ Ø¨Û• Ø³Û•Ø±Ú©Û•ÙˆØªÙˆÙˆÛŒÛŒ Ù†ÙˆÛŽÚ©Ø±Ø§ÛŒÛ•ÙˆÛ•',
+            'پڕۆفایل بە سەرکەوتوویی نوێکرایەوە',
             style: TextStyle(fontFamily: AppTheme.fontFamily),
           ),
           backgroundColor: AppColors.brand,
@@ -255,7 +258,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       );
     } else {
       final message =
-          ref.read(authProvider).error ?? 'Ù†Û•ØªÙˆØ§Ù†Ø±Ø§ Ù¾Ú•Û†ÙØ§ÛŒÙ„ Ù†ÙˆÛŽ Ø¨Ú©Ø±ÛŽØªÛ•ÙˆÛ•';
+          ref.read(authProvider).error ?? 'نەتوانرا پڕۆفایل نوێ بکرێتەوە';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -270,7 +273,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   String? _required(String? value) {
-    if (value == null || value.trim().isEmpty) return 'Ø¦Û•Ù… Ø®Ø§Ù†Û•ÛŒÛ• Ù¾ÛŽÙˆÛŒØ³ØªÛ•';
+    if (value == null || value.trim().isEmpty) return 'ئەم خانەیە پێویستە';
     return null;
   }
 
@@ -290,14 +293,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               borderRadius: BorderRadius.circular(20),
             ),
             title: Text(
-              'Ø´ÙˆÛŽÙ†Ú©Ø§Ø±Û•Ú©Û• Ø¯Ø§Ú¯ÛŒØ±Ø³ÛŽÙ†Û•',
+              'شوێنکارەکە داگیرسێنە',
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 fontWeight: FontWeight.w800,
               ),
             ),
             content: Text(
-              'GPS Ú©ÙˆÚ˜Ø§ÙˆÛ•ØªÛ•ÙˆÛ•. Ø¯Ø§Ú¯ÛŒØ±ÛŒ Ø¨Ú©Û•ØŒ Ù¾Ø§Ø´Ø§Ù† Ø¯ÙˆÙˆØ¨Ø§Ø±Û• Ù‡Û•ÙˆÚµØ¨Ø¯Û•Ø±Û•ÙˆÛ•.',
+              'GPS کوژاوەتەوە. داگیری بکە، پاشان دووبارە هەوڵبدەرەوە.',
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 color: AppColors.textSecondary,
@@ -306,11 +309,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Ù¾Ø§Ø´Ú¯Û•Ø²Ø¨ÙˆÙˆÙ†Û•ÙˆÛ•'),
+                child: const Text('پاشگەزبوونەوە'),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Ú©Ø±Ø¯Ù†Û•ÙˆÛ•ÛŒ Ú•ÛŽÚ©Ø®Ø³ØªÙ†'),
+                child: const Text('کردنەوەی ڕێکخستن'),
               ),
             ],
           ),
@@ -327,7 +330,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       }
 
       if (permission == LocationPermission.denied) {
-        _showLocationError('Ù…Û†ÚµÛ•ØªÛŒ Ø´ÙˆÛŽÙ† Ú•Û•ØªÚ©Ø±Ø§ÛŒÛ•ÙˆÛ•.');
+        _showLocationError('مۆڵەتی شوێن ڕەتکرایەوە.');
         return;
       }
 
@@ -341,14 +344,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               borderRadius: BorderRadius.circular(20),
             ),
             title: Text(
-              'Ù…Û†ÚµÛ•ØªÛŒ Ø´ÙˆÛŽÙ† Ù¾ÛŽÙˆÛŒØ³ØªÛ•',
+              'مۆڵەتی شوێن پێویستە',
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 fontWeight: FontWeight.w800,
               ),
             ),
             content: Text(
-              'Ù„Û• Ú•ÛŽÚ©Ø®Ø³ØªÙ†ÛŒ Ø¦Û•Ù¾Û•Ú©Û• Ù…Û†ÚµÛ•ØªÛŒ Ø´ÙˆÛŽÙ† Ø¨Ø¯Û•.',
+              'لە ڕێکخستنی ئەپەکە مۆڵەتی شوێن بدە.',
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 color: AppColors.textSecondary,
@@ -357,11 +360,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Ù¾Ø§Ø´Ú¯Û•Ø²Ø¨ÙˆÙˆÙ†Û•ÙˆÛ•'),
+                child: const Text('پاشگەزبوونەوە'),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Ú©Ø±Ø¯Ù†Û•ÙˆÛ•ÛŒ Ú•ÛŽÚ©Ø®Ø³ØªÙ†'),
+                child: const Text('کردنەوەی ڕێکخستن'),
               ),
             ],
           ),
@@ -394,24 +397,24 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         } else if (place.city != null) {
           final hoods = KurdistanLocations.neighborhoodsFor(place.city);
           if (_neighborhood == null || !hoods.contains(_neighborhood)) {
-            _neighborhood = hoods.contains('Ù†Ø§Ùˆ Ø´Ø§Ø±') ? 'Ù†Ø§Ùˆ Ø´Ø§Ø±' : null;
+            _neighborhood = hoods.contains('ناو شار') ? 'ناو شار' : null;
           }
         }
         if (place.nearest.isNotEmpty) {
           _locationDetailsController.text = place.nearest;
         } else if (place.nearby.isNotEmpty) {
           _locationDetailsController.text =
-              'Ù†Ø²ÛŒÚ© ${place.nearby.first.typeLabel}: ${place.nearby.first.name}';
+              'نزیک ${place.nearby.first.typeLabel}: ${place.nearby.first.name}';
         }
         _placeHint =
-            place.summary.isNotEmpty ? place.summary : 'Ø´ÙˆÛŽÙ† Ø¯Û†Ø²Ø±Ø§ÛŒÛ•ÙˆÛ•';
+            place.summary.isNotEmpty ? place.summary : 'شوێن دۆزرایەوە';
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             place.summary.isNotEmpty
-                ? 'Ø´ÙˆÛŽÙ†: ${place.summary}'
-                : 'Ø´ÙˆÛŽÙ† Ø¯Û†Ø²Ø±Ø§ÛŒÛ•ÙˆÛ•',
+                ? 'شوێن: ${place.summary}'
+                : 'شوێن دۆزرایەوە',
             style: TextStyle(fontFamily: AppTheme.fontFamily),
           ),
           backgroundColor: AppColors.brand,
@@ -420,7 +423,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       );
     } catch (_) {
       _showLocationError(
-        'Ù†Û•ØªÙˆØ§Ù†Ø±Ø§ Ù†Ø§ÙˆÛŒ Ø´ÙˆÛŽÙ† Ø¨Ø¯Û†Ø²Ø±ÛŽØªÛ•ÙˆÛ•. Ø¦ÛŒÙ†ØªÛ•Ø±Ù†ÛŽØª Ø¨Ù¾Ø´Ú©Ù†Û• ÛŒØ§Ù† Ø¨Û• Ø¯Û•Ø³Øª Ø¯ÛŒØ§Ø±ÛŒ Ø¨Ú©Û•.',
+        'نەتوانرا ناوی شوێن بدۆزرێتەوە. ئینتەرنێت بپشکنە یان بە دەست دیاری بکە.',
       );
     } finally {
       if (mounted) setState(() => _isDetectingLocation = false);
@@ -456,7 +459,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     ScaffoldMessenger.of(this.context).showSnackBar(
       SnackBar(
         content: Text(
-          'ÙˆØ´Û•ÛŒ Ù†Ù‡ÛŽÙ†ÛŒ Ø¨Û• Ø³Û•Ø±Ú©Û•ÙˆØªÙˆÙˆÛŒÛŒ Ú¯Û†Ú•Ø¯Ø±Ø§',
+          'وشەی نهێنی بە سەرکەوتوویی گۆڕدرا',
           style: TextStyle(fontFamily: AppTheme.fontFamily),
         ),
         backgroundColor: AppColors.brand,
@@ -469,6 +472,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
     final authState = ref.watch(authProvider);
+    final s = ref.watch(stringsProvider);
     final isLoading = authState.isLoading;
     final bottom = MediaQuery.paddingOf(context).bottom;
     final name = _nameController.text.trim();
@@ -476,29 +480,40 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     final pageBg = AppColors.isDark
         ? AppColors.surface
         : const Color(0xFFF4F7F7);
+    final windowPageTitle = !kIsWeb &&
+            defaultTargetPlatform == TargetPlatform.windows
+        ? 'Edit profile'
+        : s.editProfile;
 
     if (user == null) {
-      return Scaffold(
+      return Title(
+        title: AppConstants.windowTitle(windowPageTitle),
+        color: AppColors.brand,
+        child: Scaffold(
         backgroundColor: pageBg,
         body: Center(
           child: Text(
-            'ØªÚ©Ø§ÛŒÛ• Ø¯ÙˆÙˆØ¨Ø§Ø±Û• Ø¨Ú†Û† Ú˜ÙˆÙˆØ±Û•ÙˆÛ•',
+            'تکایە دووبارە بچۆ ژوورەوە',
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               color: AppColors.textSecondary,
             ),
           ),
         ),
+      ),
       );
     }
 
     final roleLabel = user.isAdmin
-        ? 'Ø¨Û•Ú•ÛŽÙˆÛ•Ø¨Û•Ø±'
+        ? 'بەڕێوەبەر'
         : user.isShopOwner
-            ? 'Ø®Ø§ÙˆÛ•Ù† Ø¯ÙˆÙˆÚ©Ø§Ù†'
-            : 'Ú©Ú•ÛŒØ§Ø±';
+            ? 'خاوەن دووکان'
+            : 'کڕیار';
 
-    return Scaffold(
+    return Title(
+      title: AppConstants.windowTitle(windowPageTitle),
+      color: AppColors.brand,
+      child: Scaffold(
       backgroundColor: pageBg,
       body: Column(
         children: [
@@ -524,20 +539,20 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     },
                   ),
                   const SizedBox(height: 22),
-                  const _SectionTitle('Ø²Ø§Ù†ÛŒØ§Ø±ÛŒ Ú©Û•Ø³ÛŒ'),
+                  const _SectionTitle('زانیاری کەسی'),
                   const SizedBox(height: 10),
                   _GroupedCard(
                     children: [
-                      _FieldLabel('Ù†Ø§ÙˆÛŒ ØªÛ•ÙˆØ§Ùˆ'),
+                      _FieldLabel('ناوی تەواو'),
                       TextFormField(
                         controller: _nameController,
                         textInputAction: TextInputAction.next,
                         validator: _required,
                         style: _valueStyle,
-                        decoration: _filledDecoration(hint: 'Ù†Ø§ÙˆÛŒ Ø®Û†Øª'),
+                        decoration: _filledDecoration(hint: 'ناوی خۆت'),
                       ),
                       const SizedBox(height: 14),
-                      _FieldLabel('Ù…Û†Ø¨Ø§ÛŒÙ„'),
+                      _FieldLabel('مۆبایل'),
                       TextFormField(
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
@@ -550,7 +565,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 22),
-                  const _SectionTitle('Ù†Ø§ÙˆÙ†ÛŒØ´Ø§Ù†'),
+                  const _SectionTitle('ناونیشان'),
                   const SizedBox(height: 10),
                   _GroupedCard(
                     children: [
@@ -585,7 +600,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                       ),
                       if (_nearbyPlaces.isNotEmpty) ...[
                         const SizedBox(height: 16),
-                        _FieldLabel('Ù†Ø²ÛŒÚ©ØªØ±ÛŒÙ† Ø´ÙˆÛŽÙ†Û•Ú©Ø§Ù†'),
+                        _FieldLabel('نزیکترین شوێنەکان'),
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
@@ -618,7 +633,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                                 HapticFeedback.selectionClick();
                                 setState(() {
                                   _locationDetailsController.text =
-                                      'Ù†Ø²ÛŒÚ© ${p.typeLabel}: ${p.name}';
+                                      'نزیک ${p.typeLabel}: ${p.name}';
                                 });
                               },
                             );
@@ -640,7 +655,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   ),
                   if (user.isShopOwner) ...[
                     const SizedBox(height: 22),
-                    const _SectionTitle('ÙˆÛŽÙ†Û•ÛŒ Ø¯ÙˆÙˆÚ©Ø§Ù†'),
+                    const _SectionTitle('وێنەی دووکان'),
                     const SizedBox(height: 10),
                     _ShopBrandImagesEditor(
                       coverBytes: _pendingCoverBytes,
@@ -651,42 +666,42 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                       onPickLogo: () => _pickShopBrandImage(logo: true),
                     ),
                     const SizedBox(height: 22),
-                    const _SectionTitle('Ø²Ø§Ù†ÛŒØ§Ø±ÛŒ Ø¯ÙˆÙˆÚ©Ø§Ù†'),
+                    const _SectionTitle('زانیاری دووکان'),
                     const SizedBox(height: 10),
                     _GroupedCard(
                       children: [
-                        _FieldLabel('Ù†Ø§ÙˆÛŒ Ø¯ÙˆÙˆÚ©Ø§Ù†'),
+                        _FieldLabel('ناوی دووکان'),
                         TextFormField(
                           controller: _shopNameController,
                           textInputAction: TextInputAction.next,
                           validator: _required,
                           style: _valueStyle,
-                          decoration: _filledDecoration(hint: 'Ù†Ø§ÙˆÛŒ ÙØ±Û†Ø´Ú¯Ø§Ú©Û•Øª'),
+                          decoration: _filledDecoration(hint: 'ناوی فرۆشگاکەت'),
                         ),
                         const SizedBox(height: 14),
-                        _FieldLabel('Ù†Ø§ÙˆÙ†ÛŒØ´Ø§Ù†ÛŒ Ø¯ÙˆÙˆÚ©Ø§Ù†'),
+                        _FieldLabel('ناونیشانی دووکان'),
                         TextFormField(
                           controller: _shopAddressController,
                           textInputAction: TextInputAction.next,
                           style: _valueStyle,
-                          decoration: _filledDecoration(hint: 'Ù†Ø§ÙˆÙ†ÛŒØ´Ø§Ù†ÛŒ ØªÛ•ÙˆØ§Ùˆ'),
+                          decoration: _filledDecoration(hint: 'ناونیشانی تەواو'),
                         ),
                         const SizedBox(height: 14),
-                        _FieldLabel('ÙˆÛ•Ø³ÙÛŒ Ø¯ÙˆÙˆÚ©Ø§Ù†'),
+                        _FieldLabel('وەسفی دووکان'),
                         TextFormField(
                           controller: _shopDescriptionController,
                           minLines: 3,
                           maxLines: 5,
                           style: _valueStyle,
                           decoration: _filledDecoration(
-                            hint: 'Ú©Û•Ù…ÛŽÚ© Ø¯Û•Ø±Ø¨Ø§Ø±Û•ÛŒ Ø¯ÙˆÙˆÚ©Ø§Ù†Û•Ú©Û•Øª',
+                            hint: 'کەمێک دەربارەی دووکانەکەت',
                           ),
                         ),
                       ],
                     ),
                   ],
                   const SizedBox(height: 22),
-                  const _SectionTitle('Ù¾Ø§Ø±Ø§Ø³ØªÙ†'),
+                  const _SectionTitle('پاراستن'),
                   const SizedBox(height: 10),
                   _GroupedCard(
                     children: [
@@ -720,7 +735,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'ÙˆØ´Û•ÛŒ Ù†Ù‡ÛŽÙ†ÛŒ',
+                                        'وشەی نهێنی',
                                         style: TextStyle(
                                           fontFamily: AppTheme.fontFamily,
                                           fontSize: 14.5,
@@ -729,7 +744,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                                         ),
                                       ),
                                       Text(
-                                        'Ú¯Û†Ú•ÛŒÙ†ÛŒ ÙˆØ´Û•ÛŒ Ù†Ù‡ÛŽÙ†ÛŒ Ú†ÙˆÙˆÙ†Û•Ú˜ÙˆÙˆØ±Û•ÙˆÛ•',
+                                        'گۆڕینی وشەی نهێنی چوونەژوورەوە',
                                         style: TextStyle(
                                           fontFamily: AppTheme.fontFamily,
                                           fontSize: 12,
@@ -755,6 +770,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -890,7 +906,7 @@ class _EditTopBar extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              'Ø¯Û•Ø³ØªÚ©Ø§Ø±ÛŒ Ù¾Ú•Û†ÙØ§ÛŒÙ„',
+              'دەستکاری پڕۆفایل',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
@@ -922,7 +938,7 @@ class _EditTopBar extends StatelessWidget {
                           ),
                         )
                       : Text(
-                          'Ù¾Ø§Ø´Û•Ú©Û•ÙˆØª',
+                          'پاشەکەوت',
                           style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
                             fontSize: 13.5,
@@ -1007,7 +1023,7 @@ class _AvatarPickerCard extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Text(
-          name.isEmpty ? 'Ù†Ø§ÙˆÛŒ ØªÛ†' : name,
+          name.isEmpty ? 'ناوی تۆ' : name,
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
             fontSize: 18,
@@ -1458,7 +1474,7 @@ class _ShopBrandImagesEditor extends StatelessWidget {
                         color: AppColors.brand.withValues(alpha: 0.08),
                         child: Center(
                           child: Text(
-                            'Ú©Ø§Ú¤Û•Ø±ÛŒ Ø¯ÙˆÙˆÚ©Ø§Ù† Ø²ÛŒØ§Ø¯ Ø¨Ú©Û•',
+                            'کاڤەری دووکان زیاد بکە',
                             style: TextStyle(
                               fontFamily: AppTheme.fontFamily,
                               fontWeight: FontWeight.w800,
@@ -1480,7 +1496,7 @@ class _ShopBrandImagesEditor extends StatelessWidget {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          'Ú©Ø§Ú¤Û•Ø±',
+                          'کاڤەر',
                           style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
                             color: Colors.white,
@@ -1544,7 +1560,7 @@ class _ShopBrandImagesEditor extends StatelessWidget {
         Transform.translate(
           offset: const Offset(0, -16),
           child: Text(
-            'Ú©Ø§Ú¤Û•Ø± = Ø³Û•Ø±Û•ÙˆÛ• Â· Ù„Û†Ú¯Û† = Ø®ÙˆØ§Ø±Û•ÙˆÛ•ÛŒ Ú•Ø§Ø³Øª',
+            'کاڤەر = سەرەوە · لۆگۆ = خوارەوەی ڕاست',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,

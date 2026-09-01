@@ -1,13 +1,15 @@
 name: qopcha
 description: "قۆپچە - Clothing marketplace app for customers and shop owners."
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: ^3.12.2
 
 dependencies:
   flutter:
+    sdk: flutter
+  flutter_localizations:
     sdk: flutter
   cupertino_icons: ^1.0.8
   flutter_riverpod: ^2.6.1

@@ -27,6 +27,7 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
     // Keep nav / scaffold colors fresh when theme changes.
     ref.watch(appSettingsProvider.select((s) => s.themeMode));
     ref.watch(appSettingsProvider.select((s) => s.colorTheme));
+    final lang = ref.watch(appSettingsProvider.select((s) => s.language));
     final location = GoRouterState.of(context).matchedLocation;
 
     // Order matches screenshot layout: Home … Profile (bulb).
@@ -70,31 +71,31 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
         badges: [null, null, null, cartCount > 0 ? cartCount : null, null],
         animatedIndexes: animateCartEmptyIcon ? const [3] : const [],
         // Layout: Home · Search | Offers center | Cart · Profile
-        items: const [
+        items: [
           NavItem(
             icon: Icons.home_outlined,
             activeIcon: Icons.home_rounded,
-            label: 'سەرەکی',
+            label: tr(lang, 'سەرەکی', 'Home', 'الرئيسية'),
           ),
           NavItem(
             icon: Icons.search_rounded,
             activeIcon: Icons.search_rounded,
-            label: 'گەڕان',
+            label: tr(lang, 'گەڕان', 'Search', 'بحث'),
           ),
           NavItem(
             icon: Icons.local_offer_outlined,
             activeIcon: Icons.local_offer_rounded,
-            label: 'داشکاندن',
+            label: tr(lang, 'داشکاندن', 'Offers', 'عروض'),
           ),
           NavItem(
             icon: Icons.shopping_bag_outlined,
             activeIcon: Icons.shopping_bag_rounded,
-            label: 'سەبەتە',
+            label: tr(lang, 'سەبەتە', 'Cart', 'السلة'),
           ),
           NavItem(
             icon: Icons.person_outline_rounded,
             activeIcon: Icons.person_rounded,
-            label: 'پڕۆفایل',
+            label: tr(lang, 'پڕۆفایل', 'Profile', 'حسابي'),
           ),
         ],
       ),
@@ -119,6 +120,7 @@ class _ShopOwnerShellState extends ConsumerState<ShopOwnerShell> {
     // Keep nav / scaffold colors fresh when theme changes.
     ref.watch(appSettingsProvider.select((s) => s.themeMode));
     ref.watch(appSettingsProvider.select((s) => s.colorTheme));
+    final lang = ref.watch(appSettingsProvider.select((s) => s.language));
     final location = GoRouterState.of(context).matchedLocation;
 
     if (location.startsWith('/shop-orders')) {
@@ -150,21 +152,21 @@ class _ShopOwnerShellState extends ConsumerState<ShopOwnerShell> {
           }
         },
         badges: [null, pendingOrders > 0 ? pendingOrders : null, null],
-        items: const [
+        items: [
           NavItem(
             icon: Icons.dashboard_outlined,
             activeIcon: Icons.dashboard_rounded,
-            label: 'داشبۆرد',
+            label: tr(lang, 'داشبۆرد', 'Dashboard', 'لوحة التحكم'),
           ),
           NavItem(
             icon: Icons.receipt_long_outlined,
             activeIcon: Icons.receipt_long_rounded,
-            label: 'داواکاری',
+            label: tr(lang, 'داواکاری', 'Orders', 'الطلبات'),
           ),
           NavItem(
             icon: Icons.person_outline_rounded,
             activeIcon: Icons.person_rounded,
-            label: 'پڕۆفایل',
+            label: tr(lang, 'پڕۆفایل', 'Profile', 'حسابي'),
           ),
         ],
       ),
@@ -176,7 +178,7 @@ class _ShopOwnerShellState extends ConsumerState<ShopOwnerShell> {
                 onPressed: () => context.push('/shop/add-product'),
                 elevation: 8,
                 icon: const Icon(Icons.add_rounded),
-                label: const Text('بەرهەمی نوێ'),
+                label: Text(tr(lang, 'بەرهەمی نوێ', 'New product', 'منتج جديد')),
               ),
             )
           : null,

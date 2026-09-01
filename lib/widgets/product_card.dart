@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 
+import '../core/l10n/app_strings.dart';
 import '../core/theme/app_animations.dart';
 import '../core/theme/app_theme.dart';
 import '../core/utils/formatters.dart';
@@ -40,6 +41,7 @@ class ProductCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider);
     final isFavorite = ref.watch(favoritesProvider).contains(product.id);
     final user = ref.watch(currentUserProvider);
     final customerId = user?.id;
@@ -94,9 +96,9 @@ class ProductCard extends ConsumerWidget {
                             color: Colors.white.withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(999),
                           ),
-                          child: const Text(
-                            'تەواوبوو',
-                            style: TextStyle(
+                          child: Text(
+                            s.soldOut,
+                            style: const TextStyle(
                               fontFamily: AppTheme.fontFamily,
                               color: Colors.white,
                               fontSize: 11,
@@ -138,7 +140,7 @@ class ProductCard extends ConsumerWidget {
                     top: 8,
                     right: 8,
                     child: _Badge(
-                      label: 'قوماش',
+                      label: s.fabricBadge,
                       color: AppColors.brand,
                     ),
                   ),
@@ -188,7 +190,7 @@ class ProductCard extends ConsumerWidget {
                           Flexible(
                             child: Text(
                               product.shopName.trim().isEmpty
-                                  ? 'سەردانی دووکان'
+                                  ? s.visitShop
                                   : product.shopName,
                               style: TextStyle(
                                 fontFamily: AppTheme.fontFamily,
@@ -228,6 +230,7 @@ class ProductCard extends ConsumerWidget {
                     (productOnlyPercent > 0 || personalDiscount > 0)) ...[
                   const SizedBox(height: 8),
                   _DiscountBreakdown(
+                    strings: s,
                     productPercent: productOnlyPercent,
                     personalPercent: personalDiscount,
                   ),
@@ -278,10 +281,12 @@ class ProductCard extends ConsumerWidget {
 /// Shows every discount that could apply to a product. The larger one wins, so
 /// it is filled and tagged; the other is muted.
 class _DiscountBreakdown extends StatelessWidget {
+  final AppStrings strings;
   final double productPercent;
   final double personalPercent;
 
   const _DiscountBreakdown({
+    required this.strings,
     required this.productPercent,
     required this.personalPercent,
   });
@@ -297,14 +302,14 @@ class _DiscountBreakdown extends StatelessWidget {
         if (productPercent > 0)
           _DiscountTag(
             icon: Icons.sell_rounded,
-            label: 'بەرهەم ${productPercent.round()}٪',
+            label: strings.productDiscountTag(productPercent.round()),
             color: AppColors.highlight,
             applied: productWins,
           ),
         if (personalPercent > 0)
           _DiscountTag(
             icon: Icons.workspace_premium_rounded,
-            label: 'کەسی ${personalPercent.round()}٪',
+            label: strings.personalDiscountTag(personalPercent.round()),
             color: AppColors.brand,
             applied: !productWins,
           ),

@@ -58,9 +58,9 @@ class ApiClient {
   Future<T> _guard<T>(Future<T> Function() run) async {
     try {
       return await run();
-    }     on SocketException {
+    } on SocketException {
       throw Exception(
-        'پەیوەندی سێرڤەر شکستی هێنا — دڵنیابەرەوە مۆبایل و کۆمپیوتەر لەسەر هەمان وایفاین و API کار دەکات (${ApiConfig.baseUrl})',
+        'پەیوەندی سێرڤەر شکستی هێنا — ئینتەرنێتەکەت بپشکنە و دووبارە هەوڵ بدەرەوە',
       );
     } on http.ClientException catch (e) {
       final msg = e.message.toLowerCase();
@@ -68,7 +68,7 @@ class ApiClient {
           msg.contains('failed host') ||
           msg.contains('connection')) {
         throw Exception(
-          'پەیوەندی سێرڤەر شکستی هێنا — دڵنیابەرەوە مۆبایل و کۆمپیوتەر لەسەر هەمان وایفاین و API کار دەکات (${ApiConfig.baseUrl})',
+          'پەیوەندی سێرڤەر شکستی هێنا — ئینتەرنێتەکەت بپشکنە و دووبارە هەوڵ بدەرەوە',
         );
       }
       throw Exception(e.message);

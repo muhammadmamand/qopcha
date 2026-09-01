@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/constants/app_constants.dart';
+import '../core/l10n/app_strings.dart';
 import '../core/theme/app_animations.dart';
 import '../core/theme/app_theme.dart';
 import 'category_filter_icons.dart';
 
-class CategoryChips extends StatelessWidget {
+class CategoryChips extends ConsumerWidget {
   final String selected;
   final ValueChanged<String> onSelected;
   final List<String>? categories;
@@ -18,22 +20,9 @@ class CategoryChips extends StatelessWidget {
     this.categories,
   });
 
-  /// Shorter chip labels for long category names.
-  static String labelFor(String category) {
-    switch (category) {
-      case 'جلوبەرگی وەرزشی':
-        return 'وەرزشی';
-      case 'جلوبەرگی فەرمی':
-        return 'فەرمی';
-      case 'جلی منداڵان':
-        return 'منداڵان';
-      default:
-        return category;
-    }
-  }
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider);
     final items = categories ?? AppConstants.categories;
     final idleCircle = AppColors.isDark
         ? AppColors.surfaceVariant
@@ -52,7 +41,7 @@ class CategoryChips extends StatelessWidget {
         itemBuilder: (context, index) {
           final category = items[index];
           final isSelected = category == selected;
-          final label = labelFor(category);
+          final label = s.categoryLabel(category);
           final iconColor = isSelected ? AppColors.onBrand : idleIcon;
 
           return GestureDetector(

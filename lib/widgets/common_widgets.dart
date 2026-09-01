@@ -3,8 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 
+import '../core/l10n/app_strings.dart';
 import '../core/theme/app_animations.dart';
 import '../core/theme/app_theme.dart';
 
@@ -182,14 +184,15 @@ class ProductGridShimmer extends StatelessWidget {
   }
 }
 
-class ErrorView extends StatelessWidget {
+class ErrorView extends ConsumerWidget {
   final String message;
   final VoidCallback? onRetry;
 
   const ErrorView({super.key, required this.message, this.onRetry});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(40),
@@ -223,7 +226,7 @@ class ErrorView extends StatelessWidget {
               ElevatedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded),
-                label: const Text('دووبارە هەوڵبدەرەوە'),
+                label: Text(s.tryAgain),
               ),
             ],
           ],

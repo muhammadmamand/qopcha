@@ -13,7 +13,7 @@ const defaults: AppContent = {
   privacyBody: '',
   supportPhone: '',
   supportWhatsapp: '',
-  supportEmail: 'support@qopcha.com',
+  supportEmail: 'qopcha07@gmail.com',
   supportHours: '٩:٠٠ — ٢١:٠٠',
   socialInstagram: '',
   socialFacebook: '',

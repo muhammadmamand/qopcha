@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/l10n/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/app_notification.dart';
 import '../../providers/auth_provider.dart';
@@ -752,32 +753,32 @@ class _RoundBtn extends StatelessWidget {
   }
 }
 
-class _CategoryChips extends StatelessWidget {
+class _CategoryChips extends ConsumerWidget {
   final NotifCategory selected;
   final ValueChanged<NotifCategory> onChanged;
 
   const _CategoryChips({required this.selected, required this.onChanged});
 
-  static const _items = [
-    (NotifCategory.all, 'هەموو', Icons.apps_rounded),
-    (NotifCategory.orders, 'داواکاری', Icons.inventory_2_outlined),
-    (NotifCategory.offers, 'ئۆفەر', Icons.local_offer_outlined),
-    (NotifCategory.wishlist, 'دڵخواز', Icons.favorite_border_rounded),
-    (NotifCategory.account, 'هەژمار', Icons.person_outline_rounded),
-    (NotifCategory.system, 'سیستەم', Icons.notifications_none_rounded),
-  ];
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider);
+    final items = [
+      (NotifCategory.all, s.all, Icons.apps_rounded),
+      (NotifCategory.orders, s.notifOrders, Icons.inventory_2_outlined),
+      (NotifCategory.offers, s.notifOffers, Icons.local_offer_outlined),
+      (NotifCategory.wishlist, s.notifWishlist, Icons.favorite_border_rounded),
+      (NotifCategory.account, s.notifAccount, Icons.person_outline_rounded),
+      (NotifCategory.system, s.notifSystem, Icons.notifications_none_rounded),
+    ];
     return SizedBox(
       height: 44,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _items.length,
+        itemCount: items.length,
         separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, i) {
-          final item = _items[i];
+          final item = items[i];
           final active = item.$1 == selected;
           return GestureDetector(
             onTap: () {

@@ -1,26 +1,31 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/phone_utils.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/settings_provider.dart';
+import '../../screens/settings/legal_document_screen.dart';
+import '../../widgets/language_switcher.dart';
 
 /// Single-page signup — polished boutique look.
 class SignupWizard extends ConsumerStatefulWidget {
   final VoidCallback? onSuccess;
-  final bool english;
+  final AppLanguage language;
   final VoidCallback? onBack;
 
   const SignupWizard({
     super.key,
     this.onSuccess,
-    this.english = false,
+    this.language = AppLanguage.kurdish,
     this.onBack,
   });
 
@@ -52,8 +57,16 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
   int _otpCooldownSecs = 0;
   Timer? _otpCooldownTimer;
 
-  bool get _en => widget.english;
-  String _t(String ku, String en) => _en ? en : ku;
+  AppLanguage get _lang => widget.language;
+  String _t(String ku, String en, [String? ar]) =>
+      tr(_lang, ku, en, ar ?? ku);
+
+  static const _inputTextStyle = TextStyle(
+    fontFamily: AppTheme.fontFamily,
+    color: Color(0xFF152426),
+    fontWeight: FontWeight.w600,
+    fontSize: 15,
+  );
 
   @override
   void initState() {
@@ -68,6 +81,7 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
     ]) {
       n.addListener(() => setState(() {}));
     }
+    _otp.addListener(() => setState(() {}));
   }
 
   @override
@@ -89,7 +103,7 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
   }
 
   Future<void> _sendSignupOtp() async {
-    final phoneError = PhoneUtils.validate(_phone.text, english: _en);
+    final phoneError = PhoneUtils.validate(_phone.text, language: _lang);
     if (phoneError != null) {
       _showSnack(phoneError, error: true);
       return;
@@ -127,6 +141,7 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
       _t(
         'کۆد نێردرا (واتساپ یان SMS) — کۆدی ٦ ژمارەیی بنووسە',
         'Code sent (WhatsApp or SMS) — enter the 6-digit code',
+        'تم إرسال الرمز (واتساب أو SMS) — أدخل الرمز المكون من 6 أرقام',
       ),
     );
   }
@@ -150,6 +165,7 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
         _termsError = _t(
           'تکایە مەرج و سیاسەت قبوڵ بکە',
           'Please accept the terms',
+          'يرجى قبول الشروط وسياسة الخصوصية',
         );
       });
         return;
@@ -172,7 +188,8 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
       widget.onSuccess?.call();
     } else {
       _showSnack(
-        ref.read(authProvider).error ?? 'هەڵەیەک ڕوویدا',
+        ref.read(authProvider).error ??
+            _t('هەڵەیەک ڕوویدا', 'Something went wrong', 'حدث خطأ ما'),
         error: true,
       );
     }
@@ -269,17 +286,27 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
             child: Column(
       children: [
         Padding(
-                  padding: const EdgeInsetsDirectional.only(start: 6, top: 2),
-                  child: Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: IconButton(
-                      onPressed: widget.onBack,
-                      style: IconButton.styleFrom(
-                        foregroundColor: AppColors.brand,
-                        backgroundColor: Colors.white.withValues(alpha: 0.75),
+                  padding: const EdgeInsetsDirectional.only(
+                    start: 6,
+                    end: 14,
+                    top: 2,
+                  ),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: widget.onBack,
+                        style: IconButton.styleFrom(
+                          foregroundColor: AppColors.brand,
+                          backgroundColor: Colors.white.withValues(alpha: 0.75),
+                        ),
+                        icon: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 18,
+                        ),
                       ),
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-                    ),
+                      const Spacer(),
+                      const LanguageSwitcherButton(),
+                    ],
                   ),
                 ),
         Expanded(
@@ -289,13 +316,14 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
                       padding: EdgeInsets.fromLTRB(26, 0, 26, 28 + bottom),
                       physics: const BouncingScrollPhysics(),
             children: [
-                        const _SignupHeroHeader()
+                        _SignupHeroHeader(language: _lang)
                             .animate()
                             .fadeIn(duration: 500.ms)
                             .slideY(begin: 0.04, curve: Curves.easeOutCubic),
                         const SizedBox(height: 18),
                         Text(
-                          _t('هەژمارێکی نوێ دروست بکە', 'Create a new account'),
+                          _t('هەژمارێکی نوێ دروست بکە', 'Create a new account',
+                              'إنشاء حساب جديد'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
@@ -314,6 +342,7 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
                           _t(
                             'بۆ ئەوەی باشترین جل و بەرگەکان ببینیتەوە',
                             'So you can discover the best clothes',
+                            'لتكتشف أفضل الملابس',
                           ),
                           textAlign: TextAlign.center,
                           style: TextStyle(
@@ -329,7 +358,7 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
                         const SizedBox(height: 20),
                         _RoleToggle(
                   role: _role,
-                          english: _en,
+                          language: _lang,
                   onChanged: (r) => setState(() => _role = r),
                         )
                             .animate()
@@ -340,14 +369,15 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
                           child: TextFormField(
                             controller: _name,
                             focusNode: _nameFocus,
+                            style: _inputTextStyle,
                             textInputAction: TextInputAction.next,
                             decoration: _field(
-                              hint: _t('ناوی تەواو', 'Full name'),
+                              hint: _t('ناوی تەواو', 'Full name', 'الاسم الكامل'),
                               icon: Icons.person_outline_rounded,
                               focused: _nameFocus.hasFocus,
                             ),
                             validator: (v) => v == null || v.trim().isEmpty
-                                ? _t('ناو بنووسە', 'Enter your name')
+                                ? _t('ناو بنووسە', 'Enter your name', 'أدخل اسمك')
                                 : null,
                           ),
                         ),
@@ -357,12 +387,13 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
                           child: TextFormField(
                             controller: _phone,
                             focusNode: _phoneFocus,
+                            style: _inputTextStyle,
                             keyboardType: TextInputType.phone,
                             textDirection: TextDirection.ltr,
                             textInputAction: TextInputAction.done,
                             onFieldSubmitted: (_) => _sendSignupOtp(),
                             decoration: _field(
-                              hint: _t('ژمارەی مۆبایل', 'Mobile number'),
+                              hint: _t('ژمارەی مۆبایل', 'Mobile number', 'رقم الهاتف'),
                               icon: Icons.phone_outlined,
                               focused: _phoneFocus.hasFocus,
                               suffix: TextButton(
@@ -394,7 +425,7 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
                                     : Text(
                                         _otpCooldownSecs > 0
                                             ? '$_otpCooldownSecs'
-                                            : _t('ناردنی کۆد', 'Send code'),
+                                            : _t('ناردنی کۆد', 'Send code', 'إرسال الرمز'),
                                         style: TextStyle(
                                           fontFamily: AppTheme.fontFamily,
                                           fontWeight: FontWeight.w800,
@@ -404,44 +435,35 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
                               ),
                             ),
                             validator: (v) =>
-                                PhoneUtils.validate(v, english: _en),
+                                PhoneUtils.validate(v, language: _lang),
                           ),
                         ),
                         const SizedBox(height: 14),
-                        _softField(
+                        _SignupOtpField(
+                          controller: _otp,
+                          focusNode: _otpFocus,
                           focused: _otpFocus.hasFocus,
-                          child: TextFormField(
-                            controller: _otp,
-                            focusNode: _otpFocus,
-                            keyboardType: TextInputType.number,
-                            textDirection: TextDirection.ltr,
-                            textInputAction: TextInputAction.next,
-                            maxLength: 6,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            style: const TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 5,
-                              fontSize: 17,
-                            ),
-                            decoration: _field(
-                              hint: _t('کۆدی پشتڕاستکردنەوە', 'OTP code'),
-                              icon: Icons.mark_unread_chat_alt_outlined,
-                              focused: _otpFocus.hasFocus,
-                            ).copyWith(counterText: ''),
-                            validator: (v) {
-                              if (v == null ||
-                                  !RegExp(r'^\d{6}$').hasMatch(v.trim())) {
-                                return _t(
-                                  'کۆدی ٦ ژمارەیی بنووسە',
-                                  'Enter the 6-digit code',
-                                );
-                              }
-                              return null;
-                            },
+                          label: _t(
+                            'کۆدی پشتڕاستکردنەوە',
+                            'Verification code',
+                            'رمز التحقق',
                           ),
+                          hint: _t(
+                            'کۆدی ٦ ژمارەیی لە واتساپ یان SMS',
+                            '6-digit code from WhatsApp or SMS',
+                            'رمز مكون من 6 أرقام عبر واتساب أو SMS',
+                          ),
+                          validator: (v) {
+                            if (v == null ||
+                                !RegExp(r'^\d{6}$').hasMatch(v.trim())) {
+                              return _t(
+                                'کۆدی ٦ ژمارەیی بنووسە',
+                                'Enter the 6-digit code',
+                                'أدخل الرمز المكون من 6 أرقام',
+                              );
+                            }
+                            return null;
+                          },
                         ),
                         if (_role == UserRole.shopOwner) ...[
                           const SizedBox(height: 14),
@@ -450,9 +472,10 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
                             child: TextFormField(
                               controller: _shopName,
                               focusNode: _shopFocus,
+                              style: _inputTextStyle,
                               textInputAction: TextInputAction.next,
                               decoration: _field(
-                                hint: _t('ناوی دووکان', 'Shop name'),
+                                hint: _t('ناوی دووکان', 'Shop name', 'اسم المتجر'),
                                 icon: Icons.storefront_outlined,
                                 focused: _shopFocus.hasFocus,
                               ),
@@ -462,6 +485,7 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
                                   return _t(
                                     'ناوی دووکان بنووسە',
                                     'Enter shop name',
+                                    'أدخل اسم المتجر',
                                   );
                                 }
                                 return null;
@@ -475,11 +499,12 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
                           child: TextFormField(
                             controller: _password,
                             focusNode: _passFocus,
+                            style: _inputTextStyle,
                             obscureText: _obscurePass,
                             textDirection: TextDirection.ltr,
                             textInputAction: TextInputAction.next,
                             decoration: _field(
-                              hint: _t('تێپەڕەوشە', 'Password'),
+                              hint: _t('تێپەڕەوشە', 'Password', 'كلمة المرور'),
                               icon: Icons.lock_outline_rounded,
                               focused: _passFocus.hasFocus,
                               suffix: IconButton(
@@ -500,6 +525,7 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
                                 return _t(
                                   'لانیکەم ٦ پیت بنووسە',
                                   'At least 6 characters',
+                                  '6 أحرف على الأقل',
                                 );
                               }
                               return null;
@@ -512,6 +538,7 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
                           child: TextFormField(
                             controller: _confirm,
                             focusNode: _confirmFocus,
+                            style: _inputTextStyle,
                             obscureText: _obscureConfirm,
                             textDirection: TextDirection.ltr,
                             textInputAction: TextInputAction.done,
@@ -520,6 +547,7 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
                               hint: _t(
                                 'دووبارە تێپەڕەوشە بنووسە',
                                 'Confirm password',
+                                'تأكيد كلمة المرور',
                               ),
                               icon: Icons.lock_outline_rounded,
                               focused: _confirmFocus.hasFocus,
@@ -541,6 +569,7 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
                                 return _t(
                                   'وشە نهێنییەکان یەک ناگرنەوە',
                                   'Passwords do not match',
+                                  'كلمتا المرور غير متطابقتين',
                                 );
                               }
                               return null;
@@ -550,7 +579,7 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
                         const SizedBox(height: 18),
                         _TermsRow(
                           accepted: _acceptedTerms,
-                          english: _en,
+                          language: _lang,
                           error: _termsError,
                           onChanged: (v) => setState(() {
                             _acceptedTerms = v;
@@ -605,7 +634,8 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
                               ),
                             )
                           : Text(
-                                      _t('هەژمار دروست بکە', 'Create account'),
+                                      _t('هەژمار دروست بکە', 'Create account',
+                                          'إنشاء حساب'),
                                       style: TextStyle(
                                 fontFamily: AppTheme.fontFamily,
                                 fontWeight: FontWeight.w800,
@@ -719,7 +749,9 @@ class _ArcPainter extends CustomPainter {
 }
 
 class _SignupHeroHeader extends StatelessWidget {
-  const _SignupHeroHeader();
+  final AppLanguage language;
+
+  const _SignupHeroHeader({required this.language});
 
   @override
   Widget build(BuildContext context) {
@@ -835,7 +867,12 @@ class _SignupHeroHeader extends StatelessWidget {
                     ),
               const SizedBox(height: 5),
                     Text(
-                AppConstants.appTagline,
+                tr(
+                  language,
+                  AppConstants.appTagline,
+                  'Modern clothing for everyone',
+                  'أزياء عصرية للجميع',
+                ),
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                   fontWeight: FontWeight.w600,
@@ -940,12 +977,12 @@ class _FashionBubble extends StatelessWidget {
 
 class _RoleToggle extends StatelessWidget {
   final UserRole role;
-  final bool english;
+  final AppLanguage language;
   final ValueChanged<UserRole> onChanged;
 
   const _RoleToggle({
     required this.role,
-    required this.english,
+    required this.language,
     required this.onChanged,
   });
 
@@ -969,12 +1006,12 @@ class _RoleToggle extends StatelessWidget {
                           children: [
           _chip(
             selected: role == UserRole.customer,
-            label: english ? 'Customer' : 'کڕیار',
+            label: tr(language, 'کڕیار', 'Customer', 'عميل'),
             onTap: () => onChanged(UserRole.customer),
           ),
           _chip(
             selected: role == UserRole.shopOwner,
-            label: english ? 'Shop' : 'دووکان',
+            label: tr(language, 'دووکان', 'Shop', 'متجر'),
             onTap: () => onChanged(UserRole.shopOwner),
           ),
         ],
@@ -1031,13 +1068,13 @@ class _RoleToggle extends StatelessWidget {
 
 class _TermsRow extends StatelessWidget {
   final bool accepted;
-  final bool english;
+  final AppLanguage language;
   final String? error;
   final ValueChanged<bool> onChanged;
 
   const _TermsRow({
     required this.accepted,
-    required this.english,
+    required this.language,
     required this.error,
     required this.onChanged,
   });
@@ -1055,6 +1092,12 @@ class _TermsRow extends StatelessWidget {
       color: AppColors.highlight,
                         fontWeight: FontWeight.w800,
     );
+    void openTerms() => context.push(LegalDocumentScreen.routeFor(
+          LegalDocumentKind.terms,
+        ));
+    void openPrivacy() => context.push(LegalDocumentScreen.routeFor(
+          LegalDocumentKind.privacy,
+        ));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1067,7 +1110,9 @@ class _TermsRow extends StatelessWidget {
             child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AnimatedContainer(
+          GestureDetector(
+            onTap: () => onChanged(!accepted),
+            child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
             width: 22,
             height: 22,
@@ -1088,31 +1133,64 @@ class _TermsRow extends StatelessWidget {
                       ? const Icon(Icons.check_rounded, size: 15, color: Colors.white)
                       : null,
                 ),
+          ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: english
-                      ? Text.rich(
-                          TextSpan(
-                            style: base,
-                            children: [
+                  child: Text.rich(
+                    TextSpan(
+                      style: base,
+                      children: language == AppLanguage.english
+                          ? [
                               const TextSpan(text: 'I agree to the '),
-                              TextSpan(text: 'terms', style: accent),
+                              TextSpan(
+                                text: 'terms',
+                                style: accent,
+                                recognizer: TapGestureRecognizer()
+                                  ..onTap = openTerms,
+                              ),
                               const TextSpan(text: ' and '),
-                              TextSpan(text: 'privacy policy', style: accent),
-                            ],
-                          ),
-                        )
-                    : Text.rich(
-                        TextSpan(
-                          style: base,
-                          children: [
-                            const TextSpan(text: 'من ڕازیم بە هەموو '),
-                            TextSpan(text: 'مەرج', style: accent),
-                            const TextSpan(text: ' و '),
-                            TextSpan(text: 'سیاسەتەکان', style: accent),
-                          ],
-                        ),
-                      ),
+                              TextSpan(
+                                text: 'privacy policy',
+                                style: accent,
+                                recognizer: TapGestureRecognizer()
+                                  ..onTap = openPrivacy,
+                              ),
+                            ]
+                          : language == AppLanguage.arabic
+                              ? [
+                                  const TextSpan(text: 'أوافق على '),
+                                  TextSpan(
+                                    text: 'الشروط',
+                                    style: accent,
+                                    recognizer: TapGestureRecognizer()
+                                      ..onTap = openTerms,
+                                  ),
+                                  const TextSpan(text: ' و '),
+                                  TextSpan(
+                                    text: 'سياسة الخصوصية',
+                                    style: accent,
+                                    recognizer: TapGestureRecognizer()
+                                      ..onTap = openPrivacy,
+                                  ),
+                                ]
+                              : [
+                                  const TextSpan(text: 'من ڕازیم بە هەموو '),
+                                  TextSpan(
+                                    text: 'مەرج',
+                                    style: accent,
+                                    recognizer: TapGestureRecognizer()
+                                      ..onTap = openTerms,
+                                  ),
+                                  const TextSpan(text: ' و '),
+                                  TextSpan(
+                                    text: 'سیاسەتەکان',
+                                    style: accent,
+                                    recognizer: TapGestureRecognizer()
+                                      ..onTap = openPrivacy,
+                                  ),
+                                ],
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -1130,6 +1208,297 @@ class _TermsRow extends StatelessWidget {
             ),
           ),
         ],
+      ],
+    );
+  }
+}
+
+class _SignupOtpField extends StatefulWidget {
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final bool focused;
+  final String label;
+  final String hint;
+  final String? Function(String?)? validator;
+
+  const _SignupOtpField({
+    required this.controller,
+    required this.focusNode,
+    required this.focused,
+    required this.label,
+    required this.hint,
+    this.validator,
+  });
+
+  @override
+  State<_SignupOtpField> createState() => _SignupOtpFieldState();
+}
+
+class _SignupOtpFieldState extends State<_SignupOtpField>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _cursorBlink;
+
+  @override
+  void initState() {
+    super.initState();
+    _cursorBlink = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _cursorBlink.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final code = widget.controller.text;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: 4, bottom: 8),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: AppColors.brand.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.mark_chat_read_outlined,
+                  size: 18,
+                  color: AppColors.brand,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.label,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14.5,
+                        color: const Color(0xFF152426),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.hint,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11.5,
+                        color: const Color(0xFF7E8E90),
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: widget.focused
+                    ? AppColors.brand.withValues(alpha: 0.16)
+                    : Colors.black.withValues(alpha: 0.045),
+                blurRadius: widget.focused ? 20 : 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            child: InkWell(
+              onTap: widget.focusNode.requestFocus,
+              borderRadius: BorderRadius.circular(22),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(14, 18, 14, 14),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: widget.focused
+                        ? AppColors.brand
+                        : const Color(0xFFE2EBEC),
+                    width: widget.focused ? 1.6 : 1,
+                  ),
+                ),
+                child: Directionality(
+                  textDirection: TextDirection.ltr,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Row(
+                            children: List.generate(6, (i) {
+                              final digit = i < code.length ? code[i] : '';
+                              final active = widget.focused &&
+                                  (code.length == i ||
+                                      (code.length == 6 && i == 5));
+                              final filled = digit.isNotEmpty;
+                              return Expanded(
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 180),
+                                  curve: Curves.easeOutCubic,
+                                  margin: EdgeInsetsDirectional.only(
+                                    start: i == 0 ? 0 : 4,
+                                    end: i == 5 ? 0 : 4,
+                                  ),
+                                  height: 54,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    gradient: active
+                                        ? LinearGradient(
+                                            begin: Alignment.topCenter,
+                                            end: Alignment.bottomCenter,
+                                            colors: [
+                                              AppColors.brand
+                                                  .withValues(alpha: 0.12),
+                                              AppColors.brand
+                                                  .withValues(alpha: 0.04),
+                                            ],
+                                          )
+                                        : null,
+                                    color: active
+                                        ? null
+                                        : filled
+                                            ? AppColors.brand
+                                                .withValues(alpha: 0.07)
+                                            : const Color(0xFFF7FBFC),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: active
+                                          ? AppColors.brand
+                                          : filled
+                                              ? AppColors.brand
+                                                  .withValues(alpha: 0.55)
+                                              : const Color(0xFFD8E4E6),
+                                      width: active ? 2 : 1.1,
+                                    ),
+                                    boxShadow: active
+                                        ? [
+                                            BoxShadow(
+                                              color: AppColors.brand
+                                                  .withValues(alpha: 0.18),
+                                              blurRadius: 10,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ]
+                                        : null,
+                                  ),
+                                  child: filled
+                                      ? AnimatedScale(
+                                          scale: 1,
+                                          duration: const Duration(
+                                            milliseconds: 160,
+                                          ),
+                                          curve: Curves.easeOutBack,
+                                          child: Text(
+                                            digit,
+                                            style: const TextStyle(
+                                              fontFamily: AppTheme.fontFamily,
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: 23,
+                                              color: Color(0xFF152426),
+                                              height: 1,
+                                            ),
+                                          ),
+                                        )
+                                      : active
+                                          ? FadeTransition(
+                                              opacity: _cursorBlink,
+                                              child: Container(
+                                                width: 2,
+                                                height: 24,
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.brand,
+                                                  borderRadius:
+                                                      BorderRadius.circular(2),
+                                                ),
+                                              ),
+                                            )
+                                          : Container(
+                                              width: 7,
+                                              height: 7,
+                                              decoration: const BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                color: Color(0xFFC9D5D7),
+                                              ),
+                                            ),
+                                ),
+                              );
+                            }),
+                          ),
+                          Opacity(
+                            opacity: 0.01,
+                            child: SizedBox(
+                              height: 54,
+                              child: TextFormField(
+                                controller: widget.controller,
+                                focusNode: widget.focusNode,
+                                keyboardType: TextInputType.number,
+                                textInputAction: TextInputAction.next,
+                                maxLength: 6,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
+                                validator: widget.validator,
+                                onChanged: (value) {
+                                  if (value.isNotEmpty) {
+                                    HapticFeedback.selectionClick();
+                                  }
+                                  if (value.length == 6) {
+                                    HapticFeedback.lightImpact();
+                                    FocusScope.of(context).nextFocus();
+                                  }
+                                },
+                                decoration: InputDecoration(
+                                  counterText: '',
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  errorStyle: TextStyle(
+                                    fontFamily: AppTheme.fontFamily,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                    color: AppColors.error,
+                                  ),
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 0.01,
+                                  height: 0.01,
+                                  color: Colors.transparent,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }

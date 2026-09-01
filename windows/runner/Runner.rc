@@ -89,12 +89,12 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.shikposh" "\0"
+            VALUE "CompanyName", "com.qopcha" "\0"
             VALUE "FileDescription", "Qopcha" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "shik_posh" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.shikposh. All rights reserved." "\0"
-            VALUE "OriginalFilename", "shik_posh.exe" "\0"
+            VALUE "InternalName", "qopcha" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 com.qopcha. All rights reserved." "\0"
+            VALUE "OriginalFilename", "qopcha.exe" "\0"
             VALUE "ProductName", "Qopcha" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END

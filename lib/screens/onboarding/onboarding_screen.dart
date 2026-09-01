@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -10,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/settings_provider.dart';
+import '../settings/legal_document_screen.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -80,8 +82,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     context.go(signup ? '/auth?tab=signup' : '/auth?tab=login');
   }
 
-  bool get _english =>
-      ref.watch(appSettingsProvider).language == AppLanguage.english;
+  AppLanguage get _lang => ref.watch(appSettingsProvider).language;
 
   @override
   Widget build(BuildContext context) {
@@ -106,7 +107,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
             child: Column(
               children: [
                 const SizedBox(height: 10),
-                _BrandMark(english: _english)
+                _BrandMark(language: _lang)
                     .animate()
                     .fadeIn(duration: 500.ms)
                     .slideY(begin: -0.12, curve: Curves.easeOutCubic),
@@ -120,7 +121,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                       ),
                 ),
                 _BottomPanel(
-                  english: _english,
+                  language: _lang,
                   bottomInset: bottom,
                   onStart: () => _continue(signup: true),
                   onLogin: () => _continue(signup: false),
@@ -218,9 +219,9 @@ class _GlowOrb extends StatelessWidget {
 }
 
 class _BrandMark extends StatelessWidget {
-  final bool english;
+  final AppLanguage language;
 
-  const _BrandMark({required this.english});
+  const _BrandMark({required this.language});
 
   @override
   Widget build(BuildContext context) {
@@ -254,7 +255,12 @@ class _BrandMark extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                english ? AppConstants.appNameEn : AppConstants.appName,
+                tr(
+                  language,
+                  AppConstants.appName,
+                  AppConstants.appNameEn,
+                  'قوپچه',
+                ),
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 17,
@@ -327,13 +333,13 @@ class _HeroStage extends StatelessWidget {
 }
 
 class _BottomPanel extends StatelessWidget {
-  final bool english;
+  final AppLanguage language;
   final double bottomInset;
   final VoidCallback onStart;
   final VoidCallback onLogin;
 
   const _BottomPanel({
-    required this.english,
+    required this.language,
     required this.bottomInset,
     required this.onStart,
     required this.onLogin,
@@ -361,7 +367,7 @@ class _BottomPanel extends StatelessWidget {
           ),
           const SizedBox(height: 22),
           Text(
-            english ? 'KURDISTAN FASHION' : 'مۆدەی کوردستان',
+            tr(language, 'مۆدەی کوردستان', 'KURDISTAN FASHION', 'موضة كردستان'),
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               fontSize: 11,
@@ -372,9 +378,12 @@ class _BottomPanel extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            english
-                ? 'Fashion, done for you.\nAnytime, anywhere.'
-                : 'جل و بەرگ، بۆ تۆ.\nهەر کاتێک، هەر شوێنێک.',
+            tr(
+              language,
+              'جل و بەرگ، بۆ تۆ.\nهەر کاتێک، هەر شوێنێک.',
+              'Fashion, done for you.\nAnytime, anywhere.',
+              'أزياء، من أجلك.\nفي أي وقت، وفي أي مكان.',
+            ),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
@@ -387,9 +396,12 @@ class _BottomPanel extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            english
-                ? 'Shop independent labels, discover new drops, and sell with a studio-grade storefront.'
-                : 'باشترین فرۆشگا و ستایل بدۆزەرەوە — کڕین و فرۆشتن لە یەک شوێنی سادەدا.',
+            tr(
+              language,
+              'باشترین فرۆشگا و ستایل بدۆزەرەوە — کڕین و فرۆشتن لە یەک شوێنی سادەدا.',
+              'Shop independent labels, discover new drops, and sell with a studio-grade storefront.',
+              'اكتشف أفضل المتاجر والأنماط — تسوّق وبِع من مكان واحد بسيط.',
+            ),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
@@ -401,12 +413,13 @@ class _BottomPanel extends StatelessWidget {
           ),
           const SizedBox(height: 26),
           _PrimaryCta(
-            label: english ? 'Get Started' : 'دەستپێبکە',
+            label: tr(language, 'دەستپێبکە', 'Get Started', 'ابدأ الآن'),
             onTap: onStart,
           ),
           const SizedBox(height: 10),
           _GhostCta(
-            label: english ? 'I already have an account' : 'هەژمارم هەیە',
+            label: tr(language, 'هەژمارم هەیە', 'I already have an account',
+                'لدي حساب بالفعل'),
             onTap: onLogin,
           ),
           const SizedBox(height: 16),
@@ -420,24 +433,38 @@ class _BottomPanel extends StatelessWidget {
               ),
               children: [
                 TextSpan(
-                  text: english
-                      ? 'By continuing you agree to our '
-                      : 'بەردەوامبوون واتە ڕەزامەندی لەسەر ',
+                  text: tr(
+                    language,
+                    'بەردەوامبوون واتە ڕەزامەندی لەسەر ',
+                    'By continuing you agree to our ',
+                    'بالمتابعة أنت توافق على ',
+                  ),
                 ),
                 TextSpan(
-                  text: english ? 'Terms' : 'مەرجەکان',
+                  text: tr(language, 'مەرجەکان', 'Terms', 'الشروط'),
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF5A6A6C),
                   ),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () => context.push(
+                          LegalDocumentScreen.routeFor(LegalDocumentKind.terms),
+                        ),
                 ),
-                TextSpan(text: english ? ' and ' : ' و '),
+                TextSpan(text: tr(language, ' و ', ' and ', ' و ')),
                 TextSpan(
-                  text: english ? 'Privacy Policy' : 'تایبەتمەندی',
+                  text: tr(language, 'تایبەتمەندی', 'Privacy Policy',
+                      'سياسة الخصوصية'),
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF5A6A6C),
                   ),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () => context.push(
+                          LegalDocumentScreen.routeFor(
+                            LegalDocumentKind.privacy,
+                          ),
+                        ),
                 ),
                 const TextSpan(text: '.'),
               ],
@@ -616,6 +643,14 @@ class _LanguageSheet extends StatelessWidget {
                   code: 'KU',
                   selected: selected == AppLanguage.kurdish,
                   onTap: () => onPick(AppLanguage.kurdish),
+                ),
+                const SizedBox(height: 10),
+                _LanguageCard(
+                  native: 'العربية',
+                  latin: 'Arabic',
+                  code: 'AR',
+                  selected: selected == AppLanguage.arabic,
+                  onTap: () => onPick(AppLanguage.arabic),
                 ),
               ],
             ),

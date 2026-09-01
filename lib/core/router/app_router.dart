@@ -32,6 +32,7 @@ import '../../screens/customer/shop_storefront_screen.dart';
 import '../../screens/settings/addresses_screen.dart';
 import '../../screens/settings/body_measurements_screen.dart';
 import '../../screens/settings/edit_profile_screen.dart';
+import '../../screens/settings/legal_document_screen.dart';
 import '../../screens/settings/payment_methods_screen.dart';
 import '../../screens/settings/settings_screen.dart';
 import '../../screens/shop_owner/add_edit_product_screen.dart';
@@ -94,7 +95,8 @@ bool _isGuestBrowseRoute(String location) {
       location.startsWith('/profile') ||
       location.startsWith('/fabrics') ||
       location.startsWith('/notifications') ||
-      location.startsWith('/orders');
+      location.startsWith('/orders') ||
+      location == '/settings';
 }
 
 /// One persistent shell so bottom-nav animation state survives tab switches.
@@ -143,6 +145,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isAdminLoginRoute = location == AdminSecurity.loginPath;
       final isPendingRoute = location == '/pending';
       final isVerifyRoute = location == '/verify-email';
+      final isLegalRoute = location.startsWith('/legal');
       // `/admin` panel only — not the obscure admin login path.
       final isAdminRoute =
           location.startsWith('/admin') && !isAdminLoginRoute;
@@ -168,6 +171,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (!isAuthenticated &&
           !isAuthRoute &&
           !isForgotRoute &&
+          !isLegalRoute &&
           !isAdminLoginRoute &&
           location != '/') {
         if (_isGuestBrowseRoute(location)) return null;
@@ -292,6 +296,27 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/verify-email',
         pageBuilder: (context, state) => fadeSlidePage(
           child: const EmailVerificationScreen(),
+          state: state,
+        ),
+      ),
+      GoRoute(
+        path: '/legal/about',
+        pageBuilder: (context, state) => slideFromRightPage(
+          child: const LegalDocumentScreen(kind: LegalDocumentKind.about),
+          state: state,
+        ),
+      ),
+      GoRoute(
+        path: '/legal/terms',
+        pageBuilder: (context, state) => slideFromRightPage(
+          child: const LegalDocumentScreen(kind: LegalDocumentKind.terms),
+          state: state,
+        ),
+      ),
+      GoRoute(
+        path: '/legal/privacy',
+        pageBuilder: (context, state) => slideFromRightPage(
+          child: const LegalDocumentScreen(kind: LegalDocumentKind.privacy),
           state: state,
         ),
       ),

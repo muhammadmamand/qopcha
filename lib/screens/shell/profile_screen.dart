@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/l10n/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/app_content_model.dart';
 import '../../models/user_model.dart';
@@ -15,12 +16,14 @@ import '../../providers/auth_provider.dart';
 import '../../providers/favorites_provider.dart';
 import '../../providers/orders_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../widgets/language_switcher.dart';
 import '../../widgets/location_map_preview.dart';
 import '../../widgets/premium_bottom_nav.dart';
 import '../../widgets/profile_avatar.dart';
 import '../../widgets/telegram_theme_reveal.dart';
 
 Future<void> _openSupportSheet(BuildContext context, WidgetRef ref) async {
+  final s = ref.read(stringsProvider);
   final content = ref.read(resolvedAppContentProvider);
   final phone = content.supportPhone.trim();
   final whatsapp = content.supportWhatsapp.trim();
@@ -54,10 +57,10 @@ Future<void> _openSupportSheet(BuildContext context, WidgetRef ref) async {
     final ok = await launchUrl(uri, mode: LaunchMode.platformDefault);
     if (!ok && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'نەتوانرا بکرێتەوە',
-            style: TextStyle(fontFamily: AppTheme.fontFamily),
+            s.couldNotOpen,
+            style: const TextStyle(fontFamily: AppTheme.fontFamily),
           ),
         ),
       );
@@ -135,7 +138,7 @@ Future<void> _openSupportSheet(BuildContext context, WidgetRef ref) async {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'یارمەتی و پشتگیری',
+                  s.helpSupport,
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
                     fontSize: 18,
@@ -146,7 +149,7 @@ Future<void> _openSupportSheet(BuildContext context, WidgetRef ref) async {
                 if (hours.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Text(
-                    'کاتی کارکردن: $hours',
+                    s.workingHours(hours),
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       fontSize: 13,
@@ -169,7 +172,7 @@ Future<void> _openSupportSheet(BuildContext context, WidgetRef ref) async {
                       ),
                     ),
                     subtitle: Text(
-                      'پەیوەندی تەلەفۆن',
+                      s.callPhone,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         color: AppColors.textSecondary,
@@ -190,7 +193,7 @@ Future<void> _openSupportSheet(BuildContext context, WidgetRef ref) async {
                       ),
                     ),
                     subtitle: Text(
-                      'واتساپ',
+                      s.whatsapp,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         color: AppColors.textSecondary,
@@ -214,7 +217,7 @@ Future<void> _openSupportSheet(BuildContext context, WidgetRef ref) async {
                       ),
                     ),
                     subtitle: Text(
-                      'ئیمەیڵ',
+                      s.email,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         color: AppColors.textSecondary,
@@ -225,7 +228,7 @@ Future<void> _openSupportSheet(BuildContext context, WidgetRef ref) async {
                 if (hasSocial) ...[
                   const SizedBox(height: 8),
                   Text(
-                    'سۆشیال میدیا',
+                    s.socialMedia,
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       fontWeight: FontWeight.w900,
@@ -263,7 +266,7 @@ Future<void> _openSupportSheet(BuildContext context, WidgetRef ref) async {
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     child: Text(
-                      'هێشتا زانیاری پشتگیری دانەنراوە',
+                      s.noSupportYet,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         color: AppColors.textSecondary,
@@ -289,14 +292,22 @@ class ProfileScreen extends ConsumerWidget {
     final favoritesCount = ref.watch(favoritesProvider).length;
 
     if (user == null) {
+      final s = ref.watch(stringsProvider);
       return Scaffold(
         backgroundColor: AppColors.surface,
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 28),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: const LanguageSwitcherButton(),
+                  ),
+                ),
+                const Spacer(),
                 Container(
                   width: 88,
                   height: 88,
@@ -312,7 +323,7 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 22),
                 Text(
-                  'میوانیت',
+                  s.guest,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
@@ -323,7 +334,7 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'دەتوانیت بەرهەمەکان ببینیت. بۆ داواکردن و پرۆفایل، بچۆ ژوورەوە.',
+                  s.guestBrowseHint,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
@@ -332,7 +343,29 @@ class ProfileScreen extends ConsumerWidget {
                     color: AppColors.textSecondary,
                   ),
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 20),
+                OutlinedButton.icon(
+                  onPressed: () => showLanguagePickerSheet(context, ref),
+                  icon: const Icon(Icons.translate_rounded, size: 18),
+                  label: Text(
+                    s.changeLanguage,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.brand,
+                    side: BorderSide(
+                      color: AppColors.brand.withValues(alpha: 0.35),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    minimumSize: const Size(double.infinity, 46),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   height: 52,
@@ -346,7 +379,7 @@ class ProfileScreen extends ConsumerWidget {
                       ),
                     ),
                     child: Text(
-                      'چوونەژوورەوە',
+                      s.signIn,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         fontWeight: FontWeight.w800,
@@ -360,7 +393,7 @@ class ProfileScreen extends ConsumerWidget {
                   onPressed: () =>
                       context.push('/auth?tab=signup&next=/profile'),
                   child: Text(
-                    'دروستکردنی هەژمار',
+                    s.createAccount,
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       fontWeight: FontWeight.w700,
@@ -368,6 +401,7 @@ class ProfileScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
+                const Spacer(),
               ],
             ),
           ),
@@ -375,6 +409,7 @@ class ProfileScreen extends ConsumerWidget {
       );
     }
 
+    final s = ref.watch(stringsProvider);
     final unseen = ref.watch(unseenOrderTabCountsProvider);
     final pending = unseen['pending'] ?? 0;
     final confirmed = (unseen['confirmed'] ?? 0) + (unseen['ready'] ?? 0);
@@ -390,15 +425,15 @@ class ProfileScreen extends ConsumerWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          title: const Text(
-            'چوونەدەرەوە',
-            style: TextStyle(
+          title: Text(
+            s.logout,
+            style: const TextStyle(
               fontFamily: AppTheme.fontFamily,
               fontWeight: FontWeight.w800,
             ),
           ),
           content: Text(
-            'دڵنیایت دەتەوێت بچیتە دەرەوە؟',
+            s.logoutConfirm,
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               color: AppColors.textSecondary,
@@ -407,12 +442,12 @@ class ProfileScreen extends ConsumerWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('نەخێر'),
+              child: Text(s.no),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: TextButton.styleFrom(foregroundColor: AppColors.error),
-              child: const Text('بەڵێ'),
+              child: Text(s.yes),
             ),
           ],
         ),
@@ -426,7 +461,7 @@ class ProfileScreen extends ConsumerWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'بەمزووانە بەردەست دەبێت',
+            s.comingSoon,
             style: TextStyle(fontFamily: AppTheme.fontFamily),
           ),
           behavior: SnackBarBehavior.floating,
@@ -474,7 +509,7 @@ class ProfileScreen extends ConsumerWidget {
               Row(
                 children: [
                   Text(
-                    'پڕۆفایلی من',
+                    s.myProfile,
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       fontSize: 26,
@@ -502,6 +537,11 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: 20),
               _ProfileHeader(
                     user: user,
+                    editLabel: s.editProfile,
+                    preferredSizeLabel: user.isCustomer &&
+                            (user.preferredSize ?? '').trim().isNotEmpty
+                        ? s.preferredSize(user.preferredSize!.trim())
+                        : null,
                     onEdit: () {
                       HapticFeedback.selectionClick();
                       context.push('/settings/edit-profile');
@@ -517,7 +557,7 @@ class ProfileScreen extends ConsumerWidget {
                       longitude: user.longitude!,
                       caption: user.location?.trim().isNotEmpty == true
                           ? user.location
-                          : 'شوێنی گەیاندن',
+                          : s.deliveryPlace,
                     )
                     .animate()
                     .fadeIn(delay: 80.ms, duration: 400.ms)
@@ -526,6 +566,7 @@ class ProfileScreen extends ConsumerWidget {
                 const SizedBox(height: 14),
                 _LocationTextCard(
                   location: user.location!.trim(),
+                  deliveryLabel: s.deliveryPlace,
                   onEdit: () => context.push('/settings/edit-profile'),
                 ),
               ],
@@ -536,6 +577,13 @@ class ProfileScreen extends ConsumerWidget {
                     shipped: shipped,
                     delivered: delivered,
                     returned: returned,
+                    title: s.myOrders,
+                    seeAllLabel: s.seeAll,
+                    pendingLabel: s.orderPending,
+                    confirmedLabel: s.orderConfirmed,
+                    shippedLabel: s.orderShipped,
+                    deliveredLabel: s.orderDelivered,
+                    returnedLabel: s.orderReturned,
                     onViewAll: () => context.go('/orders'),
                     onOpenTab: (tab) => context.go('/orders?tab=$tab'),
                   )
@@ -547,52 +595,52 @@ class ProfileScreen extends ConsumerWidget {
                     items: [
                       _MenuEntry(
                         icon: Icons.person_outline_rounded,
-                        title: 'زانیاری کەسی',
+                        title: s.personalInfo,
                         onTap: () => context.push('/settings/edit-profile'),
                       ),
                       _MenuEntry(
                         icon: Icons.location_on_outlined,
-                        title: 'ناونیشانەکان',
+                        title: s.addresses,
                         onTap: () => context.push('/settings/addresses'),
                       ),
                       if (user.isCustomer)
                         _MenuEntry(
                           icon: Icons.straighten_rounded,
-                          title: 'قیاسی جەستەم',
+                          title: s.bodyMeasurements,
                           onTap: () => context.push('/settings/measurements'),
                         ),
                       _MenuEntry(
                         icon: Icons.credit_card_outlined,
-                        title: 'شێوازەکانی پارەدان',
+                        title: s.paymentMethods,
                         onTap: () => context.push('/settings/payment-methods'),
                       ),
                       _MenuEntry(
                         icon: favoritesCount > 0
                             ? Icons.favorite_rounded
                             : Icons.favorite_border_rounded,
-                        title: 'دڵخوازەکانم',
+                        title: s.myFavorites,
                         onTap: () => context.push('/favorites'),
                         badge: favoritesCount,
                         pulseHeart: favoritesCount > 0,
                       ),
                       _MenuEntry(
                         icon: Icons.star_border_rounded,
-                        title: 'هەڵسەنگاندنەکانم',
+                        title: s.myReviews,
                         onTap: soon,
                       ),
                       _MenuEntry(
                         icon: Icons.local_offer_outlined,
-                        title: 'داشکاندنەکان',
+                        title: s.discounts,
                         onTap: () => context.go('/discounts'),
                       ),
                       _MenuEntry(
                         icon: Icons.headset_mic_outlined,
-                        title: 'یارمەتی و پشتگیری',
+                        title: s.helpSupport,
                         onTap: () => _openSupportSheet(context, ref),
                       ),
                       _MenuEntry(
                         icon: Icons.logout_rounded,
-                        title: 'چوونەدەرەوە',
+                        title: s.logout,
                         onTap: () {
                           HapticFeedback.mediumImpact();
                           logout();
@@ -613,9 +661,14 @@ class ProfileScreen extends ConsumerWidget {
 
 class _LocationTextCard extends StatelessWidget {
   final String location;
+  final String deliveryLabel;
   final VoidCallback onEdit;
 
-  const _LocationTextCard({required this.location, required this.onEdit});
+  const _LocationTextCard({
+    required this.location,
+    required this.deliveryLabel,
+    required this.onEdit,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -651,7 +704,7 @@ class _LocationTextCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'شوێنی گەیاندن',
+                      deliveryLabel,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         fontSize: 12,
@@ -740,10 +793,14 @@ class _HeaderIcon extends StatelessWidget {
 
 class _ProfileHeader extends StatelessWidget {
   final UserModel user;
+  final String editLabel;
+  final String? preferredSizeLabel;
   final VoidCallback onEdit;
 
   const _ProfileHeader({
     required this.user,
+    required this.editLabel,
+    required this.preferredSizeLabel,
     required this.onEdit,
   });
 
@@ -814,8 +871,7 @@ class _ProfileHeader extends StatelessWidget {
                   ),
                 ),
               ],
-              if (user.isCustomer &&
-                  (user.preferredSize ?? '').trim().isNotEmpty) ...[
+              if (preferredSizeLabel != null) ...[
                 const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -827,7 +883,7 @@ class _ProfileHeader extends StatelessWidget {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    'قەبارە: ${user.preferredSize}',
+                    preferredSizeLabel!,
                     textDirection: ui.TextDirection.ltr,
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
@@ -847,7 +903,7 @@ class _ProfileHeader extends StatelessWidget {
                     Icon(Icons.edit_outlined, size: 14, color: AppColors.brand),
                     const SizedBox(width: 4),
                     Text(
-                      'دەستکاری پڕۆفایل',
+                      editLabel,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         fontSize: 12.5,
@@ -872,6 +928,13 @@ class _OrdersCard extends StatelessWidget {
   final int shipped;
   final int delivered;
   final int returned;
+  final String title;
+  final String seeAllLabel;
+  final String pendingLabel;
+  final String confirmedLabel;
+  final String shippedLabel;
+  final String deliveredLabel;
+  final String returnedLabel;
   final VoidCallback onViewAll;
   final ValueChanged<String> onOpenTab;
 
@@ -881,6 +944,13 @@ class _OrdersCard extends StatelessWidget {
     required this.shipped,
     required this.delivered,
     required this.returned,
+    required this.title,
+    required this.seeAllLabel,
+    required this.pendingLabel,
+    required this.confirmedLabel,
+    required this.shippedLabel,
+    required this.deliveredLabel,
+    required this.returnedLabel,
     required this.onViewAll,
     required this.onOpenTab,
   });
@@ -888,17 +958,17 @@ class _OrdersCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = [
-      (Icons.inventory_2_outlined, null, 'چاوەڕوان', pending, 'pending'),
-      (Icons.verified_outlined, null, 'قبوڵکراو', confirmed, 'confirmed'),
-      (null, 'assets/images/car.png', 'نێردراو', shipped, 'shipped'),
+      (Icons.inventory_2_outlined, null, pendingLabel, pending, 'pending'),
+      (Icons.verified_outlined, null, confirmedLabel, confirmed, 'confirmed'),
+      (null, 'assets/images/car.png', shippedLabel, shipped, 'shipped'),
       (
         Icons.check_circle_outline_rounded,
         null,
-        'گەیشتوو',
+        deliveredLabel,
         delivered,
         'delivered',
       ),
-      (Icons.replay_rounded, null, 'گەڕاوە', returned, 'returned'),
+      (Icons.replay_rounded, null, returnedLabel, returned, 'returned'),
     ];
 
     return Container(
@@ -920,7 +990,7 @@ class _OrdersCard extends StatelessWidget {
           Row(
             children: [
               Text(
-                'داواکارییەکانم',
+                title,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 16,
@@ -934,7 +1004,7 @@ class _OrdersCard extends StatelessWidget {
                 child: Row(
                   children: [
                     Text(
-                      'بینینی هەموو',
+                      seeAllLabel,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         fontSize: 12.5,

@@ -4,7 +4,41 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/theme/app_color_theme.dart';
 
-enum AppLanguage { kurdish, english }
+enum AppLanguage {
+  kurdish,
+  arabic,
+  english;
+
+  bool get isRtl => this != AppLanguage.english;
+
+  String get code => switch (this) {
+        AppLanguage.english => 'en',
+        AppLanguage.arabic => 'ar',
+        AppLanguage.kurdish => 'ku',
+      };
+
+  Locale get locale => Locale(code);
+
+  TextDirection get textDirection =>
+      isRtl ? TextDirection.rtl : TextDirection.ltr;
+
+  static AppLanguage fromCode(String? code) {
+    return switch (code) {
+      'en' => AppLanguage.english,
+      'ar' => AppLanguage.arabic,
+      _ => AppLanguage.kurdish,
+    };
+  }
+}
+
+/// Kurdish / English / Arabic UI string.
+String tr(AppLanguage lang, String ku, String en, String ar) {
+  return switch (lang) {
+    AppLanguage.english => en,
+    AppLanguage.arabic => ar,
+    AppLanguage.kurdish => ku,
+  };
+}
 
 class AppSettingsState {
   final ThemeMode themeMode;
@@ -27,7 +61,7 @@ class AppSettingsState {
 
   const AppSettingsState({
     this.themeMode = ThemeMode.system,
-    this.colorTheme = AppColorTheme.qopcha,
+    this.colorTheme = AppColorTheme.teal,
     this.language = AppLanguage.kurdish,
     this.notificationsEnabled = true,
     this.notifyDiscounts = true,
@@ -96,14 +130,9 @@ class AppSettingsNotifier extends StateNotifier<AppSettingsState> {
     final colorName = prefs.getString(_colorThemeKey);
     final lang = prefs.getString(_languageKey);
 
-    var colorTheme = AppColorTheme.qopcha;
+    var colorTheme = AppColorTheme.teal;
     if (colorName != null) {
-      for (final t in AppColorTheme.values) {
-        if (t.name == colorName) {
-          colorTheme = t;
-          break;
-        }
-      }
+      colorTheme = AppColorTheme.resolve(colorName);
     }
 
     state = state.copyWith(
@@ -111,7 +140,7 @@ class AppSettingsNotifier extends StateNotifier<AppSettingsState> {
           ? ThemeMode.system
           : ThemeMode.values[themeIndex],
       colorTheme: colorTheme,
-      language: lang == 'en' ? AppLanguage.english : AppLanguage.kurdish,
+      language: AppLanguage.fromCode(lang),
       notificationsEnabled: prefs.getBool(_notificationsKey) ?? true,
       notifyDiscounts: prefs.getBool(_notifyDiscountsKey) ?? true,
       notifyNewProducts: prefs.getBool(_notifyNewProductsKey) ?? true,
@@ -135,10 +164,7 @@ class AppSettingsNotifier extends StateNotifier<AppSettingsState> {
   Future<void> setLanguage(AppLanguage language) async {
     state = state.copyWith(language: language);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      _languageKey,
-      language == AppLanguage.english ? 'en' : 'ku',
-    );
+    await prefs.setString(_languageKey, language.code);
   }
 
   Future<void> setNotifications(bool enabled) async {

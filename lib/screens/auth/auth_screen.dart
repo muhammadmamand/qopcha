@@ -6,11 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/l10n/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/phone_utils.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../widgets/language_switcher.dart';
 import '../../widgets/sewing_button.dart';
 import 'signup_wizard.dart';
 
@@ -50,11 +52,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1150),
     );
+    if (widget.initialTab == 1) {
+      _flipController.value = 1.0;
+    }
     _tabController.addListener(() {
       if (!mounted) return;
-      if (_tabController.index == 0 && !_flipController.isAnimating) {
-        _flipController.reset();
-      }
       setState(() {});
     });
     _phoneFocus.addListener(() => setState(() {}));
@@ -75,9 +77,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
   void _navigateAfterAuth(UserModel user) {
     // Admin never enters from the public auth screen.
     if (user.isAdmin) {
-      _showError(
-        'ئەدمین ناتوانێت لێرە بچێتە ژوورەوە — پانێڵی بەڕێوەبردن بەکاربهێنە',
-      );
+      _showError(ref.read(stringsProvider).adminCannotLoginHere);
       return;
     }
     if (user.isRejected || (user.isPending && user.isShopOwner)) {
@@ -110,7 +110,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
       final user = ref.read(authProvider).user;
       if (user != null) _navigateAfterAuth(user);
     } else {
-      _showError(ref.read(authProvider).error ?? 'هەڵەیەک ڕوویدا');
+      _showError(
+        ref.read(authProvider).error ??
+            ref.read(stringsProvider).errorGeneric,
+      );
     }
   }
 
@@ -150,9 +153,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
         : '/auth/forgot-password?phone=${Uri.encodeComponent(phone)}';
     final sent = await context.push<bool>(uri);
     if (!mounted || sent != true) return;
-    _showSuccess(
-      'وشەی نهێنی نوێکرایەوە — ئێستا دەتوانیت بچیتە ژوورەوە',
-    );
+    _showSuccess(ref.read(stringsProvider).passwordUpdated);
   }
 
   void _onSecretBrandTap() {
@@ -171,7 +172,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
   }
 
   Future<void> _openSignupWithFlip() async {
-    if (_flipController.isAnimating || _flipController.value > 0) return;
+    if (_flipController.isAnimating) return;
+    if (_flipController.isCompleted) {
+      _tabController.animateTo(1);
+      return;
+    }
+    if (_flipController.value > 0) return;
     FocusManager.instance.primaryFocus?.unfocus();
     HapticFeedback.mediumImpact();
     await _flipController.forward(from: 0);
@@ -179,11 +185,22 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     _tabController.animateTo(1);
   }
 
+  Future<void> _closeSignupWithFlip() async {
+    if (_flipController.isAnimating) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    HapticFeedback.mediumImpact();
+    if (_flipController.value < 1.0) {
+      _flipController.value = 1.0;
+    }
+    _tabController.index = 0;
+    setState(() {});
+    await _flipController.reverse();
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-    final english =
-        ref.watch(appSettingsProvider).language == AppLanguage.english;
+    final lang = ref.watch(appSettingsProvider).language;
     final isLoginTab = _tabController.index == 0;
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
 
@@ -194,7 +211,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
         backgroundColor:
             isLoginTab ? Colors.white : const Color(0xFFF7FBFA),
         body: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 680),
+          duration: _flipController.isAnimating
+              ? Duration.zero
+              : const Duration(milliseconds: 680),
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,
           transitionBuilder: (child, animation) {
@@ -219,13 +238,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                   key: const ValueKey('login'),
                   child: _buildLoginTab(
                     isLoading: authState.isLoading,
-                    english: english,
+                    language: lang,
                     keyboardOpen: keyboardOpen,
                   ),
                 )
               : KeyedSubtree(
                   key: const ValueKey('signup'),
-                  child: _buildSignupTab(english: english),
+                  child: _buildSignupTab(language: lang),
                 ),
         ),
       ),
@@ -272,10 +291,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     );
   }
 
-  Widget _buildSignupTab({required bool english}) {
+  Widget _buildSignupTab({required AppLanguage language}) {
     return SignupWizard(
-      english: english,
-      onBack: () => _tabController.animateTo(0),
+      language: language,
+      onBack: _closeSignupWithFlip,
       onSuccess: () {
         final user = ref.read(authProvider).user;
         if (user != null) {
@@ -287,7 +306,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
 
   Widget _buildLoginTab({
     required bool isLoading,
-    required bool english,
+    required AppLanguage language,
     required bool keyboardOpen,
   }) {
     final topPad = keyboardOpen ? 16.0 : 32.0;
@@ -302,12 +321,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
         final openT = Curves.easeInBack.transform(
           (_flipController.value / 0.34).clamp(0.0, 1.0),
         );
-        final flipT = Curves.easeInOutCubic.transform(
+        final flipT = Curves.easeInOutBack.transform(
           ((_flipController.value - 0.26) / 0.74).clamp(0.0, 1.0),
         );
 
         return Stack(
               children: [
+            PositionedDirectional(
+              top: MediaQuery.paddingOf(context).top + 6,
+              end: 16,
+              child: const LanguageSwitcherButton(),
+            ),
             SafeArea(
                   child: Padding(
                 padding: EdgeInsets.fromLTRB(28, topPad, 28, 0),
@@ -371,6 +395,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                           child: CustomPaint(
                             painter: _LoginStitchPainter(
                               buttonClearance: btnSize * 0.46,
+                              seamProgress: flipT,
                             ),
                           ),
                         ),
@@ -410,7 +435,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                                       const SizedBox.shrink(),
                                       _buildLoginFields(
                                         isLoading: isLoading,
-                                        english: english,
+                                        language: language,
                                       ),
                                       Wrap(
                                         alignment: WrapAlignment.center,
@@ -418,9 +443,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                                             WrapCrossAlignment.center,
                                         children: [
                               Text(
-                                            english
-                                                ? "Don't have account? "
-                                                : 'هەژمارت نییە؟ ',
+                                            tr(
+                                              language,
+                                              'هەژمارت نییە؟ ',
+                                              "Don't have account? ",
+                                              'ليس لديك حساب؟ ',
+                                            ),
                                 style: TextStyle(
                                   fontFamily: AppTheme.fontFamily,
                                               fontSize: 13.5,
@@ -435,9 +463,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                                                 ? null
                                                 : _openSignupWithFlip,
                                             child: Text(
-                                              english
-                                                  ? 'Register now'
-                                                  : 'تۆمارکردن',
+                                              tr(
+                                                language,
+                                                'تۆمارکردن',
+                                                'Register now',
+                                                'سجّل الآن',
+                                              ),
                                               style: TextStyle(
                                                 fontFamily:
                                                     AppTheme.fontFamily,
@@ -492,12 +523,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
 
   Widget _buildLoginFields({
     required bool isLoading,
-    required bool english,
+    required AppLanguage language,
   }) {
     return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-        _loginFieldLabel(english ? 'Phone number' : 'ژمارەی مۆبایل'),
+        _loginFieldLabel(tr(language, 'ژمارەی مۆبایل', 'Phone number', 'رقم الهاتف')),
             TextFormField(
           controller: _loginPhone,
           focusNode: _phoneFocus,
@@ -508,7 +539,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
           keyboardType: TextInputType.phone,
           cursorColor: Colors.white,
               onFieldSubmitted: (_) => _passwordFocus.requestFocus(),
-          validator: (v) => PhoneUtils.validate(v, english: english),
+          validator: (v) => PhoneUtils.validate(v, language: language),
           decoration: _loginFieldDecoration(
             hint: '07xxxxxxxxx',
             focused: _phoneFocus.hasFocus,
@@ -519,13 +550,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
           children: [
             Expanded(
               child: _loginFieldLabel(
-                english ? 'Password' : 'وشەی نهێنی',
+                tr(language, 'وشەی نهێنی', 'Password', 'كلمة المرور'),
               ),
             ),
             GestureDetector(
               onTap: isLoading ? null : _openForgotPassword,
               child: Text(
-                english ? 'Forgot?' : 'لەبیرچووە؟',
+                tr(language, 'لەبیرچووە؟', 'Forgot?', 'نسيت؟'),
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontWeight: FontWeight.w600,
@@ -547,7 +578,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
           cursorColor: Colors.white,
               onFieldSubmitted: (_) => _handleLogin(),
           validator: (v) => v == null || v.length < 4
-              ? (english ? 'Enter your password' : 'وشەی نهێنی بنووسە')
+              ? tr(language, 'وشەی نهێنی بنووسە', 'Enter your password',
+                  'أدخل كلمة المرور')
               : null,
           decoration: _loginFieldDecoration(
             hint: '********',
@@ -597,7 +629,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                           ),
                         )
                       : Text(
-                    english ? 'Login' : 'چوونەژوورەوە',
+                    tr(language, 'چوونەژوورەوە', 'Login', 'تسجيل الدخول'),
                           style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
                       fontWeight: FontWeight.w800,
@@ -619,7 +651,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                   }
                 },
                   child: Text(
-            english ? 'Continue as guest' : 'بەردەوامبە وەک میوان',
+            tr(language, 'بەردەوامبە وەک میوان', 'Continue as guest',
+                'المتابعة كضيف'),
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
               fontWeight: FontWeight.w700,
@@ -885,9 +918,13 @@ class _LoginPeakClipper extends CustomClipper<Path> {
 }
 
 class _LoginStitchPainter extends CustomPainter {
-  const _LoginStitchPainter({required this.buttonClearance});
+  const _LoginStitchPainter({
+    required this.buttonClearance,
+    this.seamProgress = 0,
+  });
 
   final double buttonClearance;
+  final double seamProgress;
 
   static Path? _inset(Path source, double distance) {
     final out = Path();
@@ -948,6 +985,10 @@ class _LoginStitchPainter extends CustomPainter {
     final inner = _inset(seam, 16);
     if (outer == null) return;
 
+    if (seamProgress > 0.02) {
+      _drawSeamHighlight(canvas, outer, seamProgress);
+    }
+
     final thread = Paint()
       ..color = const Color(0xF2F7F3EC)
       ..style = PaintingStyle.stroke
@@ -979,9 +1020,35 @@ class _LoginStitchPainter extends CustomPainter {
     }
   }
 
+  void _drawSeamHighlight(Canvas canvas, Path seam, double progress) {
+    final t = progress.clamp(0.0, 1.0);
+    for (final metric in seam.computeMetrics()) {
+      final end = metric.length * t;
+      if (end <= 0.5) continue;
+      final segment = metric.extractPath(0, end);
+
+      final glow = Paint()
+        ..color = AppColors.highlight.withValues(alpha: 0.42)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 9
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
+      canvas.drawPath(segment, glow);
+
+      final thread = Paint()
+        ..color = AppColors.highlight
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.6
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+      canvas.drawPath(segment, thread);
+    }
+  }
+
   @override
   bool shouldRepaint(covariant _LoginStitchPainter oldDelegate) =>
-      oldDelegate.buttonClearance != buttonClearance;
+      oldDelegate.buttonClearance != buttonClearance ||
+      oldDelegate.seamProgress != seamProgress;
 }
 
 enum _LoginArtLayer { top, bottom, all }

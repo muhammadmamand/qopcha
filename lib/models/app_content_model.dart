@@ -54,7 +54,7 @@ class AppContentModel {
             'زانیاری کەسیت تەنها بۆ کارکردنی ئەپ و گەیاندن بەکاردێت.',
         supportPhone: '',
         supportWhatsapp: '',
-        supportEmail: 'support@qopcha.com',
+        supportEmail: 'qopcha07@gmail.com',
         supportHours: '٩:٠٠ — ٢١:٠٠',
         socialInstagram: '',
         socialFacebook: '',

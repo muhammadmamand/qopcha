@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 /// Contabo VPS / local API for قۆپچە (Qopcha).
 class ApiConfig {
   ApiConfig._();
@@ -31,16 +29,17 @@ class ApiConfig {
   /// This PC on your home Wi‑Fi (physical phone / debug).
   static const lanUrl = 'http://192.168.1.4:8090';
 
+  /// Always use the public Contabo HTTPS API.
+  static const defaultBaseUrl = publicHttpsUrl;
+
   /// Public API origin (no trailing slash).
-  /// - `--dart-define=API_BASE=...` wins always
-  /// - release / profile → HTTPS Contabo
-  /// - debug → LAN for local API work
+  /// - `--dart-define=API_BASE=...` overrides for local dev only
+  /// - default → HTTPS Contabo (debug, profile, and release)
   static String get baseUrl {
     if (_fromEnv.isNotEmpty) {
       return _fromEnv.replaceAll(RegExp(r'/$'), '');
     }
-    if (kReleaseMode || kProfileMode) return publicHttpsUrl;
-    return lanUrl;
+    return defaultBaseUrl;
   }
 
   static const pollInterval = Duration(seconds: 8);

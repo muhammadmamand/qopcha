@@ -7,6 +7,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/l10n/app_strings.dart';
 import '../../core/theme/app_animations.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/hero_tags.dart';
@@ -179,6 +180,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _openFilterSheet() {
     HapticFeedback.selectionClick();
+    final s = ref.read(stringsProvider);
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.sheet,
@@ -204,7 +206,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               ),
               const SizedBox(height: 20),
               Text(
-                'فلتەر',
+                s.filters,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 20,
@@ -217,7 +219,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(Icons.clear_all_rounded, color: _kTeal),
                 title: Text(
-                  'پاککردنەوەی هەموو فلتەرەکان',
+                  s.clearAllFilters,
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
                     fontWeight: FontWeight.w600,
@@ -233,7 +235,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(Icons.grid_view_rounded, color: _kTeal),
                 title: Text(
-                  'بینینی هەموو جۆرەکان',
+                  s.seeAllCategories,
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
                     fontWeight: FontWeight.w600,
@@ -267,6 +269,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
     final productsAsync = ref.watch(filteredProductsProvider);
     final allProductsAsync = ref.watch(productsProvider);
     final selectedCategory = ref.watch(selectedCategoryProvider);
@@ -285,7 +288,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 controller: _scrollController,
                 physics: const BouncingScrollPhysics(),
                 slivers: [
-                  SliverToBoxAdapter(child: _buildHeader()),
+                  SliverToBoxAdapter(child: _buildHeader(s)),
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
@@ -307,7 +310,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 26, 20, 12),
-                      child: _SectionTitle(title: 'کڕین بەپێی پۆل'),
+                      child: _SectionTitle(title: s.shopByCategory),
                     ),
                   ),
                   SliverToBoxAdapter(
@@ -319,14 +322,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         children: [
                           _CategoryChip(
-                            label: 'هەموو',
+                            label: s.all,
                             icon: Icons.grid_view_rounded,
                             selected: true,
                             onTap: () => _selectCategory('هەموو'),
                           ),
                           ..._chipCats.map(
                             (c) => _CategoryChip(
-                              label: c.label,
+                              label: s.categoryLabel(c.category),
                               icon: c.icon,
                               selected: false,
                               onTap: () => _selectCategory(c.category),
@@ -341,7 +344,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 22, 20, 12),
-                      child: _SectionTitle(title: 'کڕین بەپێی ڕەگەز'),
+                      child: _SectionTitle(title: s.shopByGender),
                     ),
                   ),
                   SliverToBoxAdapter(
@@ -351,8 +354,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         children: [
                           Expanded(
                             child: _GenderCard(
-                              title: 'پیاوان',
-                              subtitle: 'کۆلێکشنە نوێیەکانی پیاوان ببینە',
+                              title: s.men,
+                              subtitle: s.menSubtitle,
                               gradient: [
                                 const Color(0xFFD7ECEE),
                                 Color.lerp(
@@ -373,8 +376,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: _GenderCard(
-                              title: 'ژنان',
-                              subtitle: 'کۆلێکشنە نوێیەکانی ژنان ببینە',
+                              title: s.women,
+                              subtitle: s.womenSubtitle,
                               gradient: [
                                 const Color(0xFFFFE4D8),
                                 Color.lerp(
@@ -404,8 +407,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       key: _menKey,
                       padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
                       child: _SectionTitle(
-                        title: 'پۆلەکانی پیاوان',
-                        actionLabel: 'بینینی هەموو',
+                        title: s.menCategories,
+                        actionLabel: s.seeAll,
                         onAction: () {
                           if (_menCats.isNotEmpty) {
                             _selectCategory(_menCats.first.category);
@@ -421,6 +424,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       coverFor: _coverFor,
                       countFor: _countFor,
                       onTap: (c) => _selectCategory(c.category),
+                      strings: s,
                     ),
                   ),
                   SliverToBoxAdapter(
@@ -428,8 +432,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       key: _womenKey,
                       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
                       child: _SectionTitle(
-                        title: 'پۆلەکانی ژنان',
-                        actionLabel: 'بینینی هەموو',
+                        title: s.womenCategories,
+                        actionLabel: s.seeAll,
                         onAction: () {
                           if (_womenCats.isNotEmpty) {
                             _selectCategory(_womenCats.first.category);
@@ -449,6 +453,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         coverFor: _coverFor,
                         countFor: _countFor,
                         onTap: (c) => _selectCategory(c.category),
+                        strings: s,
                       ),
                     ),
                   ),
@@ -456,7 +461,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               )
             : Column(
                 children: [
-                  _buildHeader(showBack: true),
+                  _buildHeader(s, showBack: true),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
                     child: _SearchField(
@@ -470,14 +475,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       onFilterTap: _openFilterSheet,
                     ),
                   ),
-                  Expanded(child: _buildResults(productsAsync)),
+                  Expanded(child: _buildResults(productsAsync, s)),
                 ],
               ),
       ),
     );
   }
 
-  Widget _buildHeader({bool showBack = false}) {
+  Widget _buildHeader(AppStrings s, {bool showBack = false}) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
       child: SizedBox(
@@ -496,7 +501,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               const SizedBox(width: 48),
             Expanded(
               child: Text(
-                'گەڕان',
+                s.search,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
@@ -513,21 +518,24 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildResults(AsyncValue<List<ProductModel>> productsAsync) {
+  Widget _buildResults(
+    AsyncValue<List<ProductModel>> productsAsync,
+    AppStrings s,
+  ) {
     return productsAsync.when(
       loading: () => const ProductGridShimmer(count: 4),
       error: (e, _) => ErrorView(
-        message: 'هەڵە لە گەڕان',
+        message: s.searchError,
         onRetry: () => ref.invalidate(filteredProductsProvider),
       ),
       data: (products) {
         if (products.isEmpty) {
           return EmptyView(
-            message: 'هیچ ئەنجامێک نەدۆزرایەوە',
+            message: s.noSearchResults,
             icon: Icons.search_off_rounded,
             action: TextButton(
               onPressed: _clearAll,
-              child: const Text('گەڕانەوە'),
+              child: Text(s.retry),
             ),
           );
         }
@@ -608,7 +616,7 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _SearchField extends StatefulWidget {
+class _SearchField extends ConsumerStatefulWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final ValueChanged<String> onChanged;
@@ -624,16 +632,11 @@ class _SearchField extends StatefulWidget {
   });
 
   @override
-  State<_SearchField> createState() => _SearchFieldState();
+  ConsumerState<_SearchField> createState() => _SearchFieldState();
 }
 
-class _SearchFieldState extends State<_SearchField>
+class _SearchFieldState extends ConsumerState<_SearchField>
     with SingleTickerProviderStateMixin {
-  static const _hints = <String>[
-    'گەڕان بۆ جل، پۆل، براند...',
-    'کراس، پێڵاو، جانتە...',
-    'دووکانی دڵخواز...',
-  ];
 
   late final AnimationController _caret;
   late final TextEditingController _textController;
@@ -698,7 +701,13 @@ class _SearchFieldState extends State<_SearchField>
       return;
     }
 
-    final full = _hints[_hintIndex];
+    final s = ref.read(stringsProvider);
+    final hints = <String>[
+      s.searchHintClothes,
+      s.searchHintItems,
+      s.searchHintShop,
+    ];
+    final full = hints[_hintIndex % hints.length];
 
     if (!_deleting) {
       if (_charIndex <= full.length) {
@@ -722,7 +731,7 @@ class _SearchFieldState extends State<_SearchField>
     }
 
     _deleting = false;
-    _hintIndex = (_hintIndex + 1) % _hints.length;
+    _hintIndex = (_hintIndex + 1) % 3;
     _scheduleTick(const Duration(milliseconds: 220));
   }
 
@@ -1055,6 +1064,7 @@ class _CategoryCarousel extends StatelessWidget {
   final String? Function(String category, List<ProductModel> products) coverFor;
   final int Function(String category, List<ProductModel> products) countFor;
   final ValueChanged<_CatDef> onTap;
+  final AppStrings strings;
 
   const _CategoryCarousel({
     required this.items,
@@ -1062,6 +1072,7 @@ class _CategoryCarousel extends StatelessWidget {
     required this.coverFor,
     required this.countFor,
     required this.onTap,
+    required this.strings,
   });
 
   @override
@@ -1079,8 +1090,8 @@ class _CategoryCarousel extends StatelessWidget {
           final cover = coverFor(item.category, products);
           final count = countFor(item.category, products);
           return _PhotoCategoryCard(
-            label: item.label,
-            count: count,
+            label: strings.categoryLabel(item.category),
+            countLabel: strings.itemsPlusCount(count),
             coverUrl: cover,
             icon: item.icon,
             onTap: () => onTap(item),
@@ -1096,14 +1107,14 @@ class _CategoryCarousel extends StatelessWidget {
 
 class _PhotoCategoryCard extends StatefulWidget {
   final String label;
-  final int count;
+  final String countLabel;
   final String? coverUrl;
   final IconData icon;
   final VoidCallback onTap;
 
   const _PhotoCategoryCard({
     required this.label,
-    required this.count,
+    required this.countLabel,
     required this.coverUrl,
     required this.icon,
     required this.onTap,
@@ -1179,7 +1190,7 @@ class _PhotoCategoryCardState extends State<_PhotoCategoryCard> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${widget.count}+ دانە',
+                      widget.countLabel,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         fontSize: 11,

@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/l10n/app_strings.dart';
 import '../../core/theme/app_animations.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
@@ -31,12 +32,12 @@ class CartScreen extends ConsumerStatefulWidget {
 
 class _CartScreenState extends ConsumerState<CartScreen> {
   Future<void> _checkout() async {
+    final s = ref.read(stringsProvider);
     final user = ref.read(currentUserProvider);
     if (user == null) {
       await showLoginRequiredDialog(
         context,
-        message:
-            'بۆ تەواوکردنی داواکاری پێویستە بچیتە ژوورەوە یان هەژمار دروست بکەیت.',
+        message: s.loginToCheckoutBody,
         nextPath: '/cart',
       );
       return;
@@ -46,9 +47,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            user.isPending
-                ? 'هەژمارەکەت چاوەڕوانی پەسەندکردنە — دەتوانیت ببینیت بەڵام ناتوانیت داواکاری بکەیت'
-                : 'ناتوانیت داواکاری بکەیت',
+            user.isPending ? s.pendingCannotOrder : s.cannotOrder,
             style: const TextStyle(fontFamily: AppTheme.fontFamily),
           ),
           backgroundColor: AppColors.highlight,
@@ -112,7 +111,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
             ? addresses
             : [
                 AddressModel.create(
-                  label: 'سەرەکی',
+                  label: s.primary,
                   location: user.location!.trim(),
                   latitude: user.latitude,
                   longitude: user.longitude,
@@ -136,8 +135,8 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       SnackBar(
         content: Text(
           created.length == 1
-              ? 'داواکاریەکەت نێردرا بۆ دووکان — چاوەڕوانی قبوڵکردن'
-              : '${created.length} داواکاری نێردرا بۆ دووکانەکان',
+              ? s.orderSent
+              : s.ordersSentMultiple(created.length),
           style: const TextStyle(fontFamily: AppTheme.fontFamily),
         ),
         backgroundColor: AppColors.brand,
@@ -151,20 +150,21 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   }
 
   Future<void> _confirmClear() async {
+    final s = ref.read(stringsProvider);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         title: Text(
-          'سڕینەوەی سەبەتە؟',
+          s.clearCartTitle,
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
             fontWeight: FontWeight.w800,
           ),
         ),
         content: Text(
-          'هەموو بەرهەمەکان لە سەبەتە دەسڕدرێنەوە.',
+          s.clearCartBody,
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
             color: AppColors.textSecondary,
@@ -173,12 +173,12 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('پاشگەزبوونەوە'),
+            child: Text(s.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('سڕینەوە'),
+            child: Text(s.delete),
           ),
         ],
       ),
@@ -190,6 +190,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
     final items = ref.watch(cartProvider);
     final total = ref.watch(cartTotalProvider);
     final count = ref.watch(cartItemCountProvider);
@@ -234,7 +235,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'سەبەتە',
+                              s.cart,
                               style: TextStyle(
                                 fontFamily: AppTheme.fontFamily,
                                 fontSize: 32,
@@ -252,8 +253,8 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                             const SizedBox(height: 4),
                             Text(
                               items.isEmpty
-                                  ? 'هیچ بەرهەمێک نییە'
-                                  : '$count دانە لە سەبەتەدا',
+                                  ? s.noItems
+                                  : s.cartItemsSubtitle(count),
                               style: TextStyle(
                                 fontFamily: AppTheme.fontFamily,
                                 fontSize: 13,
@@ -273,7 +274,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                             color: AppColors.error,
                           ),
                           label: Text(
-                            'پاککردنەوە',
+                            s.clearCart,
                             style: TextStyle(
                               fontFamily: AppTheme.fontFamily,
                               color: AppColors.error,
@@ -333,11 +334,12 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   }
 }
 
-class _EmptyCart extends StatelessWidget {
+class _EmptyCart extends ConsumerWidget {
   const _EmptyCart();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider);
     return Center(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(40, 12, 40, 120),
@@ -368,7 +370,7 @@ class _EmptyCart extends StatelessWidget {
                 ),
             const SizedBox(height: 8),
             Text(
-              'سەبەتەکەت بەتاڵە',
+              s.cartEmpty,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
@@ -379,7 +381,7 @@ class _EmptyCart extends StatelessWidget {
             ).animate().fadeIn(delay: 80.ms, duration: 350.ms),
             const SizedBox(height: 8),
             Text(
-              'بەرهەمێک زیاد بکە و کڕینەکەت تەواو بکە',
+              s.cartEmptyHint,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
@@ -403,9 +405,9 @@ class _EmptyCart extends StatelessWidget {
                   ),
                 ),
                 icon: const Icon(Icons.storefront_rounded, size: 20),
-                label: const Text(
-                  'گەڕانەوە بۆ فرۆشگا',
-                  style: TextStyle(
+                label: Text(
+                  s.backToShop,
+                  style: const TextStyle(
                     fontFamily: AppTheme.fontFamily,
                     fontWeight: FontWeight.w700,
                   ),
@@ -426,6 +428,7 @@ class _CartTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider);
     final notifier = ref.read(cartProvider.notifier);
 
     return Container(
@@ -470,7 +473,11 @@ class _CartTile extends ConsumerWidget {
                           padding: const EdgeInsets.symmetric(vertical: 4),
                           color: AppColors.brand.withValues(alpha: 0.85),
                           child: Text(
-                            'قیاس ${item.size == AppConstants.fabricStockUnit ? 'مەتر' : item.size}',
+                            s.sizeLabel(
+                              item.size == AppConstants.fabricStockUnit
+                                  ? s.meter
+                                  : item.size,
+                            ),
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               fontFamily: AppTheme.fontFamily,
@@ -682,7 +689,7 @@ class _QtyBtn extends StatelessWidget {
   }
 }
 
-class _CheckoutBar extends StatelessWidget {
+class _CheckoutBar extends ConsumerWidget {
   final int itemCount;
   final double total;
   final bool canCheckout;
@@ -702,7 +709,8 @@ class _CheckoutBar extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider);
     final bottom =
         MediaQuery.of(context).padding.bottom + kPremiumBottomNavClearance;
 
@@ -734,7 +742,7 @@ class _CheckoutBar extends StatelessWidget {
                 ),
               ),
               child: Text(
-                'بۆ داواکردن پێویستە بچیتە ژوورەوە',
+                s.loginToCheckout,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 12.5,
@@ -757,7 +765,7 @@ class _CheckoutBar extends StatelessWidget {
                 ),
               ),
               child: Text(
-                'هەژمارەکەت چاوەڕوانی پەسەندکردنە — دەتوانیت سەبەتە ببینیت بەڵام ناتوانیت داواکاری بکەیت',
+                s.pendingCannotOrder,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 12,
@@ -780,8 +788,7 @@ class _CheckoutBar extends StatelessWidget {
               ),
             ),
             child: Text(
-              'نرخی گەیاندن لە کاتی گەیاندن وەردەگیرێت — شۆفێر بەپێی ناوچە دیاری دەکات '
-              '(ناو شار ٣٬٠٠٠ · ١٢٠ مەتری ٤٬٠٠٠ · ١٥٠ مەتری ٥٬٠٠٠ دینار)',
+              s.deliveryFeeNote,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 fontSize: 12,
@@ -801,12 +808,12 @@ class _CheckoutBar extends StatelessWidget {
             child: Column(
               children: [
                 _SummaryRow(
-                  label: 'ژمارەی دانە',
+                  label: s.itemCount,
                   value: '$itemCount',
                 ),
                 const SizedBox(height: 8),
                 _SummaryRow(
-                  label: 'کۆی گشتی',
+                  label: s.total,
                   value: Formatters.price(total),
                   emphasize: true,
                 ),
@@ -859,10 +866,10 @@ class _CheckoutBar extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       guestCheckout
-                          ? 'چوونەژوورەوە بۆ داواکردن'
+                          ? s.loginToOrder
                           : canCheckout
-                              ? 'تەواوکردنی کڕین'
-                              : 'چاوەڕوانی پەسەندکردن',
+                              ? s.checkout
+                              : s.waitingApproval,
                       style: const TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         fontWeight: FontWeight.w800,
@@ -878,7 +885,7 @@ class _CheckoutBar extends StatelessWidget {
           TextButton(
             onPressed: onContinue,
             child: Text(
-              'بەردەوامبوون لە کڕین',
+              s.continueShopping,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 color: AppColors.brand,
@@ -937,11 +944,12 @@ class _SummaryRow extends StatelessWidget {
   }
 }
 
-class _IosLiquidGlassAlert extends StatelessWidget {
+class _IosLiquidGlassAlert extends ConsumerWidget {
   const _IosLiquidGlassAlert();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final glassFill = isDark
@@ -1044,7 +1052,7 @@ class _IosLiquidGlassAlert extends StatelessWidget {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'شوێن دیاری نەکراوە',
+                            s.locationNotSet,
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontFamily: AppTheme.fontFamily,
@@ -1058,7 +1066,7 @@ class _IosLiquidGlassAlert extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'بۆ تەواوکردنی داواکاری، تکایە شوێنی خۆت دیاری بکە.',
+                            s.locationRequiredBody,
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontFamily: AppTheme.fontFamily,
@@ -1089,7 +1097,7 @@ class _IosLiquidGlassAlert extends StatelessWidget {
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              child: const Text('دیاریکردنی شوێن'),
+                              child: Text(s.setLocation),
                             ),
                           ),
                           Container(
@@ -1113,7 +1121,7 @@ class _IosLiquidGlassAlert extends StatelessWidget {
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              child: const Text('دواتر'),
+                              child: Text(s.later),
                             ),
                           ),
                         ],
@@ -1130,13 +1138,14 @@ class _IosLiquidGlassAlert extends StatelessWidget {
   }
 }
 
-class _CheckoutAddressSheet extends StatelessWidget {
+class _CheckoutAddressSheet extends ConsumerWidget {
   final List<AddressModel> addresses;
 
   const _CheckoutAddressSheet({required this.addresses});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider);
     final bottom = MediaQuery.paddingOf(context).bottom;
     final defaultId = addresses
         .firstWhere((a) => a.isDefault, orElse: () => addresses.first)
@@ -1160,7 +1169,7 @@ class _CheckoutAddressSheet extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'ناونیشانی گەیاندن هەڵبژێرە',
+            s.chooseDeliveryAddress,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
@@ -1171,7 +1180,7 @@ class _CheckoutAddressSheet extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'کام ناونیشان بۆ ئەم داواکاریە؟',
+            s.whichAddress,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
@@ -1235,7 +1244,7 @@ class _CheckoutAddressSheet extends StatelessWidget {
                                     ),
                                     if (isDefault)
                                       Text(
-                                        'سەرەکی',
+                                        s.primary,
                                         style: TextStyle(
                                           fontFamily: AppTheme.fontFamily,
                                           fontSize: 11,
@@ -1278,7 +1287,7 @@ class _CheckoutAddressSheet extends StatelessWidget {
             },
             icon: const Icon(Icons.add_rounded),
             label: Text(
-              'ناونیشانی نوێ زیاد بکە',
+              s.addNewAddress,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 fontWeight: FontWeight.w800,

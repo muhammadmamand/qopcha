@@ -322,7 +322,7 @@ class _AdminContentScreenState extends ConsumerState<AdminContentScreen>
                         label: 'ئیمەیڵ',
                         controller: _email,
                         maxLines: 1,
-                        hint: 'support@qopcha.com',
+                        hint: 'qopcha07@gmail.com',
                         keyboard: TextInputType.emailAddress,
                       ),
                       _FieldCard(

@@ -7,7 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 
 /// Telegram-style circular wipe when switching light/dark theme.
-/// Both directions use the same expand animation from the tap point.
+/// Soft feathered edge for a smooth, gentle transition.
 class TelegramThemeReveal extends StatefulWidget {
   final Widget child;
 
@@ -32,7 +32,7 @@ class TelegramThemeReveal extends StatefulWidget {
 
 class TelegramThemeRevealState extends State<TelegramThemeReveal>
     with SingleTickerProviderStateMixin {
-  static const _duration = Duration(milliseconds: 700);
+  static const _duration = Duration(milliseconds: 580);
   static const _curve = Curves.easeInOutCubic;
 
   final GlobalKey _boundaryKey = GlobalKey();
@@ -65,13 +65,19 @@ class TelegramThemeRevealState extends State<TelegramThemeReveal>
     }
   }
 
-  /// Same expand animation for light→dark and dark→light.
   Future<void> reveal({
     required Offset center,
     required VoidCallback onThemeChange,
     bool reverse = false, // kept for call-site compat; always expands
   }) async {
-    if (_busy) return;
+    if (_busy) {
+      _controller.stop();
+      _snapshot?.dispose();
+      _snapshot = null;
+      _busy = false;
+      onThemeChange();
+      return;
+    }
     _busy = true;
 
     try {
@@ -86,7 +92,7 @@ class TelegramThemeRevealState extends State<TelegramThemeReveal>
       }
 
       final localCenter = boundary.globalToLocal(center);
-      final dpr = MediaQuery.devicePixelRatioOf(context);
+      final dpr = math.min(MediaQuery.devicePixelRatioOf(context), 1.5);
       final image = await boundary.toImage(pixelRatio: dpr);
       if (!mounted) {
         image.dispose();
@@ -101,7 +107,7 @@ class TelegramThemeRevealState extends State<TelegramThemeReveal>
         _center = localCenter;
       });
 
-      await _waitFrames(2);
+      await _waitFrames(1);
       if (!mounted) return;
       onThemeChange();
       await _waitFrames(1);
@@ -110,7 +116,7 @@ class TelegramThemeRevealState extends State<TelegramThemeReveal>
       await _controller.animateTo(1.0, duration: _duration, curve: _curve);
 
       if (!mounted) return;
-      await Future<void>.delayed(const Duration(milliseconds: 16));
+      await Future<void>.delayed(const Duration(milliseconds: 12));
     } finally {
       if (mounted) {
         setState(() {
@@ -163,7 +169,7 @@ class _RevealPainter extends CustomPainter {
   final Offset center;
   final double progress;
 
-  _RevealPainter({
+  const _RevealPainter({
     required this.image,
     required this.center,
     required this.progress,
@@ -171,8 +177,9 @@ class _RevealPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final t = progress.clamp(0.0, 1.0);
     final maxRadius = _maxRadius(size, center) * 1.02;
-    final radius = maxRadius * progress.clamp(0.0, 1.0);
+    final radius = maxRadius * t;
     final rect = Offset.zero & size;
 
     canvas.saveLayer(rect, Paint());
@@ -182,31 +189,34 @@ class _RevealPainter extends CustomPainter {
       rect: rect,
       image: image,
       fit: BoxFit.fill,
-      filterQuality: FilterQuality.high,
+      filterQuality: FilterQuality.medium,
       isAntiAlias: true,
     );
 
-    // Growing hole → new theme expands from the tap (light and dark).
     if (radius > 0.5) {
+      // Soft feathered hole — blurred edge instead of a hard cut.
       canvas.drawCircle(
         center,
         radius,
         Paint()
           ..blendMode = BlendMode.dstOut
           ..color = Colors.white
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 22)
           ..isAntiAlias = true,
       );
 
-      final edge = (1.0 - (progress - 0.5).abs() * 2).clamp(0.0, 1.0);
-      if (edge > 0.05) {
+      // Subtle glow at the leading edge (clamp before curve — required by Flutter).
+      final waveT = ((t - 0.08) / 0.92).clamp(0.0, 1.0);
+      if (waveT > 0.02) {
+        final wave = Curves.easeOut.transform(waveT);
         canvas.drawCircle(
           center,
           radius,
           Paint()
             ..style = PaintingStyle.stroke
-            ..strokeWidth = 12 * edge
-            ..color = Colors.white.withValues(alpha: 0.08 * edge)
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8)
+            ..strokeWidth = 28 * wave
+            ..color = Colors.white.withValues(alpha: 0.05 * wave)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16)
             ..isAntiAlias = true,
         );
       }

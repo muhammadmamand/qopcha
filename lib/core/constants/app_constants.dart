@@ -1,7 +1,24 @@
+import 'package:flutter/foundation.dart';
+
 class AppConstants {
   static const String appName = 'قۆپچە';
   static const String appNameEn = 'Qopcha';
   static const String appTagline = 'جل و بەرگی مۆدێرن بۆ هەمووان';
+
+  /// OS window title — ASCII on Windows avoids title-bar mojibake.
+  static String get windowBrandTitle =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.windows
+          ? appNameEn
+          : appName;
+
+  static String windowTitle(String pageTitle) {
+    final brand = windowBrandTitle;
+    if (pageTitle.trim().isEmpty) return brand;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+      return '$pageTitle | $brand';
+    }
+    return '$pageTitle | $appName';
+  }
 
   static const List<String> categories = [
     'هەموو',

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/l10n/app_strings.dart';
 import '../../core/theme/app_animations.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/hero_tags.dart';
@@ -12,6 +13,7 @@ import '../../providers/notifications_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../widgets/category_chips.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/language_switcher.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/profile_avatar.dart';
 import '../../widgets/promo_banner.dart';
@@ -22,6 +24,7 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider);
     final user = ref.watch(currentUserProvider);
     final productsAsync = ref.watch(filteredProductsProvider);
     final selectedCategory = ref.watch(selectedCategoryProvider);
@@ -42,6 +45,7 @@ class HomeScreen extends ConsumerWidget {
       backgroundColor: AppColors.surface,
       body: RefreshIndicator(
         onRefresh: () async {
+          ref.invalidate(productsProvider);
           ref.invalidate(filteredProductsProvider);
           ref.invalidate(featuredProductsProvider);
         },
@@ -74,9 +78,11 @@ class HomeScreen extends ConsumerWidget {
                     0,
                   ),
                   child: _Header(
-                    name: user?.name ?? 'میوان',
+                    name: user?.name ?? s.guest,
+                    guestLabel: s.guest,
                     avatarUrl: user?.avatarUrl,
                     notificationCount: notifBadge,
+                    showLanguageSwitcher: user == null,
                     onProfileTap: () => context.go('/profile'),
                     onNotificationsTap: () => context.push('/notifications'),
                   ),
@@ -132,15 +138,15 @@ class HomeScreen extends ConsumerWidget {
                   const SliverToBoxAdapter(child: ProductGridShimmer(count: 6)),
               error: (e, _) => SliverFillRemaining(
                 child: ErrorView(
-                  message: 'هەڵە لە بارکردنی بەرهەمەکان',
+                  message: s.productsLoadError,
                   onRetry: () => ref.invalidate(filteredProductsProvider),
                 ),
               ),
               data: (products) {
                 if (products.isEmpty) {
-                  return const SliverFillRemaining(
+                  return SliverFillRemaining(
                     child: EmptyView(
-                      message: 'هیچ بەرهەمێک نەدۆزرایەوە',
+                      message: s.noProductsFound,
                       icon: Icons.shopping_bag_outlined,
                     ),
                   );
@@ -181,7 +187,7 @@ class HomeScreen extends ConsumerWidget {
 
 // Kept as an alternate header concept for future use.
 // ignore: unused_element
-class _HomeTopBar extends StatelessWidget {
+class _HomeTopBar extends ConsumerWidget {
   final String name;
   final String? avatarUrl;
   final String? location;
@@ -199,11 +205,12 @@ class _HomeTopBar extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider);
     final firstName = name.trim().split(' ').first;
     final locationLabel = location?.trim().isNotEmpty == true
         ? location!.trim()
-        : 'شوێن دیاری بکە';
+        : s.pickLocation;
 
     return Container(
           padding: const EdgeInsets.fromLTRB(18, 17, 18, 18),
@@ -280,7 +287,7 @@ class _HomeTopBar extends StatelessWidget {
                             ),
                             const SizedBox(height: 1),
                             Text(
-                              'بەخێربێیت، $firstName',
+                              s.welcome(firstName),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -359,10 +366,10 @@ class _HomeTopBar extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 11),
-                            const Expanded(
+                            Expanded(
                               child: Text(
-                                'گەڕان بۆ جل و بەرگ...',
-                                style: TextStyle(
+                                s.searchClothesHint,
+                                style: const TextStyle(
                                   color: Color(0xFF7C7C8A),
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
@@ -424,15 +431,19 @@ class _HeaderCircleButton extends StatelessWidget {
 
 class _Header extends StatelessWidget {
   final String name;
+  final String guestLabel;
   final String? avatarUrl;
   final int notificationCount;
+  final bool showLanguageSwitcher;
   final VoidCallback onProfileTap;
   final VoidCallback onNotificationsTap;
 
   const _Header({
     required this.name,
+    required this.guestLabel,
     required this.avatarUrl,
     required this.notificationCount,
+    this.showLanguageSwitcher = false,
     required this.onProfileTap,
     required this.onNotificationsTap,
   });
@@ -473,7 +484,7 @@ class _Header extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     name.trim().isEmpty
-                        ? 'میوان'
+                        ? guestLabel
                         : name.trim().split(' ').first,
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
@@ -488,6 +499,10 @@ class _Header extends StatelessWidget {
           ),
         ),
         const Spacer(),
+        if (showLanguageSwitcher) ...[
+          const LanguageSwitcherButton(),
+          const SizedBox(width: 8),
+        ],
         Material(
           color: Colors.transparent,
           child: InkWell(
@@ -544,9 +559,10 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _PendingBrowseBanner extends StatelessWidget {
+class _PendingBrowseBanner extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -560,7 +576,7 @@ class _PendingBrowseBanner extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'هەژمارەکەت چاوەڕوانە — دەتوانیت ببینیت بەڵام ناتوانیت داواکاری بکەیت',
+              s.pendingBrowseBanner,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 fontSize: 12.5,
@@ -581,6 +597,7 @@ class _ApprovalNoticeBanner extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -594,7 +611,7 @@ class _ApprovalNoticeBanner extends ConsumerWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'پیرۆزە! هەژمارەکەت پەسەند کرا — ئێستا دەتوانیت داواکاری بکەیت',
+              s.approvalBanner,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 fontSize: 12.5,
@@ -616,13 +633,14 @@ class _ApprovalNoticeBanner extends ConsumerWidget {
   }
 }
 
-class _FabricMarketCard extends StatelessWidget {
+class _FabricMarketCard extends ConsumerWidget {
   final VoidCallback onTap;
 
   const _FabricMarketCard({required this.onTap});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider);
     return Material(
       color: AppColors.brand,
       borderRadius: BorderRadius.circular(22),
@@ -652,7 +670,7 @@ class _FabricMarketCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'بەشی قوماش',
+                      s.fabricsSection,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         color: Colors.white,
@@ -662,7 +680,7 @@ class _FabricMarketCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      'تەنها قوماش — جۆر، کوالێتی، ڕەنگ و نرخ بە مەتر',
+                      s.fabricsSubtitle,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         color: Colors.white.withValues(alpha: 0.86),

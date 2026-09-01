@@ -1,3 +1,5 @@
+import '../../providers/settings_provider.dart';
+
 /// Iraqi mobile helpers for login / signup.
 class PhoneUtils {
   PhoneUtils._();
@@ -19,15 +21,25 @@ class PhoneUtils {
     return RegExp(r'^07[0-9]{9}$').hasMatch(p);
   }
 
-  static String? validate(String? raw, {bool english = false}) {
+  static String? validate(
+    String? raw, {
+    bool english = false,
+    AppLanguage? language,
+  }) {
+    final lang = language ??
+        (english ? AppLanguage.english : AppLanguage.kurdish);
     final p = normalize(raw);
     if (p.isEmpty) {
-      return english ? 'Enter your phone number' : 'ژمارەی مۆبایل بنووسە';
+      return tr(lang, 'ژمارەی مۆبایل بنووسە', 'Enter your phone number',
+          'أدخل رقم هاتفك');
     }
     if (!isValid(p)) {
-      return english
-          ? 'Use a valid number like 07xxxxxxxxx'
-          : 'ژمارەیەکی دروست بنووسە (07xxxxxxxxx)';
+      return tr(
+        lang,
+        'ژمارەیەکی دروست بنووسە (07xxxxxxxxx)',
+        'Use a valid number like 07xxxxxxxxx',
+        'استخدم رقماً صحيحاً مثل 07xxxxxxxxx',
+      );
     }
     return null;
   }

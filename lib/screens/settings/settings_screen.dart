@@ -1,29 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/l10n/app_strings.dart';
 import '../../core/theme/app_color_theme.dart';
 import '../../core/theme/app_theme.dart';
-import '../../models/app_content_model.dart';
 import '../../providers/admin_provider.dart';
 import '../../providers/settings_provider.dart';
-import '../../widgets/spatial_ui.dart';
-import '../../widgets/telegram_theme_reveal.dart';
-
-typedef _GlassBox = SpatialGlass;
+import 'legal_document_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
-
-  static bool _isDarkMode(ThemeMode mode, Brightness platform) {
-    return switch (mode) {
-      ThemeMode.dark => true,
-      ThemeMode.light => false,
-      ThemeMode.system => platform == Brightness.dark,
-    };
-  }
 
   Future<void> _switchTheme(
     BuildContext context,
@@ -33,194 +23,203 @@ class SettingsScreen extends ConsumerWidget {
     final current = ref.read(appSettingsProvider).themeMode;
     if (current == next) return;
 
-    final platform = MediaQuery.platformBrightnessOf(context);
-    final wasDark = _isDarkMode(current, platform);
-    final willBeDark = _isDarkMode(next, platform);
-
-    // Same effective brightness (e.g. system→light while already light).
-    if (wasDark == willBeDark) {
-      await ref.read(appSettingsProvider.notifier).setThemeMode(next);
-      return;
-    }
-
-    final center = TelegramThemeReveal.centerFrom(context);
-    final reveal = TelegramThemeReveal.of(context);
-    if (reveal == null) {
-      await ref.read(appSettingsProvider.notifier).setThemeMode(next);
-      return;
-    }
-
-    await reveal.reveal(
-      center: center,
-      reverse: wasDark && !willBeDark,
-      onThemeChange: () {
-        ref.read(appSettingsProvider.notifier).setThemeMode(next);
-      },
-    );
+    // Instant switch on settings — the full-app snapshot wipe is heavy and
+    // drops taps while _busy, which feels laggy with 3 mode buttons.
+    await ref.read(appSettingsProvider.notifier).setThemeMode(next);
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(appSettingsProvider);
     final notifier = ref.read(appSettingsProvider.notifier);
+    final s = ref.watch(stringsProvider);
 
     return Scaffold(
-      backgroundColor: SpatialScene.backgroundColor,
-      body: SpatialScene(
-        child: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          SliverAppBar(
-            pinned: true,
-            toolbarHeight: 72,
-            backgroundColor: Colors.transparent,
-            foregroundColor: AppColors.textPrimary,
-            surfaceTintColor: Colors.transparent,
-            elevation: 0,
-            leadingWidth: 76,
-            leading: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 12, 8, 12),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => context.pop(),
-                  customBorder: const CircleBorder(),
-                  child: _GlassBox(
-                    shape: BoxShape.circle,
-                    float: true,
-                    child: Icon(
-                      Icons.arrow_back_rounded,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ),
+      backgroundColor: AppColors.surface,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 40),
+          physics: const BouncingScrollPhysics(),
+          children: [
+            Row(
+              children: [
+                _BackButton(onTap: () => context.pop()),
+                const Spacer(),
+              ],
+            ).animate().fadeIn(duration: 300.ms),
+            const SizedBox(height: 18),
+            Text(
+              s.settings,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: AppColors.textPrimary,
+                fontSize: 26,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.3,
+                height: 1.1,
               ),
             ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(22, 8, 22, 48),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                Text(
-                  'ڕێکخستنەکان',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: AppColors.textPrimary,
-                    fontSize: 34,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.8,
-                    height: 1.1,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'ڕووکار، ئاگاداری و تایبەتمەندییەکان',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: AppColors.textSecondary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 28),
-                _SectionTitle(icon: Icons.palette_outlined, title: 'ڕووکار'),
-                const SizedBox(height: 12),
-                _SettingsCard(
+            const SizedBox(height: 6),
+            Text(
+              s.settingsSubtitle,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: AppColors.textSecondary,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 24),
+            _SectionTitle(icon: Icons.palette_outlined, title: s.appearance),
+            const SizedBox(height: 10),
+            _SettingsCard(
                   child: _AppearancePanel(
                     themeMode: settings.themeMode,
                     colorTheme: settings.colorTheme,
+                    brightnessLabel: s.brightnessMode,
+                    appColorLabel: s.appColor,
+                    themeSystem: s.themeSystem,
+                    themeLight: s.themeLight,
+                    themeDark: s.themeDark,
+                    colorThemeLabelOf: s.colorThemeLabel,
                     onThemeMode: (ctx, mode) => _switchTheme(ctx, ref, mode),
                     onColorTheme: notifier.setColorTheme,
                   ),
-                ).animate().fadeIn(duration: 400.ms),
-                const SizedBox(height: 28),
-                _SectionTitle(icon: Icons.translate_rounded, title: 'زمان'),
-                const SizedBox(height: 12),
-                _SettingsCard(
+            ).animate().fadeIn(duration: 400.ms),
+            const SizedBox(height: 22),
+            _SectionTitle(icon: Icons.translate_rounded, title: s.language),
+            const SizedBox(height: 10),
+            _SettingsCard(
                   child: _LanguagePicker(
                     selected: settings.language,
+                    kurdish: s.kurdish,
+                    kurdishSubtitle: s.kurdishSubtitle,
+                    arabic: s.arabic,
+                    arabicSubtitle: s.arabicSubtitle,
+                    english: s.english,
+                    englishSubtitle: s.englishSubtitle,
                     onChanged: notifier.setLanguage,
                   ),
-                ).animate().fadeIn(delay: 80.ms),
-                const SizedBox(height: 28),
-                _SectionTitle(
-                  icon: Icons.notifications_none_rounded,
-                  title: 'ئاگادارییەکان',
-                ),
-                const SizedBox(height: 12),
-                _SettingsCard(
+            ).animate().fadeIn(delay: 80.ms),
+            const SizedBox(height: 22),
+            _SectionTitle(
+              icon: Icons.notifications_none_rounded,
+              title: s.notifications,
+            ),
+            const SizedBox(height: 10),
+            _SettingsCard(
                   child: _NotificationsPanel(
                     masterEnabled: settings.notificationsEnabled,
                     notifyDiscounts: settings.notifyDiscounts,
                     notifyNewProducts: settings.notifyNewProducts,
                     notifyAppUpdates: settings.notifyAppUpdates,
+                    notificationTypes: s.notificationTypes,
+                    allNotifications: s.allNotifications,
+                    notificationsOn: s.notificationsOn,
+                    notificationsOff: s.notificationsOff,
+                    discountsTitle: s.notifyDiscounts,
+                    discountsSub: s.notifyDiscountsSub,
+                    newProductsTitle: s.notifyNewProducts,
+                    newProductsSub: s.notifyNewProductsSub,
+                    appUpdatesTitle: s.notifyAppUpdates,
+                    appUpdatesSub: s.notifyAppUpdatesSub,
                     onMasterChanged: notifier.setNotifications,
                     onDiscountsChanged: notifier.setNotifyDiscounts,
                     onNewProductsChanged: notifier.setNotifyNewProducts,
                     onAppUpdatesChanged: notifier.setNotifyAppUpdates,
                   ),
-                ).animate().fadeIn(delay: 140.ms),
-                const SizedBox(height: 28),
-                _SectionTitle(
-                  icon: Icons.info_outline_rounded,
-                  title: 'دەربارەی ئەپ',
-                ),
-                const SizedBox(height: 12),
-                _SettingsCard(
-                  child: Column(
-                    children: [
-                      const _AboutTile(),
-                      Divider(
-                        height: 1,
-                        color: Colors.white.withValues(alpha: 0.18),
-                      ),
-                      _LegalLinkTile(
-                        icon: Icons.info_outline_rounded,
-                        title: 'دەربارەی ئێمە',
-                        onTap: () => _openLegalSheet(
-                          context,
-                          ref,
-                          title: 'دەربارەی ئێمە',
-                          bodySelector: (c) => c.aboutBody,
-                        ),
-                      ),
-                      Divider(
-                        height: 1,
-                        color: Colors.white.withValues(alpha: 0.18),
-                      ),
-                      _LegalLinkTile(
-                        icon: Icons.gavel_outlined,
-                        title: 'مەرجەکان',
-                        onTap: () => _openLegalSheet(
-                          context,
-                          ref,
-                          title: 'مەرجەکان',
-                          bodySelector: (c) => c.termsBody,
-                        ),
-                      ),
-                      Divider(
-                        height: 1,
-                        color: Colors.white.withValues(alpha: 0.18),
-                      ),
-                      _LegalLinkTile(
-                        icon: Icons.privacy_tip_outlined,
-                        title: 'سیاسەتی پاراستن',
-                        onTap: () => _openLegalSheet(
-                          context,
-                          ref,
-                          title: 'سیاسەتی پاراستن',
-                          bodySelector: (c) => c.privacyBody,
-                        ),
-                      ),
-                    ],
-                  ),
-                ).animate().fadeIn(delay: 200.ms),
-              ]),
+            ).animate().fadeIn(delay: 140.ms),
+            const SizedBox(height: 22),
+            _SectionTitle(
+              icon: Icons.info_outline_rounded,
+              title: s.aboutApp,
             ),
-          ),
-        ],
-          ),
+            const SizedBox(height: 10),
+            _SettingsCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 6, 16, 6),
+                    child: _AboutTile(),
+                  ),
+                  _SettingsDivider(),
+                  _LegalLinkTile(
+                    icon: Icons.info_outline_rounded,
+                    title: s.aboutUs,
+                    onTap: () => context.push(LegalDocumentScreen.routeFor(
+                      LegalDocumentKind.about,
+                    )),
+                  ),
+                  _SettingsDivider(),
+                  _LegalLinkTile(
+                    icon: Icons.gavel_outlined,
+                    title: s.terms,
+                    onTap: () => context.push(LegalDocumentScreen.routeFor(
+                      LegalDocumentKind.terms,
+                    )),
+                  ),
+                  _SettingsDivider(),
+                  _LegalLinkTile(
+                    icon: Icons.privacy_tip_outlined,
+                    title: s.privacyPolicy,
+                    onTap: () => context.push(LegalDocumentScreen.routeFor(
+                      LegalDocumentKind.privacy,
+                    )),
+                  ),
+                ],
+              ),
+            ).animate().fadeIn(delay: 200.ms),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _BackButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _BackButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border.withValues(alpha: 0.6)),
+          ),
+          child: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            size: 18,
+            color: AppColors.textPrimary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Divider(
+      height: 1,
+      indent: 56,
+      endIndent: 16,
+      color: AppColors.border.withValues(alpha: 0.55),
     );
   }
 }
@@ -234,24 +233,25 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(
         children: [
-          _GlassBox(
-            width: 34,
-            height: 34,
-            radius: 12,
-            alignment: Alignment.center,
-            child: Icon(icon, size: 18, color: AppColors.brand),
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: AppColors.brand.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 17, color: AppColors.brand),
           ),
           const SizedBox(width: 10),
           Text(
             title,
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.4,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w800,
               color: AppColors.textSecondary,
             ),
           ),
@@ -263,15 +263,27 @@ class _SectionTitle extends StatelessWidget {
 
 class _SettingsCard extends StatelessWidget {
   final Widget child;
+  final EdgeInsetsGeometry? padding;
 
-  const _SettingsCard({required this.child});
+  const _SettingsCard({required this.child, this.padding});
 
   @override
   Widget build(BuildContext context) {
-    return _GlassBox(
-      float: true,
-      radius: 36,
-      padding: const EdgeInsets.all(22),
+    return Container(
+      width: double.infinity,
+      padding: padding ?? const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.55)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: child,
     );
   }
@@ -280,12 +292,24 @@ class _SettingsCard extends StatelessWidget {
 class _AppearancePanel extends StatelessWidget {
   final ThemeMode themeMode;
   final AppColorTheme colorTheme;
+  final String brightnessLabel;
+  final String appColorLabel;
+  final String themeSystem;
+  final String themeLight;
+  final String themeDark;
+  final String Function(AppColorTheme theme) colorThemeLabelOf;
   final void Function(BuildContext context, ThemeMode mode) onThemeMode;
   final ValueChanged<AppColorTheme> onColorTheme;
 
   const _AppearancePanel({
     required this.themeMode,
     required this.colorTheme,
+    required this.brightnessLabel,
+    required this.appColorLabel,
+    required this.themeSystem,
+    required this.themeLight,
+    required this.themeDark,
+    required this.colorThemeLabelOf,
     required this.onThemeMode,
     required this.onColorTheme,
   });
@@ -296,7 +320,7 @@ class _AppearancePanel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'دۆخی ڕووناکی',
+          brightnessLabel,
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
             fontSize: 13,
@@ -305,10 +329,16 @@ class _AppearancePanel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        _ThemeModePicker(selected: themeMode, onChanged: onThemeMode),
+        _ThemeModePicker(
+          selected: themeMode,
+          themeSystem: themeSystem,
+          themeLight: themeLight,
+          themeDark: themeDark,
+          onChanged: onThemeMode,
+        ),
         const SizedBox(height: 18),
         Text(
-          'ڕەنگی ئەپ',
+          appColorLabel,
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
             fontSize: 13,
@@ -317,7 +347,11 @@ class _AppearancePanel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        _ColorThemePicker(selected: colorTheme, onChanged: onColorTheme),
+        _ColorThemePicker(
+          selected: colorTheme,
+          labelOf: colorThemeLabelOf,
+          onChanged: onColorTheme,
+        ),
       ],
     );
   }
@@ -325,16 +359,25 @@ class _AppearancePanel extends StatelessWidget {
 
 class _ThemeModePicker extends StatelessWidget {
   final ThemeMode selected;
+  final String themeSystem;
+  final String themeLight;
+  final String themeDark;
   final void Function(BuildContext context, ThemeMode mode) onChanged;
 
-  const _ThemeModePicker({required this.selected, required this.onChanged});
+  const _ThemeModePicker({
+    required this.selected,
+    required this.themeSystem,
+    required this.themeLight,
+    required this.themeDark,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
     final options = <(ThemeMode, IconData, String)>[
-      (ThemeMode.system, Icons.brightness_auto_rounded, 'سیستەم'),
-      (ThemeMode.light, Icons.wb_sunny_outlined, 'ڕووناک'),
-      (ThemeMode.dark, Icons.nightlight_round, 'تاریک'),
+      (ThemeMode.system, Icons.brightness_auto_rounded, themeSystem),
+      (ThemeMode.light, Icons.wb_sunny_outlined, themeLight),
+      (ThemeMode.dark, Icons.nightlight_round, themeDark),
     ];
 
     return Row(
@@ -347,11 +390,25 @@ class _ThemeModePicker extends StatelessWidget {
                 final option = options[i];
                 final isSelected = selected == option.$1;
                 return GestureDetector(
-                  onTap: () => onChanged(btnContext, option.$1),
-                  child: _GlassBox(
-                    selected: isSelected,
-                    radius: 22,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    onChanged(btnContext, option.$1);
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppColors.brand.withValues(alpha: 0.1)
+                          : AppColors.surfaceVariant.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: isSelected
+                            ? AppColors.brand.withValues(alpha: 0.55)
+                            : AppColors.border.withValues(alpha: 0.65),
+                      ),
+                    ),
                     child: Column(
                       children: [
                         Icon(
@@ -366,8 +423,8 @@ class _ThemeModePicker extends StatelessWidget {
                           option.$3,
                           style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
                             color: isSelected
                                 ? AppColors.brand
                                 : AppColors.textPrimary,
@@ -388,10 +445,12 @@ class _ThemeModePicker extends StatelessWidget {
 
 class _ColorThemePicker extends StatelessWidget {
   final AppColorTheme selected;
+  final String Function(AppColorTheme theme) labelOf;
   final ValueChanged<AppColorTheme> onChanged;
 
   const _ColorThemePicker({
     required this.selected,
+    required this.labelOf,
     required this.onChanged,
   });
 
@@ -511,7 +570,7 @@ class _ColorThemePicker extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              selected.labelKu,
+              labelOf(selected),
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
@@ -529,25 +588,48 @@ class _ColorThemePicker extends StatelessWidget {
 
 class _LanguagePicker extends StatelessWidget {
   final AppLanguage selected;
+  final String kurdish;
+  final String kurdishSubtitle;
+  final String arabic;
+  final String arabicSubtitle;
+  final String english;
+  final String englishSubtitle;
   final ValueChanged<AppLanguage> onChanged;
 
-  const _LanguagePicker({required this.selected, required this.onChanged});
+  const _LanguagePicker({
+    required this.selected,
+    required this.kurdish,
+    required this.kurdishSubtitle,
+    required this.arabic,
+    required this.arabicSubtitle,
+    required this.english,
+    required this.englishSubtitle,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         _LanguageOption(
-          title: 'کوردی',
-          subtitle: 'Kurdish · RTL',
+          title: kurdish,
+          subtitle: kurdishSubtitle,
           flag: 'KU',
           selected: selected == AppLanguage.kurdish,
           onTap: () => onChanged(AppLanguage.kurdish),
         ),
         const SizedBox(height: 10),
         _LanguageOption(
-          title: 'English',
-          subtitle: 'ئینگلیزی · LTR',
+          title: arabic,
+          subtitle: arabicSubtitle,
+          flag: 'AR',
+          selected: selected == AppLanguage.arabic,
+          onTap: () => onChanged(AppLanguage.arabic),
+        ),
+        const SizedBox(height: 10),
+        _LanguageOption(
+          title: english,
+          subtitle: englishSubtitle,
           flag: 'EN',
           selected: selected == AppLanguage.english,
           onTap: () => onChanged(AppLanguage.english),
@@ -575,60 +657,84 @@ class _LanguageOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
-      child: _GlassBox(
-        selected: selected,
-        radius: 22,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.brand.withValues(alpha: 0.08)
+              : AppColors.surfaceVariant.withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected
+                ? AppColors.brand.withValues(alpha: 0.5)
+                : AppColors.border.withValues(alpha: 0.55),
+          ),
+        ),
         child: Row(
           children: [
-            _GlassBox(
-              width: 44,
-              height: 44,
-              radius: 16,
-              selected: selected,
+            Container(
+              width: 42,
+              height: 42,
               alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: selected
+                    ? AppColors.brand.withValues(alpha: 0.14)
+                    : AppColors.card,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppColors.border.withValues(alpha: 0.45),
+                ),
+              ),
               child: Text(
                 flag,
                 style: TextStyle(
                   color: selected ? AppColors.brand : AppColors.textPrimary,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12.5,
                 ),
               ),
             ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                        color: selected
-                            ? AppColors.secondary
-                            : AppColors.textPrimary,
-                      ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14.5,
+                      color: selected
+                          ? AppColors.brand
+                          : AppColors.textPrimary,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textTertiary,
-                      ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textTertiary,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              if (selected)
-                Icon(
-                  Icons.check_circle_rounded,
-                  color: AppColors.secondary,
-                  size: 22,
-                ),
+            ),
+            if (selected)
+              Icon(
+                Icons.check_circle_rounded,
+                color: AppColors.brand,
+                size: 22,
+              ),
           ],
         ),
       ),
@@ -641,6 +747,16 @@ class _NotificationsPanel extends StatelessWidget {
   final bool notifyDiscounts;
   final bool notifyNewProducts;
   final bool notifyAppUpdates;
+  final String notificationTypes;
+  final String allNotifications;
+  final String notificationsOn;
+  final String notificationsOff;
+  final String discountsTitle;
+  final String discountsSub;
+  final String newProductsTitle;
+  final String newProductsSub;
+  final String appUpdatesTitle;
+  final String appUpdatesSub;
   final ValueChanged<bool> onMasterChanged;
   final ValueChanged<bool> onDiscountsChanged;
   final ValueChanged<bool> onNewProductsChanged;
@@ -651,6 +767,16 @@ class _NotificationsPanel extends StatelessWidget {
     required this.notifyDiscounts,
     required this.notifyNewProducts,
     required this.notifyAppUpdates,
+    required this.notificationTypes,
+    required this.allNotifications,
+    required this.notificationsOn,
+    required this.notificationsOff,
+    required this.discountsTitle,
+    required this.discountsSub,
+    required this.newProductsTitle,
+    required this.newProductsSub,
+    required this.appUpdatesTitle,
+    required this.appUpdatesSub,
     required this.onMasterChanged,
     required this.onDiscountsChanged,
     required this.onNewProductsChanged,
@@ -664,6 +790,9 @@ class _NotificationsPanel extends StatelessWidget {
       children: [
         _NotificationMasterTile(
           enabled: masterEnabled,
+          title: allNotifications,
+          subtitleOn: notificationsOn,
+          subtitleOff: notificationsOff,
           onChanged: onMasterChanged,
         ),
         AnimatedSize(
@@ -681,7 +810,7 @@ class _NotificationsPanel extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'جۆری ئاگادارییەکان',
+                      notificationTypes,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         fontSize: 12.5,
@@ -692,24 +821,24 @@ class _NotificationsPanel extends StatelessWidget {
                     const SizedBox(height: 10),
                     _NotificationChannelTile(
                       icon: Icons.percent_rounded,
-                      title: 'داشکاندن و ئۆفەر',
-                      subtitle: 'کاتێک داشکاندن یان پرۆمۆ هەیە',
+                      title: discountsTitle,
+                      subtitle: discountsSub,
                       enabled: notifyDiscounts,
                       onChanged: onDiscountsChanged,
                     ),
                     const SizedBox(height: 8),
                     _NotificationChannelTile(
                       icon: Icons.new_releases_outlined,
-                      title: 'بەرهەمی نوێ',
-                      subtitle: 'کاتێک دووکان کاڵای نوێ زیاد دەکات',
+                      title: newProductsTitle,
+                      subtitle: newProductsSub,
                       enabled: notifyNewProducts,
                       onChanged: onNewProductsChanged,
                     ),
                     const SizedBox(height: 8),
                     _NotificationChannelTile(
                       icon: Icons.system_update_alt_rounded,
-                      title: 'نوێکاری ئەپ',
-                      subtitle: 'گۆڕانکاری، نوێکاری و ئاگاداری سیستەم',
+                      title: appUpdatesTitle,
+                      subtitle: appUpdatesSub,
                       enabled: notifyAppUpdates,
                       onChanged: onAppUpdatesChanged,
                     ),
@@ -724,10 +853,16 @@ class _NotificationsPanel extends StatelessWidget {
 
 class _NotificationMasterTile extends StatelessWidget {
   final bool enabled;
+  final String title;
+  final String subtitleOn;
+  final String subtitleOff;
   final ValueChanged<bool> onChanged;
 
   const _NotificationMasterTile({
     required this.enabled,
+    required this.title,
+    required this.subtitleOn,
+    required this.subtitleOff,
     required this.onChanged,
   });
 
@@ -735,11 +870,16 @@ class _NotificationMasterTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _GlassBox(
-          width: 48,
-          height: 48,
-          radius: 16,
+        Container(
+          width: 46,
+          height: 46,
           alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: enabled
+                ? AppColors.brand.withValues(alpha: 0.12)
+                : AppColors.surfaceVariant.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: Icon(
             enabled
                 ? Icons.notifications_active_rounded
@@ -753,7 +893,7 @@ class _NotificationMasterTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'هەموو ئاگادارییەکان',
+                title,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontWeight: FontWeight.w800,
@@ -763,9 +903,7 @@ class _NotificationMasterTile extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                enabled
-                    ? 'ئاگادارییەکان چالاکن — جۆرەکان لە خوارەوە'
-                    : 'هەموو ئاگادارییەکان ناچالاک کراون',
+                enabled ? subtitleOn : subtitleOff,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 12,
@@ -776,7 +914,7 @@ class _NotificationMasterTile extends StatelessWidget {
             ],
           ),
         ),
-        _GlassSwitch(value: enabled, onChanged: onChanged),
+        _SettingsSwitch(value: enabled, onChanged: onChanged),
       ],
     );
   }
@@ -799,20 +937,34 @@ class _NotificationChannelTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _GlassBox(
-      selected: enabled,
-      radius: 22,
-      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+      decoration: BoxDecoration(
+        color: enabled
+            ? AppColors.brand.withValues(alpha: 0.06)
+            : AppColors.surfaceVariant.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: enabled
+              ? AppColors.brand.withValues(alpha: 0.35)
+              : AppColors.border.withValues(alpha: 0.5),
+        ),
+      ),
       child: Row(
         children: [
-          _GlassBox(
-            width: 40,
-            height: 40,
-            radius: 14,
+          Container(
+            width: 38,
+            height: 38,
             alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: enabled
+                  ? AppColors.brand.withValues(alpha: 0.12)
+                  : AppColors.card,
+              borderRadius: BorderRadius.circular(11),
+            ),
             child: Icon(
               icon,
-              size: 20,
+              size: 19,
               color: enabled ? AppColors.brand : AppColors.textTertiary,
             ),
           ),
@@ -843,93 +995,11 @@ class _NotificationChannelTile extends StatelessWidget {
               ],
             ),
           ),
-          _GlassSwitch(value: enabled, onChanged: onChanged),
+          _SettingsSwitch(value: enabled, onChanged: onChanged),
         ],
       ),
     );
   }
-}
-
-Future<void> _openLegalSheet(
-  BuildContext context,
-  WidgetRef ref, {
-  required String title,
-  required String Function(AppContentModel content) bodySelector,
-}) async {
-  final content = ref.read(resolvedAppContentProvider);
-  final body = bodySelector(content);
-  await showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withValues(alpha: 0.35),
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-    ),
-    builder: (ctx) {
-      return Directionality(
-        textDirection: TextDirection.rtl,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            8,
-            16,
-            16 + MediaQuery.paddingOf(ctx).bottom,
-          ),
-          child: _GlassBox(
-            float: true,
-            radius: 36,
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-            child: SizedBox(
-            height: MediaQuery.sizeOf(ctx).height * 0.68,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 44,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(
-                        alpha: AppColors.isDark ? 0.28 : 0.55,
-                      ),
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Text(
-                      body,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 14.5,
-                        height: 1.55,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            ),
-          ),
-        ),
-      );
-    },
-  );
 }
 
 class _LegalLinkTile extends StatelessWidget {
@@ -945,43 +1015,37 @@ class _LegalLinkTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          children: [
-            _GlassBox(
-              width: 42,
-              height: 42,
-              radius: 14,
-              alignment: Alignment.center,
-              child: Icon(icon, color: AppColors.brand, size: 20),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14.5,
-                  color: AppColors.textPrimary,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(icon, size: 22, color: AppColors.brand),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14.5,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
               ),
-            ),
-            _GlassBox(
-              width: 32,
-              height: 32,
-              shape: BoxShape.circle,
-              alignment: Alignment.center,
-              child: Icon(
-                Icons.chevron_left_rounded,
+              Icon(
+                Icons.chevron_right_rounded,
                 color: AppColors.textTertiary,
-                size: 20,
+                size: 22,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -994,17 +1058,20 @@ class _AboutTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tagline = ref.watch(resolvedAppContentProvider).homeTagline;
+    final s = ref.watch(stringsProvider);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          _GlassBox(
+          Container(
             width: 46,
             height: 46,
-            radius: 16,
-            selected: true,
             alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.brand.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Icon(
               Icons.checkroom_rounded,
               color: AppColors.brand,
@@ -1027,12 +1094,11 @@ class _AboutTile extends ConsumerWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  tagline.isEmpty
-                      ? 'Version 1.0.0 · Clothing marketplace'
-                      : tagline,
+                  tagline.isEmpty ? s.aboutVersionFallback : tagline,
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
                     fontSize: 12,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.textTertiary,
                   ),
                 ),
@@ -1045,50 +1111,24 @@ class _AboutTile extends ConsumerWidget {
   }
 }
 
-class _GlassSwitch extends StatelessWidget {
+class _SettingsSwitch extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
 
-  const _GlassSwitch({required this.value, required this.onChanged});
+  const _SettingsSwitch({required this.value, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
-    final dark = AppColors.isDark;
-    return GestureDetector(
-      onTap: () => onChanged(!value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        width: 56,
-        height: 32,
-        padding: const EdgeInsets.all(3),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(99),
-          color: value
-              ? AppColors.brand.withValues(alpha: 0.85)
-              : Colors.white.withValues(alpha: dark ? 0.12 : 0.28),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: dark ? 0.28 : 0.65),
-            width: 0.8,
-          ),
-        ),
-        child: AnimatedAlign(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-          child: Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.92),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.8),
-              ),
-            ),
-          ),
-        ),
-      ),
+    return Switch.adaptive(
+      value: value,
+      onChanged: (v) {
+        HapticFeedback.selectionClick();
+        onChanged(v);
+      },
+      activeThumbColor: Colors.white,
+      activeTrackColor: AppColors.brand,
+      inactiveThumbColor: Colors.white,
+      inactiveTrackColor: AppColors.border.withValues(alpha: 0.9),
     );
   }
 }

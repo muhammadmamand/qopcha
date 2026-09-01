@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/constants/app_constants.dart';
@@ -18,10 +19,8 @@ class QopchaApp extends ConsumerWidget {
     final settings = ref.watch(appSettingsProvider);
     final locale = settings.language == AppLanguage.english
         ? const Locale('en')
-        : const Locale('ku');
-    final textDirection = settings.language == AppLanguage.english
-        ? TextDirection.ltr
-        : TextDirection.rtl;
+        : const Locale('ar');
+    final textDirection = settings.language.textDirection;
 
     final platformBrightness = MediaQuery.platformBrightnessOf(context);
     // Admin web console is always light — cleaner ERP look.
@@ -35,18 +34,29 @@ class QopchaApp extends ConsumerWidget {
     AppColors.applyColorTheme(settings.colorTheme);
     AppColors.applyBrightness(effectiveBrightness);
 
+    final appTitle = AppHost.isAdminWebConsole
+        ? '${AppConstants.appNameEn} | Admin'
+        : AppConstants.windowBrandTitle;
+
     return MaterialApp.router(
-      title: AppHost.isAdminWebConsole
-          ? '${AppConstants.appName} | پانێڵی بەڕێوەبردن'
-          : AppConstants.appName,
+      title: appTitle,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode:
           AppHost.isAdminWebConsole ? ThemeMode.light : settings.themeMode,
-      // Disable Material's fade so our circular wipe owns the transition.
+      // Circular wipe owns the light/dark transition on mobile.
       themeAnimationDuration: Duration.zero,
       locale: locale,
+      supportedLocales: const [
+        Locale('ar'),
+        Locale('en'),
+      ],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       routerConfig: router,
       builder: (context, child) {
         final content = Directionality(

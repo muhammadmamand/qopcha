@@ -32,20 +32,15 @@ final filteredProductsProvider = FutureProvider<List<ProductModel>>((ref) async 
   final query = ref.watch(searchQueryProvider);
   final category = ref.watch(selectedCategoryProvider);
 
-  try {
-    List<ProductModel> products;
-    if (query.isNotEmpty) {
-      products = await service.searchProducts(query);
-    } else if (category != 'هەموو') {
-      products = await service.getProductsByCategory(category);
-    } else {
-      products = await service.getAllProducts();
-    }
-    return products.where((p) => p.isClothing).toList();
-  } catch (_) {
-    // Show empty search UI instead of a blank/error-only page.
-    return <ProductModel>[];
+  List<ProductModel> products;
+  if (query.isNotEmpty) {
+    products = await service.searchProducts(query);
+  } else if (category != 'هەموو') {
+    products = await service.getProductsByCategory(category);
+  } else {
+    products = await service.getAllProducts();
   }
+  return products.where((p) => p.isClothing).toList();
 });
 
 final selectedFabricTypeProvider = StateProvider<String>((ref) => 'هەموو');
