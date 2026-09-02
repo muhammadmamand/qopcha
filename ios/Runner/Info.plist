@@ -39,7 +39,9 @@
 			<string>https</string>
 		</array>
 		<key>NSLocationWhenInUseUsageDescription</key>
-		<string>قۆپچە uses your location to add your current area to your profile.</string>
+		<string>Qopcha uses your location only while you are in the app to set your delivery area on your profile.</string>
+		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+		<string>Qopcha uses your location to show your area on your profile and improve local delivery options. Location is only used when you choose to update your profile.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>قۆپچە needs photo access so shop owners can upload product images.</string>
 		<key>NSCameraUsageDescription</key>
