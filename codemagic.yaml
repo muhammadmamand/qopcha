@@ -62,7 +62,7 @@ workflows:
         # App Store Connect → Qopcha → App Information → Apple ID (numeric).
         # Set this so each build auto-bumps past the latest TestFlight number.
         # Leave "0" to use Codemagic BUILD_NUMBER only (minimum 2).
-        APP_STORE_APPLE_ID: "0"
+        APP_STORE_APPLE_ID: "6805930176"
         API_BASE: https://169-58-230-144.sslip.io
     scripts:
       - name: Set up code signing
@@ -70,6 +70,7 @@ workflows:
           xcode-project use-profiles
       - name: Prepare Flutter and Firebase deps
         script: |
+          rm -f pubspec_overrides.yaml
           flutter config --no-enable-swift-package-manager
           flutter clean
           rm -rf ~/Library/Caches/org.swift.swiftpm || true

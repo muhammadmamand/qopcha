@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../providers/cart_provider.dart';
@@ -48,11 +49,13 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
     final cartCount = ref.watch(cartItemCountProvider);
     final animateCartEmptyIcon = cartCount == 0 && _currentIndex == 3;
 
-    return Scaffold(
+    return LiquidGlassScaffold(
       backgroundColor: AppColors.surface,
-      extendBody: true,
+      pixelRatio: 1,
+      useSync: true,
       body: widget.child,
       bottomNavigationBar: PremiumBottomNav(
+        context: context,
         currentIndex: _currentIndex,
         onTap: (index) {
           setState(() => _currentIndex = index);
@@ -135,11 +138,13 @@ class _ShopOwnerShellState extends ConsumerState<ShopOwnerShell> {
 
     final pendingOrders = ref.watch(shopPendingOrdersCountProvider);
 
-    return Scaffold(
+    return LiquidGlassScaffold(
       backgroundColor: AppColors.surface,
-      extendBody: true,
+      pixelRatio: 1,
+      useSync: true,
       body: widget.child,
       bottomNavigationBar: PremiumBottomNav(
+        context: context,
         currentIndex: _currentIndex,
         onTap: (index) {
           switch (index) {
@@ -182,7 +187,7 @@ class _ShopOwnerShellState extends ConsumerState<ShopOwnerShell> {
               ),
             )
           : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButtonAlignment: AlignmentDirectional.bottomEnd,
     );
   }
 }

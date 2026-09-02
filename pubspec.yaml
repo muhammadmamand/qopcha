@@ -1,7 +1,7 @@
 name: qopcha
 description: "قۆپچە - Clothing marketplace app for customers and shop owners."
 publish_to: 'none'
-version: 1.0.1+3
+version: 1.0.2+4
 
 environment:
   sdk: ^3.12.2
@@ -34,7 +34,7 @@ dependencies:
   url_launcher: ^6.3.2
   cloud_functions: ^6.4.0
   lottie: ^3.3.1
-  glassy_real_navbar: ^1.0.2
+  liquid_glass_easy: ^4.2.0
 
 dev_dependencies:
   flutter_test:
@@ -44,14 +44,11 @@ dev_dependencies:
   flutter_native_splash: ^2.4.8
 
 # Patched Windows auth EventChannels + ATL-free notifications stub.
-# Local glassy navbar: no white specular spots on the selected lens.
 dependency_overrides:
   firebase_auth_platform_interface:
     path: packages/firebase_auth_platform_interface
   flutter_local_notifications_windows:
     path: packages/flutter_local_notifications_windows
-  glassy_real_navbar:
-    path: packages/glassy_real_navbar
 
 flutter_native_splash:
   color: "#FFFFFF"
