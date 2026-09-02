@@ -37,6 +37,57 @@ class PremiumBottomNav extends LiquidGlassTabBar {
           margin: const EdgeInsets.only(bottom: _bottomMargin),
         );
 
+  /// The glass pill positions tabs in LTR geometry; wrap so RTL locales
+  /// keep Home on the right without breaking the selection indicator.
+  static Widget _ltrBar(Widget child) {
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: child,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _ltrBar(super.build(context));
+  }
+
+  @override
+  Widget buildGlassPillBar({
+    required Widget body,
+    Widget? outerChild,
+    Color? backgroundColor,
+    double bottomInset = 0,
+    double pixelRatio = 1.0,
+    bool useSync = true,
+    bool? useImpellerBackdrop,
+    bool realTimeCapture = true,
+    bool outerNeedsRealtime = false,
+    LiquidGlassAdaptiveSampling? adaptiveSampling,
+    LiquidGlassAdaptiveSampling? outerAdaptiveSampling,
+    LiquidGlassAdaptivity? areaAdaptivity,
+    LiquidGlassAdaptivityLink? areaLink,
+    LiquidGlassSystemChrome systemChrome = LiquidGlassSystemChrome.none,
+  }) {
+    return _ltrBar(
+      super.buildGlassPillBar(
+        body: body,
+        outerChild: outerChild,
+        backgroundColor: backgroundColor,
+        bottomInset: bottomInset,
+        pixelRatio: pixelRatio,
+        useSync: useSync,
+        useImpellerBackdrop: useImpellerBackdrop,
+        realTimeCapture: realTimeCapture,
+        outerNeedsRealtime: outerNeedsRealtime,
+        adaptiveSampling: adaptiveSampling,
+        outerAdaptiveSampling: outerAdaptiveSampling,
+        areaAdaptivity: areaAdaptivity,
+        areaLink: areaLink,
+        systemChrome: systemChrome,
+      ),
+    );
+  }
+
   factory PremiumBottomNav({
     Key? key,
     required int currentIndex,
@@ -56,18 +107,28 @@ class PremiumBottomNav extends LiquidGlassTabBar {
         (screenWidth - _horizontalInset * 2).clamp(280.0, 560.0);
     final ink = dark ? const Color(0xFFF3F7F7) : const Color(0xFF121215);
     final pillShape = _glassShape(_pillRadius, dark);
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+    final displayItems = isRtl ? items.reversed.toList() : items;
+    final displayBadges = isRtl && badges.isNotEmpty
+        ? List<int?>.from(badges.reversed)
+        : badges;
+    final barSelectedIndex =
+        isRtl ? items.length - 1 - currentIndex : currentIndex;
+    void barOnChanged(int index) {
+      onTap(isRtl ? items.length - 1 - index : index);
+    }
 
     return PremiumBottomNav._(
       key: key,
       items: [
-        for (var i = 0; i < items.length; i++)
+        for (var i = 0; i < displayItems.length; i++)
           _tabItem(
-            items[i],
-            badge: i < badges.length ? badges[i] : null,
+            displayItems[i],
+            badge: i < displayBadges.length ? displayBadges[i] : null,
           ),
       ],
-      selectedIndex: currentIndex,
-      onChanged: onTap,
+      selectedIndex: barSelectedIndex,
+      onChanged: barOnChanged,
       width: barWidth,
       style: LiquidGlassStyle(
         shape: _glassShape(_barHeight / 2, dark),
