@@ -353,6 +353,7 @@ app.use(
         req.path === '/api/banners' ||
         req.path === '/api/content' ||
         req.path === '/privacy' ||
+        req.path === '/support' ||
         req.path === '/qopcha_logo.png' ||
         req.path === '/Rabar_038.ttf' ||
         req.path.startsWith('/public') ||
@@ -410,6 +411,7 @@ app.get('/', (_req, res) => {
   <h1>قۆپچە · Qopcha</h1>
   <p>API سێرڤەرەکە کار دەکات — ئەم بەستەرە بۆ ئەپەکەی مۆبایلە، نەک ماڵپەڕی تەواو.</p>
   <p class="ok">✓ Server online</p>
+  <p><a href="/support">Help & Support / یارمەتی و پشتگیری</a></p>
   <p><a href="/privacy">Privacy Policy / سیاسەتی تایبەتمەندی</a></p>
   <p><a href="/api/health">API health check</a></p>
 </body>
@@ -425,6 +427,9 @@ app.get('/privacy', (_req, res) => {
   res.type('html').sendFile(path.join(PUBLIC_DIR, 'privacy.html'));
 });
 
+app.get('/support', (_req, res) => {
+  res.type('html').sendFile(path.join(PUBLIC_DIR, 'support.html'));
+});
 app.get('/qopcha_logo.png', (_req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, 'qopcha_logo.png'));
 });

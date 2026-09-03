@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Qopcha Help & Support — contact, hours, and assistance." />
+  <title>Qopcha — Help & Support</title>
+  <link rel="icon" href="/qopcha_logo.png" type="image/png" />
+  <link rel="apple-touch-icon" href="/qopcha_logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet" />
+  <style>
+    @font-face {
+      font-family: "Rabar";
+      src: url("/Rabar_038.ttf") format("truetype");
+      font-weight: 400 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    :root {
+      --brand: #116c71;
+      --brand-dark: #0d3d42;
+      --accent: #f15c22;
+      --ink: #0f0f14;
+      --ink-soft: #4a4a5c;
+      --ink-muted: #7a7a8c;
+      --surface: #ffffff;
+      --surface-2: #f4f8f8;
+      --border: rgba(17, 108, 113, 0.12);
+      --shadow: 0 24px 64px rgba(13, 61, 66, 0.12);
+      --radius: 20px;
+      --font-en: "DM Sans", system-ui, sans-serif;
+      --font-rtl: "Rabar", "DM Sans", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-en);
+      color: var(--ink);
+      background: var(--surface-2);
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+    body.lang-ku, body.lang-ar, body[dir="rtl"] {
+      font-family: var(--font-rtl);
+      line-height: 1.85;
+    }
+    .bg {
+      position: fixed; inset: 0; z-index: -1;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(42, 154, 163, 0.22), transparent),
+        linear-gradient(180deg, #e8f4f4 0%, var(--surface-2) 45%, #eef6f6 100%);
+    }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 32px 20px 64px; }
+    .lang-bar { display: flex; justify-content: flex-end; margin-bottom: 16px; }
+    .lang-switch {
+      display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px;
+      background: rgba(255,255,255,0.85); border: 1px solid var(--border);
+      box-shadow: 0 8px 24px rgba(13, 61, 66, 0.08);
+    }
+    .lang-btn {
+      border: 0; background: transparent; color: var(--ink-soft);
+      font: inherit; font-size: 0.85rem; font-weight: 600;
+      padding: 8px 14px; border-radius: 999px; cursor: pointer;
+    }
+    .lang-btn.active {
+      background: linear-gradient(135deg, var(--brand-dark), var(--brand));
+      color: #fff;
+    }
+    .hero {
+      border-radius: 24px; padding: 36px 28px; color: #fff;
+      background: linear-gradient(135deg, var(--brand-dark) 0%, var(--brand) 100%);
+      box-shadow: var(--shadow); margin-bottom: 20px;
+    }
+    .brand-row { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+    .logo {
+      width: 56px; height: 56px; border-radius: 16px; background: #fff;
+      display: grid; place-items: center; overflow: hidden;
+    }
+    .logo img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
+    .hero h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; }
+    .hero p { margin-top: 8px; opacity: 0.9; font-size: 0.98rem; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 24px; box-shadow: 0 10px 30px rgba(13,61,66,0.06);
+      margin-bottom: 16px;
+    }
+    .card h2 {
+      font-size: 1.05rem; color: var(--brand); margin-bottom: 12px; font-weight: 700;
+    }
+    .item {
+      display: flex; gap: 12px; align-items: flex-start;
+      padding: 14px 0; border-bottom: 1px solid var(--border);
+    }
+    .item:last-child { border-bottom: 0; padding-bottom: 0; }
+    .item:first-child { padding-top: 0; }
+    .item a {
+      color: var(--brand); font-weight: 700; text-decoration: none; word-break: break-all;
+    }
+    .item a:hover { text-decoration: underline; }
+    .label { font-size: 0.8rem; color: var(--ink-muted); font-weight: 600; margin-bottom: 2px; }
+    .value { font-size: 1rem; font-weight: 600; color: var(--ink); }
+    .muted { color: var(--ink-soft); font-size: 0.95rem; }
+    .footer {
+      text-align: center; margin-top: 28px; color: var(--ink-muted); font-size: 0.85rem;
+    }
+    .footer a { color: var(--brand); font-weight: 600; text-decoration: none; }
+    [data-i18n] { display: none; }
+    body.lang-en [data-i18n="en"],
+    body.lang-ku [data-i18n="ku"],
+    body.lang-ar [data-i18n="ar"] { display: block; }
+    body.lang-en span[data-i18n="en"],
+    body.lang-ku span[data-i18n="ku"],
+    body.lang-ar span[data-i18n="ar"] { display: inline; }
+  </style>
+</head>
+<body class="lang-en" dir="ltr">
+  <div class="bg"></div>
+  <div class="wrap">
+    <div class="lang-bar">
+      <div class="lang-switch">
+        <button type="button" class="lang-btn active" data-lang="en">EN</button>
+        <button type="button" class="lang-btn" data-lang="ku">کوردی</button>
+        <button type="button" class="lang-btn" data-lang="ar">عربي</button>
+      </div>
+    </div>
+
+    <section class="hero">
+      <div class="brand-row">
+        <div class="logo"><img src="/qopcha_logo.png" alt="Qopcha" /></div>
+        <div>
+          <div style="opacity:.85;font-size:.85rem;font-weight:600;">Qopcha · قۆپچە</div>
+          <h1>
+            <span data-i18n="en">Help & Support</span>
+            <span data-i18n="ku">یارمەتی و پشتگیری</span>
+            <span data-i18n="ar">المساعدة والدعم</span>
+          </h1>
+        </div>
+      </div>
+      <p data-i18n="en">We’re here to help shoppers and shop owners across Iraq.</p>
+      <p data-i18n="ku">ئامادەین یارمەتی کڕیاران و خاوەن دووکانان لە سەرانسەری عێراق بدەین.</p>
+      <p data-i18n="ar">نحن هنا لمساعدة المتسوقين وأصحاب المتاجر في العراق.</p>
+    </section>
+
+    <section class="card">
+      <h2>
+        <span data-i18n="en">Contact</span>
+        <span data-i18n="ku">پەیوەندی</span>
+        <span data-i18n="ar">التواصل</span>
+      </h2>
+      <div class="item">
+        <div>
+          <div class="label">
+            <span data-i18n="en">Email</span>
+            <span data-i18n="ku">ئیمەیڵ</span>
+            <span data-i18n="ar">البريد</span>
+          </div>
+          <div class="value"><a href="mailto:qopcha07@gmail.com">qopcha07@gmail.com</a></div>
+        </div>
+      </div>
+      <div class="item">
+        <div>
+          <div class="label">
+            <span data-i18n="en">Working hours</span>
+            <span data-i18n="ku">کاتی کارکردن</span>
+            <span data-i18n="ar">ساعات العمل</span>
+          </div>
+          <div class="value">09:00 — 21:00</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>
+        <span data-i18n="en">How we can help</span>
+        <span data-i18n="ku">چۆن دەتوانین یارمەتیت بدەین</span>
+        <span data-i18n="ar">كيف يمكننا مساعدتك</span>
+      </h2>
+      <p class="muted" data-i18n="en">
+        Account help, order issues, shop onboarding, partnership requests, and general questions about Qopcha.
+        Please include your phone number or order details when you contact us so we can respond faster.
+      </p>
+      <p class="muted" data-i18n="ku">
+        یارمەتی هەژمار، کێشەی داواکاری، تۆمارکردنی دووکان، هاوکاری، و پرسیارە گشتییەکان دەربارەی قۆپچە.
+        تکایە ژمارەی مۆبایل یان وردەکاری داواکاری بنووسە بۆ وەڵامدانەوەی خێراتر.
+      </p>
+      <p class="muted" data-i18n="ar">
+        مساعدة الحساب، مشاكل الطلبات، تسجيل المتجر، طلبات الشراكة، والأسئلة العامة حول قوپچە.
+        يرجى ذكر رقم هاتفك أو تفاصيل الطلب لنرد عليك بشكل أسرع.
+      </p>
+    </section>
+
+    <p class="footer">
+      <a href="/privacy">
+        <span data-i18n="en">Privacy Policy</span>
+        <span data-i18n="ku">سیاسەتی تایبەتمەندی</span>
+        <span data-i18n="ar">سياسة الخصوصية</span>
+      </a>
+      · © 2026 Qopcha
+    </p>
+  </div>
+
+  <script>
+    const buttons = document.querySelectorAll('.lang-btn');
+    function setLang(lang) {
+      document.body.classList.remove('lang-en', 'lang-ku', 'lang-ar');
+      document.body.classList.add('lang-' + lang);
+      document.body.dir = (lang === 'ku' || lang === 'ar') ? 'rtl' : 'ltr';
+      document.documentElement.lang = lang === 'ku' ? 'ckb' : lang;
+      buttons.forEach((b) => b.classList.toggle('active', b.dataset.lang === lang));
+      try { localStorage.setItem('qopcha_support_lang', lang); } catch (_) {}
+    }
+    buttons.forEach((b) => b.addEventListener('click', () => setLang(b.dataset.lang)));
+    let start = 'en';
+    try { start = localStorage.getItem('qopcha_support_lang') || 'en'; } catch (_) {}
+    setLang(start);
+  </script>
+</body>
+</html>
