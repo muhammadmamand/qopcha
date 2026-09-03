@@ -118,7 +118,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         actionLabel: 'بینینی ئۆفەر',
         imageUrl:
             'https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?w=200&q=80',
-        route: '/search',
+        route: '/home',
       ),
       _NotifItem(
         id: 'm3',
@@ -179,7 +179,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         unread: false,
         actionLabel: 'کۆپی کۆد',
         couponPreview: true,
-        route: '/search',
+        route: '/home',
       ),
       _NotifItem(
         id: 'm7',

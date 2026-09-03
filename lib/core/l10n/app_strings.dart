@@ -30,6 +30,8 @@ class AppStrings {
   // —— Home ——
   String get searchClothesHint =>
       call('گەڕان بۆ جل و بەرگ...', 'Search clothes...', 'ابحث عن ملابس...');
+  String get searchFabricsHint =>
+      call('گەڕان لە قوماش، جۆر، دووکان...', 'Search fabrics, type, shop...', 'ابحث عن قماش أو نوع أو متجر...');
   String get pickLocation =>
       call('شوێن دیاری بکە', 'Set location', 'حدد الموقع');
   String welcome(String name) =>
@@ -334,6 +336,9 @@ class AppStrings {
         AppColorTheme.ocean => call('زەریا', 'Ocean', 'المحيط'),
         AppColorTheme.teal => call('قۆپچە', 'Teal', 'فيروزي'),
         AppColorTheme.violet => call('مۆر', 'Violet', 'بنفسجي'),
+        AppColorTheme.rose => call('گوڵەبی', 'Rose', 'وردي'),
+        AppColorTheme.blossom => call('گوڵی بەهار', 'Blossom', 'زهر'),
+        AppColorTheme.peony => call('گوڵی پێۆنی', 'Peony', 'بيونية'),
       };
   String get notificationTypes =>
       call('جۆری ئاگادارییەکان', 'Notification types', 'أنواع الإشعارات');

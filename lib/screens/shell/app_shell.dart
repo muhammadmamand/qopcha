@@ -7,6 +7,8 @@ import '../../core/theme/app_theme.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/orders_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../providers/shell_navigation_provider.dart';
+import '../../widgets/floral_scene_wrapper.dart';
 import '../../widgets/premium_bottom_nav.dart';
 
 export 'profile_screen.dart';
@@ -34,7 +36,7 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
     // Order matches screenshot layout: Home … Profile (bulb).
     if (location.startsWith('/home')) {
       _currentIndex = 0;
-    } else if (location.startsWith('/search')) {
+    } else if (location.startsWith('/fabrics')) {
       _currentIndex = 1;
     } else if (location.startsWith('/discounts')) {
       _currentIndex = 2;
@@ -53,16 +55,19 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
       backgroundColor: AppColors.surface,
       pixelRatio: 1,
       useSync: true,
-      body: widget.child,
+      body: FloralSceneWrapper(child: widget.child),
       bottomNavigationBar: PremiumBottomNav(
         context: context,
         currentIndex: _currentIndex,
         onTap: (index) {
+          if (index == 0 && location.startsWith('/home')) {
+            triggerHomeScrollToTop(ref);
+          }
           setState(() => _currentIndex = index);
           if (index == 0) {
             context.go('/home');
           } else if (index == 1) {
-            context.go('/search');
+            context.go('/fabrics');
           } else if (index == 2) {
             context.go('/discounts');
           } else if (index == 3) {
@@ -81,9 +86,9 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
             label: tr(lang, 'سەرەکی', 'Home', 'الرئيسية'),
           ),
           NavItem(
-            icon: Icons.search_rounded,
-            activeIcon: Icons.search_rounded,
-            label: tr(lang, 'گەڕان', 'Search', 'بحث'),
+            icon: Icons.texture_outlined,
+            activeIcon: Icons.texture_rounded,
+            label: tr(lang, 'قوماش', 'Fabrics', 'الأقمشة'),
           ),
           NavItem(
             icon: Icons.local_offer_outlined,
@@ -142,7 +147,7 @@ class _ShopOwnerShellState extends ConsumerState<ShopOwnerShell> {
       backgroundColor: AppColors.surface,
       pixelRatio: 1,
       useSync: true,
-      body: widget.child,
+      body: FloralSceneWrapper(child: widget.child),
       bottomNavigationBar: PremiumBottomNav(
         context: context,
         currentIndex: _currentIndex,

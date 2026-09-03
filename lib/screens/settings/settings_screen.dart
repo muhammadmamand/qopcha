@@ -10,6 +10,7 @@ import '../../core/theme/app_color_theme.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/admin_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../widgets/liquid_glass_settings_switch.dart';
 import 'legal_document_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -35,7 +36,7 @@ class SettingsScreen extends ConsumerWidget {
     final s = ref.watch(stringsProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.scaffoldFill,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(18, 12, 18, 40),
@@ -546,7 +547,26 @@ class _ColorThemePicker extends StatelessWidget {
                                       ),
                                     ],
                                   ),
-                                  child: theme == selected
+                                  child: theme.isFloral
+                                      ? Center(
+                                          child: Icon(
+                                            switch (theme.floralMotif) {
+                                              FloralMotif.rose =>
+                                                Icons.local_florist_rounded,
+                                              FloralMotif.blossom =>
+                                                Icons.filter_vintage_rounded,
+                                              FloralMotif.peony =>
+                                                Icons.spa_rounded,
+                                              FloralMotif.none =>
+                                                Icons.local_florist_outlined,
+                                            },
+                                            size: 16,
+                                            color: Colors.white.withValues(
+                                              alpha: 0.92,
+                                            ),
+                                          ),
+                                        )
+                                      : theme == selected
                                       ? Center(
                                           child: Container(
                                             width: 10,
@@ -914,7 +934,7 @@ class _NotificationMasterTile extends StatelessWidget {
             ],
           ),
         ),
-        _SettingsSwitch(value: enabled, onChanged: onChanged),
+        LiquidGlassSettingsSwitch(value: enabled, onChanged: onChanged),
       ],
     );
   }
@@ -995,7 +1015,7 @@ class _NotificationChannelTile extends StatelessWidget {
               ],
             ),
           ),
-          _SettingsSwitch(value: enabled, onChanged: onChanged),
+          LiquidGlassSettingsSwitch(value: enabled, onChanged: onChanged),
         ],
       ),
     );
@@ -1111,24 +1131,3 @@ class _AboutTile extends ConsumerWidget {
   }
 }
 
-class _SettingsSwitch extends StatelessWidget {
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  const _SettingsSwitch({required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Switch.adaptive(
-      value: value,
-      onChanged: (v) {
-        HapticFeedback.selectionClick();
-        onChanged(v);
-      },
-      activeThumbColor: Colors.white,
-      activeTrackColor: AppColors.brand,
-      inactiveThumbColor: Colors.white,
-      inactiveTrackColor: AppColors.border.withValues(alpha: 0.9),
-    );
-  }
-}

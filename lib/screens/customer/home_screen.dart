@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,19 +12,148 @@ import '../../core/utils/hero_tags.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notifications_provider.dart';
 import '../../providers/product_provider.dart';
+import '../../providers/shell_navigation_provider.dart';
 import '../../widgets/category_chips.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/home_search_field.dart';
 import '../../widgets/language_switcher.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/profile_avatar.dart';
 import '../../widgets/promo_banner.dart';
 import '../../widgets/special_discount_banner.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final _searchController = TextEditingController();
+  final _searchFocus = FocusNode();
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = ref.read(searchQueryProvider);
+    if (existing.isNotEmpty) _searchController.text = existing;
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocus.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToTop() {
+    if (!_scrollController.hasClients) return;
+    HapticFeedback.selectionClick();
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 450),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _setQuery(String value) {
+    ref.read(searchQueryProvider.notifier).state = value;
+    setState(() {});
+  }
+
+  void _clearAll() {
+    _searchController.clear();
+    ref.read(searchQueryProvider.notifier).state = '';
+    ref.read(selectedCategoryProvider.notifier).state = 'هەموو';
+    setState(() {});
+  }
+
+  void _openFilterSheet() {
+    HapticFeedback.selectionClick();
+    final s = ref.read(stringsProvider);
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.sheet,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                s.filters,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.clear_all_rounded, color: AppColors.brand),
+                title: Text(
+                  s.clearAllFilters,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _clearAll();
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.grid_view_rounded, color: AppColors.brand),
+                title: Text(
+                  s.seeAllCategories,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  ref.read(selectedCategoryProvider.notifier).state = 'هەموو';
+                  setState(() {});
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<int>(homeScrollToTopTriggerProvider, (previous, next) {
+      if (previous != next) _scrollToTop();
+    });
+
     final s = ref.watch(stringsProvider);
     final user = ref.watch(currentUserProvider);
     final productsAsync = ref.watch(filteredProductsProvider);
@@ -42,7 +172,7 @@ class HomeScreen extends ConsumerWidget {
     categoryOptions.addAll(productCats);
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.scaffoldFill,
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(productsProvider);
@@ -53,6 +183,7 @@ class HomeScreen extends ConsumerWidget {
         backgroundColor: AppColors.card,
         strokeWidth: 2.5,
         child: CustomScrollView(
+          controller: _scrollController,
           physics: const BouncingScrollPhysics(
             parent: AlwaysScrollableScrollPhysics(),
           ),
@@ -85,6 +216,7 @@ class HomeScreen extends ConsumerWidget {
                     showLanguageSwitcher: user == null,
                     onProfileTap: () => context.go('/profile'),
                     onNotificationsTap: () => context.push('/notifications'),
+                    onTitleTap: _scrollToTop,
                   ),
                 ),
               ),
@@ -105,9 +237,19 @@ class HomeScreen extends ConsumerWidget {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(18, 4, 18, 8),
-                child: _FabricMarketCard(
-                  onTap: () => context.push('/fabrics'),
-                ),
+                child: HomeSearchField(
+                  controller: _searchController,
+                  focusNode: _searchFocus,
+                  onChanged: _setQuery,
+                  onClear: () {
+                    _searchController.clear();
+                    _setQuery('');
+                  },
+                  onFilterTap: _openFilterSheet,
+                )
+                    .animate()
+                    .fadeIn(duration: 380.ms)
+                    .slideY(begin: 0.04, curve: Curves.easeOutCubic),
               ),
             ),
             if (user != null && user.hasSpecialDiscount)
@@ -437,6 +579,7 @@ class _Header extends StatelessWidget {
   final bool showLanguageSwitcher;
   final VoidCallback onProfileTap;
   final VoidCallback onNotificationsTap;
+  final VoidCallback? onTitleTap;
 
   const _Header({
     required this.name,
@@ -446,6 +589,7 @@ class _Header extends StatelessWidget {
     this.showLanguageSwitcher = false,
     required this.onProfileTap,
     required this.onNotificationsTap,
+    this.onTitleTap,
   });
 
   @override
@@ -466,34 +610,38 @@ class _Header extends StatelessWidget {
                 showBorder: true,
               ),
               const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    AppConstants.appName,
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.brand,
-                      letterSpacing: -0.4,
-                      height: 1.1,
+              GestureDetector(
+                onTap: onTitleTap,
+                behavior: HitTestBehavior.opaque,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      AppConstants.appName,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.brand,
+                        letterSpacing: -0.4,
+                        height: 1.1,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    name.trim().isEmpty
-                        ? guestLabel
-                        : name.trim().split(' ').first,
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textSecondary,
+                    const SizedBox(height: 2),
+                    Text(
+                      name.trim().isEmpty
+                          ? guestLabel
+                          : name.trim().split(' ').first,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
@@ -633,72 +781,3 @@ class _ApprovalNoticeBanner extends ConsumerWidget {
   }
 }
 
-class _FabricMarketCard extends ConsumerWidget {
-  final VoidCallback onTap;
-
-  const _FabricMarketCard({required this.onTap});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final s = ref.watch(stringsProvider);
-    return Material(
-      color: AppColors.brand,
-      borderRadius: BorderRadius.circular(22),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(
-                  Icons.texture_rounded,
-                  color: Colors.white,
-                  size: 26,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      s.fabricsSection,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      s.fabricsSubtitle,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        color: Colors.white.withValues(alpha: 0.86),
-                        fontSize: 12.5,
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.chevron_left_rounded,
-                color: Colors.white.withValues(alpha: 0.9),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

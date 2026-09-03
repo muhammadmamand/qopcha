@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/l10n/app_strings.dart';
 import '../../core/theme/app_animations.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/hero_tags.dart';
 import '../../providers/product_provider.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/premium_bottom_nav.dart';
 import '../../widgets/product_card.dart';
 
 class FabricsScreen extends ConsumerStatefulWidget {
@@ -29,11 +31,12 @@ class _FabricsScreenState extends ConsumerState<FabricsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
     final fabricsAsync = ref.watch(fabricsProvider);
     final selectedType = ref.watch(selectedFabricTypeProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.scaffoldFill,
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(fabricsProvider);
@@ -46,48 +49,51 @@ class _FabricsScreenState extends ConsumerState<FabricsScreen> {
             parent: AlwaysScrollableScrollPhysics(),
           ),
           slivers: [
-            SliverAppBar(
-              pinned: true,
-              backgroundColor: AppColors.surface,
-              surfaceTintColor: Colors.transparent,
-              leading: IconButton(
-                onPressed: () => context.pop(),
-                icon: Icon(
-                  Icons.arrow_back_rounded,
-                  color: AppColors.textPrimary,
+            SliverToBoxAdapter(
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        s.fabricsSection,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 26,
+                          color: AppColors.textPrimary,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        s.fabricsSubtitle,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 13.5,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              title: Text(
-                'قوماش',
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 18,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              centerTitle: true,
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 4, 18, 0),
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'تەنها قوماش — بە مەتر',
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 13.5,
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
                     TextField(
                       controller: _search,
                       onChanged: (v) =>
-                          ref.read(fabricSearchQueryProvider.notifier).state = v,
+                          ref.read(fabricSearchQueryProvider.notifier).state =
+                              v,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         color: AppColors.textPrimary,
@@ -95,7 +101,7 @@ class _FabricsScreenState extends ConsumerState<FabricsScreen> {
                       ),
                       cursorColor: AppColors.brand,
                       decoration: InputDecoration(
-                        hintText: 'گەڕان لە قوماش، جۆر، دووکان...',
+                        hintText: s.searchFabricsHint,
                         hintStyle: TextStyle(
                           fontFamily: AppTheme.fontFamily,
                           color: AppColors.textTertiary,
@@ -174,21 +180,26 @@ class _FabricsScreenState extends ConsumerState<FabricsScreen> {
                   const SliverToBoxAdapter(child: ProductGridShimmer(count: 6)),
               error: (_, _) => SliverFillRemaining(
                 child: ErrorView(
-                  message: 'هەڵە لە بارکردنی قوماش',
+                  message: s.productsLoadError,
                   onRetry: () => ref.invalidate(fabricsProvider),
                 ),
               ),
               data: (products) {
                 if (products.isEmpty) {
-                  return const SliverFillRemaining(
+                  return SliverFillRemaining(
                     child: EmptyView(
-                      message: 'هێشتا قوماش بڵاونەکراوەتەوە',
+                      message: s.noProductsFound,
                       icon: Icons.texture_rounded,
                     ),
                   );
                 }
                 return SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(14, 8, 14, 28),
+                  padding: EdgeInsets.fromLTRB(
+                    14,
+                    8,
+                    14,
+                    kPremiumBottomNavClearance + 24,
+                  ),
                   sliver: SliverGrid(
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(

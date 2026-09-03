@@ -90,9 +90,35 @@ class AppColors {
     secondary = theme.brand;
     secondaryLight = theme.brandLight;
     warning = theme.highlight;
-    gradientStart = theme.gradientStart;
-    gradientMid = theme.brand;
-    gradientEnd = theme.gradientEnd;
+    _applyThemeGradients();
+    _applyFloralSurfaces();
+  }
+
+  /// Page scaffold fill — slightly translucent on floral so flowers peek through.
+  static Color get scaffoldFill => _colorTheme.isFloral
+      ? surface.withValues(alpha: 0.9)
+      : surface;
+
+  static void _applyThemeGradients() {
+    final dark = _brightness == Brightness.dark;
+    if (_colorTheme.isFloral && !dark) {
+      gradientStart = _colorTheme.floralGradientStartLight;
+      gradientMid = _colorTheme.brand;
+      gradientEnd = _colorTheme.floralGradientEndLight;
+    } else {
+      gradientStart = _colorTheme.gradientStart;
+      gradientMid = _colorTheme.brand;
+      gradientEnd = _colorTheme.gradientEnd;
+    }
+  }
+
+  static void _applyFloralSurfaces() {
+    if (!_colorTheme.isFloral) return;
+    final dark = _brightness == Brightness.dark;
+    surface = _colorTheme.floralSurface(dark);
+    surfaceVariant = _colorTheme.floralSurfaceVariant(dark);
+    card = _colorTheme.floralCard(dark);
+    sheet = card;
   }
 
   static void applyBrightness(Brightness brightness) {
@@ -108,6 +134,8 @@ class AppColors {
     border = dark ? _darkBorder : _lightBorder;
     shimmerBase = dark ? _darkSurfaceVariant : _lightSurfaceVariant;
     shimmerHighlight = dark ? _darkCard : _lightSurface;
+    _applyThemeGradients();
+    _applyFloralSurfaces();
   }
 }
 

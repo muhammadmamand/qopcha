@@ -63,7 +63,7 @@ class DiscountsScreen extends ConsumerWidget {
         deliveryDiscount > 0;
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.scaffoldFill,
       body: Stack(
         children: [
           Positioned(

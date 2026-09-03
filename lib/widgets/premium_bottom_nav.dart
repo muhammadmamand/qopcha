@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
+import '../core/theme/app_color_theme.dart';
 import '../core/theme/app_theme.dart';
 
 class NavItem {
@@ -102,6 +103,8 @@ class PremiumBottomNav extends LiquidGlassTabBar {
     }
 
     final dark = AppColors.isDark;
+    final theme = AppColors.colorTheme;
+    final selected = AppColors.brand;
     final screenWidth = MediaQuery.sizeOf(context).width;
     final barWidth =
         (screenWidth - _horizontalInset * 2).clamp(280.0, 560.0);
@@ -119,7 +122,7 @@ class PremiumBottomNav extends LiquidGlassTabBar {
     }
 
     return PremiumBottomNav._(
-      key: key,
+      key: key ?? ValueKey('nav-${theme.name}-$dark'),
       items: [
         for (var i = 0; i < displayItems.length; i++)
           _tabItem(
@@ -133,13 +136,14 @@ class PremiumBottomNav extends LiquidGlassTabBar {
       style: LiquidGlassStyle(
         shape: _glassShape(_barHeight / 2, dark),
         appearance: LiquidGlassAppearance(
-          color: dark
-              ? const Color(0x66181C1E)
-              : const Color(0x8FFFFFFF),
+          color: _barTint(dark, theme),
           blur: const LiquidGlassBlur(sigmaX: 5, sigmaY: 5),
           shadow: LiquidGlassShadow(
             blur: 9,
             opacity: dark ? 0.18 : 0.13,
+            color: theme.isFloral
+                ? selected.withValues(alpha: 0.35)
+                : Colors.black,
           ),
         ),
         refraction: const LiquidGlassRefraction(
@@ -148,7 +152,7 @@ class PremiumBottomNav extends LiquidGlassTabBar {
         ),
       ),
       itemStyle: LiquidGlassTabItemStyle(
-        selectedColor: _selectedGreen,
+        selectedColor: selected,
         unselectedColor: ink,
         iconSize: _iconRest,
         labelFontSize: 10,
@@ -184,9 +188,11 @@ class PremiumBottomNav extends LiquidGlassTabBar {
         rest: LiquidGlassStyle(
           shape: pillShape,
           appearance: LiquidGlassAppearance(
-            color: dark
-                ? const Color(0x33FFFFFF)
-                : const Color(0x2EAEAEB2),
+            color: theme.isFloral
+                ? selected.withValues(alpha: dark ? 0.24 : 0.20)
+                : dark
+                    ? const Color(0x33FFFFFF)
+                    : const Color(0x2EAEAEB2),
           ),
         ),
         motion: const LiquidGlassLensMotionSpec(
@@ -199,14 +205,29 @@ class PremiumBottomNav extends LiquidGlassTabBar {
     );
   }
 
-  /// Selected tab green — Qopcha brand teal-green.
-  static final _selectedGreen = AppColors.brand;
-
   static const _barHeight = 60.0;
   static const _iconRest = 24.0;
   static const _horizontalInset = 16.0;
   static const _bottomMargin = 22.0;
   static const _pillRadius = 28.0;
+
+  static Color _barTint(bool dark, AppColorTheme theme) {
+    if (dark) {
+      return theme.isFloral
+          ? Color.alphaBlend(
+              theme.brand.withValues(alpha: 0.22),
+              const Color(0x66181C1E),
+            )
+          : const Color(0x66181C1E);
+    }
+    if (theme.isFloral) {
+      return Color.alphaBlend(
+        theme.brand.withValues(alpha: 0.16),
+        const Color(0x8FFFFFFF),
+      );
+    }
+    return const Color(0x8FFFFFFF);
+  }
 
   static LiquidGlassShape _glassShape(double cornerRadius, bool dark) {
     return LiquidGlassShape.continuousRoundedRectangle(

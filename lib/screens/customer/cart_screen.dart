@@ -154,7 +154,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.scaffoldFill,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         title: Text(
           s.clearCartTitle,
@@ -197,7 +197,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     final user = ref.watch(currentUserProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.scaffoldFill,
       body: Stack(
         children: [
           Positioned(

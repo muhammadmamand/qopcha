@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -67,213 +68,120 @@ Future<void> _openSupportSheet(BuildContext context, WidgetRef ref) async {
     }
   }
 
-  Widget socialTile({
-    required IconData icon,
-    required String title,
-    required String url,
-  }) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(icon, color: AppColors.brand),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontFamily: AppTheme.fontFamily,
-          fontWeight: FontWeight.w800,
+  final actions = <CupertinoActionSheetAction>[
+    if (phone.isNotEmpty)
+      CupertinoActionSheetAction(
+        onPressed: () {
+          Navigator.of(context).pop();
+          openUri(Uri(scheme: 'tel', path: phone));
+        },
+        child: Text(
+          '${s.callPhone}  $phone',
+          textDirection: ui.TextDirection.ltr,
+          style: const TextStyle(fontFamily: AppTheme.fontFamily),
         ),
       ),
-      subtitle: Text(
-        url,
-        textDirection: ui.TextDirection.ltr,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontFamily: AppTheme.fontFamily,
-          fontSize: 12,
-          color: AppColors.textSecondary,
+    if (whatsapp.isNotEmpty)
+      CupertinoActionSheetAction(
+        onPressed: () {
+          Navigator.of(context).pop();
+          final digits = whatsapp.replaceAll(RegExp(r'[^\d+]'), '');
+          openUri(Uri.parse('https://wa.me/$digits'));
+        },
+        child: Text(
+          '${s.whatsapp}  $whatsapp',
+          textDirection: ui.TextDirection.ltr,
+          style: const TextStyle(fontFamily: AppTheme.fontFamily),
         ),
       ),
-      trailing: Icon(
-        Icons.open_in_new_rounded,
-        size: 18,
-        color: AppColors.textTertiary,
+    if (email.isNotEmpty)
+      CupertinoActionSheetAction(
+        onPressed: () {
+          Navigator.of(context).pop();
+          openUri(Uri(scheme: 'mailto', path: email));
+        },
+        child: Text(
+          '${s.email}  $email',
+          textDirection: ui.TextDirection.ltr,
+          style: const TextStyle(fontFamily: AppTheme.fontFamily),
+        ),
       ),
-      onTap: () => openUri(Uri.parse(url)),
-    );
-  }
+    if (instagram != null)
+      CupertinoActionSheetAction(
+        onPressed: () {
+          Navigator.of(context).pop();
+          openUri(Uri.parse(instagram));
+        },
+        child: const Text(
+          'Instagram',
+          style: TextStyle(fontFamily: AppTheme.fontFamily),
+        ),
+      ),
+    if (facebook != null)
+      CupertinoActionSheetAction(
+        onPressed: () {
+          Navigator.of(context).pop();
+          openUri(Uri.parse(facebook));
+        },
+        child: const Text(
+          'Facebook',
+          style: TextStyle(fontFamily: AppTheme.fontFamily),
+        ),
+      ),
+    if (tiktok != null)
+      CupertinoActionSheetAction(
+        onPressed: () {
+          Navigator.of(context).pop();
+          openUri(Uri.parse(tiktok));
+        },
+        child: const Text(
+          'TikTok',
+          style: TextStyle(fontFamily: AppTheme.fontFamily),
+        ),
+      ),
+    if (telegram != null)
+      CupertinoActionSheetAction(
+        onPressed: () {
+          Navigator.of(context).pop();
+          openUri(Uri.parse(telegram));
+        },
+        child: const Text(
+          'Telegram',
+          style: TextStyle(fontFamily: AppTheme.fontFamily),
+        ),
+      ),
+  ];
 
-  await showModalBottomSheet<void>(
+  if (!context.mounted) return;
+
+  await showCupertinoModalPopup<void>(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: AppColors.sheet,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-    ),
     builder: (ctx) {
-      return Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          12,
-          20,
-          20 + MediaQuery.paddingOf(ctx).bottom,
-        ),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(ctx).height * 0.78,
+      return CupertinoActionSheet(
+        title: Text(
+          s.helpSupport,
+          style: const TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            fontWeight: FontWeight.w700,
           ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 44,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppColors.border,
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  s.helpSupport,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                if (hours.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    s.workingHours(hours),
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 14),
-                if (phone.isNotEmpty)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.call_rounded, color: AppColors.brand),
-                    title: Text(
-                      phone,
-                      textDirection: ui.TextDirection.ltr,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    subtitle: Text(
-                      s.callPhone,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    onTap: () => openUri(Uri(scheme: 'tel', path: phone)),
-                  ),
-                if (whatsapp.isNotEmpty)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.chat_rounded, color: AppColors.brand),
-                    title: Text(
-                      whatsapp,
-                      textDirection: ui.TextDirection.ltr,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    subtitle: Text(
-                      s.whatsapp,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    onTap: () {
-                      final digits = whatsapp.replaceAll(RegExp(r'[^\d+]'), '');
-                      openUri(Uri.parse('https://wa.me/$digits'));
-                    },
-                  ),
-                if (email.isNotEmpty)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.email_outlined, color: AppColors.brand),
-                    title: Text(
-                      email,
-                      textDirection: ui.TextDirection.ltr,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    subtitle: Text(
-                      s.email,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    onTap: () => openUri(Uri(scheme: 'mailto', path: email)),
-                  ),
-                if (hasSocial) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    s.socialMedia,
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                      color: AppColors.brand,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  if (instagram != null)
-                    socialTile(
-                      icon: Icons.camera_alt_outlined,
-                      title: 'Instagram',
-                      url: instagram,
-                    ),
-                  if (facebook != null)
-                    socialTile(
-                      icon: Icons.facebook_rounded,
-                      title: 'Facebook',
-                      url: facebook,
-                    ),
-                  if (tiktok != null)
-                    socialTile(
-                      icon: Icons.music_note_rounded,
-                      title: 'TikTok',
-                      url: tiktok,
-                    ),
-                  if (telegram != null)
-                    socialTile(
-                      icon: Icons.send_rounded,
-                      title: 'Telegram',
-                      url: telegram,
-                    ),
-                ],
-                if (!hasContact && !hasSocial)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Text(
-                      s.noSupportYet,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-              ],
+        ),
+        message: Text(
+          !hasContact && !hasSocial
+              ? s.noSupportYet
+              : hours.isNotEmpty
+                  ? s.workingHours(hours)
+                  : s.socialMedia,
+          style: const TextStyle(fontFamily: AppTheme.fontFamily),
+        ),
+        actions: actions,
+        cancelButton: CupertinoActionSheetAction(
+          isDefaultAction: true,
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: Text(
+            s.cancel,
+            style: const TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
@@ -294,7 +202,7 @@ class ProfileScreen extends ConsumerWidget {
     if (user == null) {
       final s = ref.watch(stringsProvider);
       return Scaffold(
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.scaffoldFill,
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -494,7 +402,7 @@ class ProfileScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.scaffoldFill,
       body: SafeArea(
         bottom: false,
         child: ListView(

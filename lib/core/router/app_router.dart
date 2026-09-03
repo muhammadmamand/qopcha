@@ -27,7 +27,6 @@ import '../../screens/customer/fabrics_screen.dart';
 import '../../screens/customer/favorites_screen.dart';
 import '../../screens/customer/notifications_screen.dart';
 import '../../screens/customer/product_detail_screen.dart';
-import '../../screens/customer/search_screen.dart';
 import '../../screens/customer/shop_storefront_screen.dart';
 import '../../screens/settings/addresses_screen.dart';
 import '../../screens/settings/body_measurements_screen.dart';
@@ -70,7 +69,7 @@ String _homeForUser(UserModel user) {
 
 bool _isBrowseAllowedForPendingCustomer(String location) {
   return location.startsWith('/home') ||
-      location.startsWith('/search') ||
+      location.startsWith('/fabrics') ||
       location.startsWith('/product') ||
       location.startsWith('/store') ||
       location.startsWith('/favorites') ||
@@ -79,21 +78,19 @@ bool _isBrowseAllowedForPendingCustomer(String location) {
       location.startsWith('/cart') ||
       location.startsWith('/settings') ||
       location.startsWith('/notifications') ||
-      location.startsWith('/orders') ||
-      location.startsWith('/fabrics');
+      location.startsWith('/orders');
 }
 
 /// Guest can browse the store without an account.
 bool _isGuestBrowseRoute(String location) {
   return location.startsWith('/home') ||
-      location.startsWith('/search') ||
+      location.startsWith('/fabrics') ||
       location.startsWith('/product') ||
       location.startsWith('/store') ||
       location.startsWith('/favorites') ||
       location.startsWith('/discounts') ||
       location.startsWith('/cart') ||
       location.startsWith('/profile') ||
-      location.startsWith('/fabrics') ||
       location.startsWith('/notifications') ||
       location.startsWith('/orders') ||
       location == '/settings';
@@ -234,7 +231,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         if (user.isShopOwner &&
             user.isApproved &&
             (location.startsWith('/home') ||
-                location.startsWith('/search') ||
+                location.startsWith('/fabrics') ||
                 location.startsWith('/cart') ||
                 location.startsWith('/orders') ||
                 location.startsWith('/favorites') ||
@@ -412,10 +409,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                 ),
               ),
               GoRoute(
-                path: '/search',
+                path: '/fabrics',
                 pageBuilder: (context, state) => NoTransitionPage<void>(
                   key: shellTabKey(state),
-                  child: const SearchScreen(),
+                  child: const FabricsScreen(),
                 ),
               ),
               GoRoute(
@@ -483,14 +480,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/notifications',
             pageBuilder: (context, state) => slideFromRightPage(
               child: const NotificationsScreen(),
-              state: state,
-            ),
-          ),
-          GoRoute(
-            parentNavigatorKey: overlayNavigatorKey,
-            path: '/fabrics',
-            pageBuilder: (context, state) => slideFromRightPage(
-              child: const FabricsScreen(),
               state: state,
             ),
           ),
