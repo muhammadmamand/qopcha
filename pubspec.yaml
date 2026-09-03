@@ -1,7 +1,7 @@
 name: qopcha
 description: "قۆپچە - Clothing marketplace app for customers and shop owners."
 publish_to: 'none'
-version: 1.0.3+8
+version: 1.0.4+9
 
 environment:
   sdk: ^3.12.2
@@ -61,20 +61,22 @@ flutter_launcher_icons:
   android: true
   ios: true
   remove_alpha_ios: true
-  image_path: "assets/images/qopcha_logo.png"
-  adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/images/qopcha_logo.png"
+  image_path: "assets/images/qopcha_app_icon.png"
+  adaptive_icon_background: "#116C71"
+  adaptive_icon_foreground: "assets/images/qopcha_app_icon_fg.png"
   web:
     generate: true
-    image_path: "assets/images/qopcha_logo.png"
+    image_path: "assets/images/qopcha_app_icon.png"
   windows:
     generate: true
-    image_path: "assets/images/qopcha_logo.png"
+    image_path: "assets/images/qopcha_app_icon.png"
 
 flutter:
   uses-material-design: true
   assets:
     - assets/images/qopcha_logo.png
+    - assets/images/qopcha_app_icon.png
+    - assets/images/qopcha_app_icon_fg.png
     - assets/images/login_hero.png
     - assets/images/profile_wave.png
     - assets/images/onboarding_1.png
