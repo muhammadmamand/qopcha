@@ -1,6 +1,6 @@
 @echo off
 REM Build Flutter Admin Web Console and upload to Contabo VPS.
-REM Result: http://169.58.230.144/staff-console
+REM Result: https://169-58-230-144.sslip.io/staff-console/
 
 setlocal
 cd /d "%~dp0.."
@@ -8,7 +8,7 @@ cd /d "%~dp0.."
 set "VPS_HOST=169.58.230.144"
 set "VPS_USER=root"
 set "SSH_KEY=%USERPROFILE%\.ssh\qopcha_contabo"
-set "API_BASE=http://169.58.230.144"
+set "API_BASE=https://169-58-230-144.sslip.io"
 set "REMOTE_DIR=/opt/qopcha-api"
 
 echo.
@@ -23,6 +23,12 @@ if not exist "build\web\index.html" (
   echo build\web\index.html missing.
   exit /b 1
 )
+
+echo.
+echo === Syncing local server\admin mirror ===
+if exist "server\admin" rmdir /s /q "server\admin"
+mkdir "server\admin"
+xcopy /e /i /y "build\web\*" "server\admin\" >nul
 
 echo.
 echo === Uploading admin to VPS %VPS_HOST% ===
@@ -50,7 +56,7 @@ ssh -i "%SSH_KEY%" %VPS_USER%@%VPS_HOST% "cd %REMOTE_DIR% && docker compose up -
 
 echo.
 echo Done.
-echo Open: http://%VPS_HOST%/staff-console
-echo Login with admin email/password from server .env
+echo Open: https://169-58-230-144.sslip.io/staff-console/
+echo Login: admin@qopcha.com (password from server ADMIN_PASSWORD / default seed)
 echo.
 pause

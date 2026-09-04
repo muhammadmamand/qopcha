@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/app_notification.dart';
 import '../services/notification_service.dart';
+import '../services/push_notification_service.dart';
 import 'auth_provider.dart';
 import 'settings_provider.dart';
 
@@ -63,6 +66,17 @@ final unreadNotificationsCountProvider = Provider<int>((ref) {
     if (seenAt == null) return true;
     return n.createdAt.isAfter(seenAt);
   }).length;
+});
+
+/// Shows a system banner for newly arrived inbox items while the app is alive.
+final notificationLocalAlertBridgeProvider = Provider<void>((ref) {
+  ref.listen(notificationsProvider, (previous, next) {
+    final list = next.valueOrNull;
+    if (list == null || list.isEmpty) return;
+    // Skip the very first load so opening the app doesn't spam old alerts.
+    if (previous?.valueOrNull == null) return;
+    unawaited(PushNotificationService.instance.alertForNewInboxItems(list));
+  });
 });
 
 final totalNotificationBadgeProvider = Provider<int>((ref) {

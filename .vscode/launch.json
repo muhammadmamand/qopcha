@@ -7,14 +7,20 @@
       "type": "dart",
       "program": "lib/main.dart",
       "deviceId": "chrome",
-      "toolArgs": ["--no-web-experimental-hot-reload"]
+      "toolArgs": [
+        "--no-web-experimental-hot-reload",
+        "--dart-define=API_BASE=https://169-58-230-144.sslip.io"
+      ]
     },
     {
       "name": "Qopcha (Windows)",
       "request": "launch",
       "type": "dart",
       "program": "lib/main.dart",
-      "deviceId": "windows"
+      "deviceId": "windows",
+      "toolArgs": [
+        "--dart-define=API_BASE=https://169-58-230-144.sslip.io"
+      ]
     }
   ]
 }

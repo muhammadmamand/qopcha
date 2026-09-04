@@ -36,6 +36,13 @@ class AppConstants {
     'جلی منداڵان',
   ];
 
+  /// Category stamped on fabric listings (and shown with the fabric-roll icon).
+  static const String fabricCategory = 'قوماش';
+
+  /// Clothing categories only (excludes All + fabric).
+  static List<String> get clothingCategories =>
+      categories.where((c) => c != 'هەموو' && c != fabricCategory).toList();
+
   static const List<String> sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
 
   /// Stock unit stored in [SizeStock.size] for fabric listings.

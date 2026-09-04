@@ -10,6 +10,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/hero_tags.dart';
 import '../../providers/product_provider.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/fabric_icon.dart';
 import '../../widgets/premium_bottom_nav.dart';
 import '../../widgets/product_card.dart';
 
@@ -189,7 +190,10 @@ class _FabricsScreenState extends ConsumerState<FabricsScreen> {
                   return SliverFillRemaining(
                     child: EmptyView(
                       message: s.noProductsFound,
-                      icon: Icons.texture_rounded,
+                      iconWidget: FabricIcon(
+                        size: 48,
+                        color: AppColors.textTertiary,
+                      ),
                     ),
                   );
                 }

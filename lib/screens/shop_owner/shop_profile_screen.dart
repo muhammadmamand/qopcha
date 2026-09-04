@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_decorations.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/shop_navigation.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/orders_provider.dart';
@@ -126,11 +127,18 @@ class ShopProfileScreen extends ConsumerWidget {
                         onTap: () => context.go('/shop-orders'),
                       ),
                       _ShopMenuTile(
-                        icon: Icons.add_box_outlined,
-                        label: 'بەرهەمی نوێ',
-                        subtitle: 'زیادکردنی بەرهەم بۆ دووکان',
-                        color: const Color(0xFF7C3AED),
-                        onTap: () => context.push('/shop/add-product'),
+                        icon: Icons.checkroom_rounded,
+                        label: 'زیادکردنی جل و بەرگ',
+                        subtitle: 'پۆشاک و کاڵای ئامادە زیاد بکە',
+                        color: AppColors.secondary,
+                        onTap: () => openShopAddProduct(context, isFabric: false),
+                      ),
+                      _ShopMenuTile(
+                        icon: Icons.texture_rounded,
+                        label: 'زیادکردنی قوماش',
+                        subtitle: 'قوماش بە مەتر زیاد بکە',
+                        color: AppColors.highlight,
+                        onTap: () => openShopAddProduct(context, isFabric: true),
                       ),
                       _ShopMenuTile(
                         icon: Icons.storefront_outlined,

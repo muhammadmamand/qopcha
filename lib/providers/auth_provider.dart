@@ -54,6 +54,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _userSub?.cancel();
     _userSub = _authService.watchCurrentUser().listen(
       (user) {
+        final prev = state.user;
+        // Auth polls periodically — skip rebuilds when nothing changed.
+        if (prev?.id == user?.id &&
+            prev?.approvalStatus == user?.approvalStatus &&
+            prev?.name == user?.name &&
+            prev?.shopName == user?.shopName &&
+            prev?.location == user?.location &&
+            prev?.preferredSize == user?.preferredSize &&
+            !state.isLoading) {
+          return;
+        }
         state = AuthState(
           user: user,
           isLoading: false,
@@ -165,7 +176,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = state.copyWith(
           isLoading: false,
           error:
-              'ئەم هەژمارە مۆڵەتی ئەدمینی نییە. تەنها admin@qopcha.com دەتوانێت بچێتە ژوورەوە.',
+              'ئەم هەژمارە مۆڵەتی ئەدمینی نییە. بە ${AdminSecurity.primaryEmail} بچۆ ژوورەوە.',
         );
         return false;
       }
@@ -177,10 +188,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       if (!user.isAdmin || !AdminSecurity.isAllowedAdminEmail(user.email)) {
         await _authService.logout();
-        state = const AuthState(
+        state = AuthState(
           isLoading: false,
           error:
-              'ئەم هەژمارە مۆڵەتی ئەدمینی نییە. تەنها admin@qopcha.com دەتوانێت بچێتە ژوورەوە.',
+              'ئەم هەژمارە مۆڵەتی ئەدمینی نییە. بە ${AdminSecurity.primaryEmail} بچۆ ژوورەوە.',
         );
         return false;
       }

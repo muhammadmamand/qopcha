@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/router/page_transitions.dart';
 import '../../core/utils/formatters.dart';
 import '../../models/banner_model.dart';
 import '../../models/user_model.dart';
@@ -28,11 +29,12 @@ class _AdminShellState extends ConsumerState<AdminShell> {
     if (location.startsWith('/admin/leaders')) return 1;
     if (location.startsWith('/admin/orders')) return 2;
     if (location.startsWith('/admin/delivery')) return 3;
-    if (location.startsWith('/admin/reports')) return 4;
-    if (location.startsWith('/admin/products')) return 5;
-    if (location.startsWith('/admin/discounts')) return 6;
-    if (location.startsWith('/admin/banners')) return 7;
-    if (location.startsWith('/admin/content')) return 8;
+    if (location.startsWith('/admin/returns')) return 4;
+    if (location.startsWith('/admin/reports')) return 5;
+    if (location.startsWith('/admin/products')) return 6;
+    if (location.startsWith('/admin/discounts')) return 7;
+    if (location.startsWith('/admin/banners')) return 8;
+    if (location.startsWith('/admin/content')) return 9;
     return 0;
   }
 
@@ -93,14 +95,16 @@ class _AdminShellState extends ConsumerState<AdminShell> {
         case 3:
           context.go('/admin/delivery');
         case 4:
-          context.go('/admin/reports');
+          context.go('/admin/returns');
         case 5:
-          context.go('/admin/products');
+          context.go('/admin/reports');
         case 6:
-          context.go('/admin/discounts');
+          context.go('/admin/products');
         case 7:
-          context.go('/admin/banners');
+          context.go('/admin/discounts');
         case 8:
+          context.go('/admin/banners');
+        case 9:
           context.go('/admin/content');
       }
     }
@@ -142,6 +146,11 @@ class _AdminShellState extends ConsumerState<AdminShell> {
         icon: Icon(Icons.local_shipping_outlined),
         selectedIcon: Icon(Icons.local_shipping_rounded),
         label: Text('گەیاندن'),
+      ),
+      const NavigationRailDestination(
+        icon: Icon(Icons.assignment_return_outlined),
+        selectedIcon: Icon(Icons.assignment_return_rounded),
+        label: Text('گەڕاندنەوە'),
       ),
       const NavigationRailDestination(
         icon: Icon(Icons.analytics_outlined),
@@ -293,15 +302,17 @@ class _AdminShellState extends ConsumerState<AdminShell> {
       backgroundColor: AppColors.surfaceVariant,
       extendBody: true,
       body: widget.child,
-      bottomNavigationBar: Padding(
-        padding: EdgeInsets.fromLTRB(12, 0, 12, 10 + bottom),
-        child: _AdminBottomBar(
-          index: index,
-          pendingAccounts: pendingAccounts,
-          pendingOrders: pendingOrders,
-          onTap: goTab,
-        ),
-      ),
+      bottomNavigationBar: isShellOverlayLocation(location)
+          ? null
+          : Padding(
+              padding: EdgeInsets.fromLTRB(12, 0, 12, 10 + bottom),
+              child: _AdminBottomBar(
+                index: index,
+                pendingAccounts: pendingAccounts,
+                pendingOrders: pendingOrders,
+                onTap: goTab,
+              ),
+            ),
     );
   }
 }
@@ -344,6 +355,12 @@ class _AdminBottomBar extends StatelessWidget {
         Icons.local_shipping_outlined,
         Icons.local_shipping_rounded,
         'گەیاندن',
+        0,
+      ),
+      (
+        Icons.assignment_return_outlined,
+        Icons.assignment_return_rounded,
+        'گەڕاندنەوە',
         0,
       ),
       (

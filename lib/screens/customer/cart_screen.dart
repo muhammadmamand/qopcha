@@ -19,6 +19,7 @@ import '../../providers/addresses_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/orders_provider.dart';
+import '../../providers/shell_navigation_provider.dart';
 import '../../widgets/login_required_dialog.dart';
 import '../../widgets/premium_bottom_nav.dart';
 import '../../widgets/product_image.dart';
@@ -99,8 +100,10 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     }
 
     if (!mounted) return;
-    final selected = await showModalBottomSheet<AddressModel>(
+    // Hides liquid-glass nav so the sheet isn't covered by the floating bar.
+    final selected = await showAppModalBottomSheet<AddressModel>(
       context: context,
+      ref: ref,
       isScrollControlled: true,
       backgroundColor: AppColors.sheet,
       shape: const RoundedRectangleBorder(
@@ -1146,17 +1149,18 @@ class _CheckoutAddressSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(stringsProvider);
-    final bottom = MediaQuery.paddingOf(context).bottom;
     final defaultId = addresses
         .firstWhere((a) => a.isDefault, orElse: () => addresses.first)
         .id;
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20, 12, 20, 16 + bottom),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
           Center(
             child: Container(
               width: 40,
@@ -1296,6 +1300,7 @@ class _CheckoutAddressSheet extends ConsumerWidget {
             style: TextButton.styleFrom(foregroundColor: AppColors.brand),
           ),
         ],
+      ),
       ),
     );
   }

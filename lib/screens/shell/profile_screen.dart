@@ -208,13 +208,6 @@ class ProfileScreen extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 28),
             child: Column(
               children: [
-                Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: const LanguageSwitcherButton(),
-                  ),
-                ),
                 const Spacer(),
                 Container(
                   width: 88,
@@ -740,6 +733,7 @@ class _ProfileHeader extends StatelessWidget {
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         fontSize: 17,
+                        height: 1.15,
                         fontWeight: FontWeight.w900,
                         color: AppColors.textPrimary,
                       ),
@@ -755,26 +749,30 @@ class _ProfileHeader extends StatelessWidget {
                   ],
                 ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                user.email,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textDirection: ui.TextDirection.ltr,
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontSize: 12,
-                  color: AppColors.textSecondary,
+              if (user.email.trim().isNotEmpty) ...[
+                const SizedBox(height: 1),
+                Text(
+                  user.email,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textDirection: ui.TextDirection.ltr,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 12,
+                    height: 1.15,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
-              ),
+              ],
               if (phone.isNotEmpty) ...[
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 Text(
                   phone,
                   textDirection: ui.TextDirection.ltr,
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
                     fontSize: 12,
+                    height: 1.15,
                     color: AppColors.textSecondary,
                   ),
                 ),

@@ -1,39 +1,61 @@
 # Push notifications (closed / background app)
 
-Customers see **in-app** alerts while the app is open (Firestore `notifications`).
+## Why you only see alerts after opening the app
 
-To also show a **system notification when the app is fully closed**, you need FCM + Cloud Function on **Blaze**.
+Marketplace notifications are saved on the **Contabo API**. The phone inbox
+loads when the app opens (or polls every ~8s while open).
 
-## Why Android may not notify
-1. **Blaze plan required** for closed-app push — deploy fails on Spark (free).
-   Upgrade: https://console.firebase.google.com/project/qopchaapp/usage/details
-2. Customer must allow notification permission on the phone.
-3. Rebuild/reinstall the Android APK after pull.
-4. With the app **open**, local alerts work via Firestore even without Blaze.
-5. With the app **fully closed**, Blaze + Cloud Function is required.
+**System tray push** (when the app is closed) needs FCM from the Contabo
+server. Without Firebase service-account credentials on the VPS, FCM is
+skipped and nothing appears until you open قۆپچە.
 
-## 1. App side (already in code)
-- Customers subscribe to topic `new_products` after login
-- Live Firestore → local notification while app is running
-- Android / iOS show local + system notifications
-- **Windows desktop does not support FCM push** when the app is closed
+## Fix (Contabo VPS)
 
-## 2. Deploy Cloud Function (required for closed-app push)
+1. Firebase Console → Project **qopchaapp** → Project settings → Service accounts  
+   → Generate new private key (JSON).
+2. On the VPS, put the JSON into `.env` as one line:
 
-1. Enable **Blaze** plan: https://console.firebase.google.com/project/qopchaapp/usage/details
-2. From the project root:
-   ```bash
-   cd functions
-   npm install
-   cd ..
-   firebase deploy --only functions --project qopchaapp
-   ```
-3. Confirm function `onNewProductNotification` in Firebase Console → Functions.
+```bash
+FIREBASE_PROJECT_ID=qopchaapp
+FIREBASE_SERVICE_ACCOUNT_JSON='{"type":"service_account","project_id":"qopchaapp",...}'
+```
 
-## 3. Test
-1. Log in as **customer** on Android → allow notifications.
-2. Keep customer app open → shop adds product → alert should appear.
-3. For closed-app: upgrade Blaze, deploy function, force-close app, add product.
+Or mount the file and set:
 
-## 4. Firestore
-Shop owners can `create` in `notifications` (see `firestore.rules`).
+```bash
+GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/firebase-admin.json
+FIREBASE_PROJECT_ID=qopchaapp
+```
+
+3. Install + restart API:
+
+```bash
+cd /path/to/server
+npm install
+# restart docker / pm2 / systemd so index.js reloads
+```
+
+4. Customer app: log in once, allow notification permission, stay logged in
+   (FCM token is saved on `/api/auth/me`).
+
+## Behaviour after fix
+
+| App state | What happens |
+|-----------|----------------|
+| Open / background (process alive) | FCM + local banner from inbox poll |
+| Fully closed / swiped away | FCM system notification from Contabo API |
+| Windows desktop | No FCM — inbox only inside the app |
+
+## App side (already in code)
+
+- Customers subscribe to topic `new_products`
+- Token uploaded to Contabo as `fcmToken`
+- Foreground / background local display via `flutter_local_notifications`
+- `POST /api/notifications` triggers `pushForNotification` (topic or token)
+
+## Test
+
+1. Customer Android: allow notifications, keep logged in.
+2. Shop adds a product (or admin sends announcement).
+3. With app closed: system tray should show within seconds.
+4. Check Contabo logs for `[fcm] topic` / `[fcm] multicast`.

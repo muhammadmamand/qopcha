@@ -200,11 +200,14 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
     required IconData icon,
     required bool focused,
     Widget? suffix,
+    bool valid = false,
   }) {
     const radius = BorderRadius.all(Radius.circular(22));
-    final borderColor = focused
-        ? AppColors.brand
-        : const Color(0xFFE2EBEC);
+    final borderColor = valid
+        ? AppColors.success
+        : focused
+            ? AppColors.brand
+            : const Color(0xFFE2EBEC);
     return InputDecoration(
       hintText: hint,
       hintStyle: TextStyle(
@@ -215,10 +218,31 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
       ),
       prefixIcon: Padding(
         padding: const EdgeInsetsDirectional.only(start: 4),
-        child: Icon(
-          icon,
-          color: focused ? AppColors.brand : AppColors.brand.withValues(alpha: 0.85),
-          size: 22,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 320),
+          switchInCurve: Curves.easeOutBack,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, anim) {
+            return ScaleTransition(
+              scale: anim,
+              child: FadeTransition(opacity: anim, child: child),
+            );
+          },
+          child: valid
+              ? Icon(
+                  Icons.check_circle_rounded,
+                  key: const ValueKey('phone-ok'),
+                  color: AppColors.success,
+                  size: 24,
+                )
+              : Icon(
+                  icon,
+                  key: ValueKey(icon.codePoint),
+                  color: focused
+                      ? AppColors.brand
+                      : AppColors.brand.withValues(alpha: 0.85),
+                  size: 22,
+                ),
         ),
       ),
       suffixIcon: suffix,
@@ -235,7 +259,10 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: radius,
-        borderSide: BorderSide(color: AppColors.brand, width: 1.6),
+        borderSide: BorderSide(
+          color: valid ? AppColors.success : AppColors.brand,
+          width: 1.6,
+        ),
       ),
       errorBorder: const OutlineInputBorder(
         borderRadius: radius,
@@ -391,11 +418,13 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
                             keyboardType: TextInputType.phone,
                             textDirection: TextDirection.ltr,
                             textInputAction: TextInputAction.done,
+                            onChanged: (_) => setState(() {}),
                             onFieldSubmitted: (_) => _sendSignupOtp(),
                             decoration: _field(
                               hint: _t('ژمارەی مۆبایل', 'Mobile number', 'رقم الهاتف'),
                               icon: Icons.phone_outlined,
                               focused: _phoneFocus.hasFocus,
+                              valid: PhoneUtils.isValid(_phone.text),
                               suffix: TextButton(
                                 onPressed: (isLoading ||
                                         _otpSending ||
@@ -1235,8 +1264,13 @@ class _SignupOtpField extends StatefulWidget {
 }
 
 class _SignupOtpFieldState extends State<_SignupOtpField>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _cursorBlink;
+  late final AnimationController _successPop;
+  bool _wasComplete = false;
+
+  bool get _complete =>
+      RegExp(r'^\d{6}$').hasMatch(widget.controller.text.trim());
 
   @override
   void initState() {
@@ -1245,17 +1279,43 @@ class _SignupOtpFieldState extends State<_SignupOtpField>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..repeat(reverse: true);
+    _successPop = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 520),
+    );
+    widget.controller.addListener(_onCodeChanged);
+    _wasComplete = _complete;
+    if (_wasComplete) _successPop.value = 1;
+  }
+
+  void _onCodeChanged() {
+    final nowComplete = _complete;
+    if (nowComplete && !_wasComplete) {
+      HapticFeedback.mediumImpact();
+      _successPop.forward(from: 0);
+    } else if (!nowComplete && _wasComplete) {
+      _successPop.reverse();
+    }
+    _wasComplete = nowComplete;
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    widget.controller.removeListener(_onCodeChanged);
     _cursorBlink.dispose();
+    _successPop.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final code = widget.controller.text;
+    final complete = _complete;
+    final successT = CurvedAnimation(
+      parent: _successPop,
+      curve: Curves.easeOutBack,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1264,17 +1324,33 @@ class _SignupOtpFieldState extends State<_SignupOtpField>
           padding: const EdgeInsetsDirectional.only(start: 4, bottom: 8),
           child: Row(
             children: [
-              Container(
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 280),
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: AppColors.brand.withValues(alpha: 0.1),
+                  color: complete
+                      ? AppColors.success.withValues(alpha: 0.14)
+                      : AppColors.brand.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  Icons.mark_chat_read_outlined,
-                  size: 18,
-                  color: AppColors.brand,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 340),
+                  switchInCurve: Curves.easeOutBack,
+                  transitionBuilder: (child, anim) {
+                    return ScaleTransition(
+                      scale: anim,
+                      child: FadeTransition(opacity: anim, child: child),
+                    );
+                  },
+                  child: Icon(
+                    complete
+                        ? Icons.check_circle_rounded
+                        : Icons.mark_chat_read_outlined,
+                    key: ValueKey(complete),
+                    size: 18,
+                    color: complete ? AppColors.success : AppColors.brand,
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -1305,6 +1381,17 @@ class _SignupOtpFieldState extends State<_SignupOtpField>
                   ],
                 ),
               ),
+              ScaleTransition(
+                scale: successT,
+                child: FadeTransition(
+                  opacity: successT,
+                  child: Icon(
+                    Icons.verified_rounded,
+                    color: AppColors.success,
+                    size: 26,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -1314,10 +1401,12 @@ class _SignupOtpFieldState extends State<_SignupOtpField>
             borderRadius: BorderRadius.circular(22),
             boxShadow: [
               BoxShadow(
-                color: widget.focused
-                    ? AppColors.brand.withValues(alpha: 0.16)
-                    : Colors.black.withValues(alpha: 0.045),
-                blurRadius: widget.focused ? 20 : 12,
+                color: complete
+                    ? AppColors.success.withValues(alpha: 0.16)
+                    : widget.focused
+                        ? AppColors.brand.withValues(alpha: 0.16)
+                        : Colors.black.withValues(alpha: 0.045),
+                blurRadius: widget.focused || complete ? 20 : 12,
                 offset: const Offset(0, 6),
               ),
             ],
@@ -1328,15 +1417,18 @@ class _SignupOtpFieldState extends State<_SignupOtpField>
             child: InkWell(
               onTap: widget.focusNode.requestFocus,
               borderRadius: BorderRadius.circular(22),
-              child: Container(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 240),
                 padding: const EdgeInsets.fromLTRB(14, 18, 14, 14),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(22),
                   border: Border.all(
-                    color: widget.focused
-                        ? AppColors.brand
-                        : const Color(0xFFE2EBEC),
-                    width: widget.focused ? 1.6 : 1,
+                    color: complete
+                        ? AppColors.success
+                        : widget.focused
+                            ? AppColors.brand
+                            : const Color(0xFFE2EBEC),
+                    width: widget.focused || complete ? 1.6 : 1,
                   ),
                 ),
                 child: Directionality(
@@ -1351,6 +1443,7 @@ class _SignupOtpFieldState extends State<_SignupOtpField>
                             children: List.generate(6, (i) {
                               final digit = i < code.length ? code[i] : '';
                               final active = widget.focused &&
+                                  !complete &&
                                   (code.length == i ||
                                       (code.length == 6 && i == 5));
                               final filled = digit.isNotEmpty;
@@ -1365,19 +1458,30 @@ class _SignupOtpFieldState extends State<_SignupOtpField>
                                   height: 54,
                                   alignment: Alignment.center,
                                   decoration: BoxDecoration(
-                                    gradient: active
+                                    gradient: complete
                                         ? LinearGradient(
                                             begin: Alignment.topCenter,
                                             end: Alignment.bottomCenter,
                                             colors: [
-                                              AppColors.brand
-                                                  .withValues(alpha: 0.12),
-                                              AppColors.brand
-                                                  .withValues(alpha: 0.04),
+                                              AppColors.success
+                                                  .withValues(alpha: 0.16),
+                                              AppColors.success
+                                                  .withValues(alpha: 0.05),
                                             ],
                                           )
-                                        : null,
-                                    color: active
+                                        : active
+                                            ? LinearGradient(
+                                                begin: Alignment.topCenter,
+                                                end: Alignment.bottomCenter,
+                                                colors: [
+                                                  AppColors.brand
+                                                      .withValues(alpha: 0.12),
+                                                  AppColors.brand
+                                                      .withValues(alpha: 0.04),
+                                                ],
+                                              )
+                                            : null,
+                                    color: complete || active
                                         ? null
                                         : filled
                                             ? AppColors.brand
@@ -1385,13 +1489,15 @@ class _SignupOtpFieldState extends State<_SignupOtpField>
                                             : const Color(0xFFF7FBFC),
                                     borderRadius: BorderRadius.circular(14),
                                     border: Border.all(
-                                      color: active
-                                          ? AppColors.brand
-                                          : filled
+                                      color: complete
+                                          ? AppColors.success
+                                          : active
                                               ? AppColors.brand
-                                                  .withValues(alpha: 0.55)
-                                              : const Color(0xFFD8E4E6),
-                                      width: active ? 2 : 1.1,
+                                              : filled
+                                                  ? AppColors.brand
+                                                      .withValues(alpha: 0.55)
+                                                  : const Color(0xFFD8E4E6),
+                                      width: active || complete ? 2 : 1.1,
                                     ),
                                     boxShadow: active
                                         ? [
@@ -1402,25 +1508,51 @@ class _SignupOtpFieldState extends State<_SignupOtpField>
                                               offset: const Offset(0, 4),
                                             ),
                                           ]
-                                        : null,
+                                        : complete
+                                            ? [
+                                                BoxShadow(
+                                                  color: AppColors.success
+                                                      .withValues(alpha: 0.14),
+                                                  blurRadius: 8,
+                                                  offset: const Offset(0, 3),
+                                                ),
+                                              ]
+                                            : null,
                                   ),
                                   child: filled
-                                      ? AnimatedScale(
-                                          scale: 1,
+                                      ? AnimatedSwitcher(
                                           duration: const Duration(
-                                            milliseconds: 160,
+                                            milliseconds: 280,
                                           ),
-                                          curve: Curves.easeOutBack,
-                                          child: Text(
-                                            digit,
-                                            style: const TextStyle(
-                                              fontFamily: AppTheme.fontFamily,
-                                              fontWeight: FontWeight.w900,
-                                              fontSize: 23,
-                                              color: Color(0xFF152426),
-                                              height: 1,
-                                            ),
-                                          ),
+                                          switchInCurve: Curves.easeOutBack,
+                                          transitionBuilder: (child, anim) {
+                                            return ScaleTransition(
+                                              scale: anim,
+                                              child: FadeTransition(
+                                                opacity: anim,
+                                                child: child,
+                                              ),
+                                            );
+                                          },
+                                          child: complete
+                                              ? Icon(
+                                                  Icons.check_rounded,
+                                                  key: ValueKey('ok-$i'),
+                                                  color: AppColors.success,
+                                                  size: 26,
+                                                )
+                                              : Text(
+                                                  digit,
+                                                  key: ValueKey('d-$i-$digit'),
+                                                  style: const TextStyle(
+                                                    fontFamily:
+                                                        AppTheme.fontFamily,
+                                                    fontWeight: FontWeight.w900,
+                                                    fontSize: 23,
+                                                    color: Color(0xFF152426),
+                                                    height: 1,
+                                                  ),
+                                                ),
                                         )
                                       : active
                                           ? FadeTransition(

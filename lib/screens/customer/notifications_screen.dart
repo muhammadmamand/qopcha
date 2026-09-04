@@ -85,116 +85,6 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     });
   }
 
-  List<_NotifItem> _mockItems() {
-    final now = DateTime.now();
-    return [
-      _NotifItem(
-        id: 'm1',
-        category: NotifCategory.orders,
-        tone: NotifTone.teal,
-        icon: Icons.local_shipping_rounded,
-        title: 'داواکاری نێردرا',
-        body:
-            'داواکاری #٢٤٨٥٢ نێردرا. کۆدی شوێنکەوتن: TRK٩٨٢٣٤. گەیاندن چاوەڕوان دەکرێت سبەینێ.',
-        timeLabel: '٥ خولەک پێش',
-        createdAt: now.subtract(const Duration(minutes: 5)),
-        unread: true,
-        actionLabel: 'شوێنکەوتنی داواکاری',
-        imageUrl:
-            'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=200&q=80',
-        route: '/orders',
-      ),
-      _NotifItem(
-        id: 'm2',
-        category: NotifCategory.offers,
-        tone: NotifTone.red,
-        icon: Icons.local_offer_rounded,
-        title: 'فرۆشتنی خێرا: ٥٠٪ داشکاندن',
-        body:
-            'تەنها ٢٤ کاتژمێر! داشکاندنی گەورە لەسەر هەموو کۆڵێکشنە هاوینەکان. ئەم دەرفەتە لەدەست مەدە.',
-        timeLabel: '١ کاتژمێر پێش',
-        createdAt: now.subtract(const Duration(hours: 1)),
-        unread: true,
-        actionLabel: 'بینینی ئۆفەر',
-        imageUrl:
-            'https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?w=200&q=80',
-        route: '/home',
-      ),
-      _NotifItem(
-        id: 'm3',
-        category: NotifCategory.wishlist,
-        tone: NotifTone.purple,
-        icon: Icons.favorite_rounded,
-        title: 'کاڵای دڵخواز گەڕایەوە',
-        body:
-            '«تیشێرتی لۆکەیی نایاب» کە لە لیستی دڵخوازەکانت بوو، دووبارە بەردەستە. زوو بیگرە!',
-        timeLabel: '٣ کاتژمێر پێش',
-        createdAt: now.subtract(const Duration(hours: 3)),
-        unread: true,
-        actionLabel: 'بینینی دڵخوازەکان',
-        imageUrl:
-            'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=200&q=80',
-        route: '/favorites',
-      ),
-      _NotifItem(
-        id: 'm4',
-        category: NotifCategory.account,
-        tone: NotifTone.blue,
-        icon: Icons.credit_card_rounded,
-        title: 'پارەدان سەرکەوتوو بوو',
-        body:
-            'پارەدانی ٨٩.٩٩\$ بۆ داواکاری #٢٤٨٥١ بە سەرکەوتوویی وەرگیرا. سوپاس بۆ کڕینەکەت!',
-        timeLabel: 'دوێنێ، ٣:٤٥ ئێوارە',
-        createdAt: now.subtract(const Duration(days: 1, hours: 3)),
-        unread: false,
-        actionLabel: 'بینینی وەصڵ',
-        route: '/orders',
-      ),
-      _NotifItem(
-        id: 'm5',
-        category: NotifCategory.orders,
-        tone: NotifTone.green,
-        icon: Icons.check_circle_rounded,
-        title: 'داواکاری گەیشت',
-        body:
-            'داواکاری #٢٤٨٤٠ بە سەرکەوتوویی گەیشت. هیوادارین لە کڕینەکەت ڕازی بیت!',
-        timeLabel: 'دوێنێ، ١٠:٢٠ بەیانی',
-        createdAt: now.subtract(const Duration(days: 1, hours: 10)),
-        unread: false,
-        actionLabel: 'هەڵسەنگاندن بنووسە',
-        imageUrl:
-            'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=200&q=80',
-        route: '/orders',
-      ),
-      _NotifItem(
-        id: 'm6',
-        category: NotifCategory.offers,
-        tone: NotifTone.orange,
-        icon: Icons.confirmation_number_rounded,
-        title: 'کۆدێکی نوێت بۆ هات',
-        body:
-            'کۆدی SAVE٢٠ بەکاربهێنە بۆ ٢٠٪ داشکاندن لەسەر داواکاری داهاتووت. تا کۆتایی مانگ بەردەستە.',
-        timeLabel: '٢ ڕۆژ پێش',
-        createdAt: now.subtract(const Duration(days: 2)),
-        unread: false,
-        actionLabel: 'کۆپی کۆد',
-        couponPreview: true,
-        route: '/home',
-      ),
-      _NotifItem(
-        id: 'm7',
-        category: NotifCategory.system,
-        tone: NotifTone.blue,
-        icon: Icons.notifications_rounded,
-        title: 'نوێکردنەوەی ئەپ',
-        body:
-            'وەشانی نوێ ئامادەیە لەگەڵ باشترکردنی خێرایی و دیزاینی نوێ بۆ لاپەڕەی بەرهەم.',
-        timeLabel: '٣ ڕۆژ پێش',
-        createdAt: now.subtract(const Duration(days: 3)),
-        unread: false,
-      ),
-    ];
-  }
 
   List<_NotifItem> _fromFirestore(
     List<AppNotification> list,
@@ -431,7 +321,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         ),
       );
     }
-    final combined = [...accountExtra, ...fromLive, ..._mockItems()]
+    final combined = [...accountExtra, ...fromLive]
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
     // Deduplicate by id; live wins
@@ -1100,43 +990,84 @@ class _DashedBorderPainter extends CustomPainter {
 class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final dark = AppColors.isDark;
+    final brand = AppColors.brand;
+
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.fromLTRB(32, 24, 32, 48),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 72,
-              height: 72,
+              width: 108,
+              height: 108,
               decoration: BoxDecoration(
-                color: AppColors.brand.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    brand.withValues(alpha: dark ? 0.28 : 0.18),
+                    brand.withValues(alpha: 0.04),
+                  ],
+                ),
+                border: Border.all(
+                  color: brand.withValues(alpha: 0.22),
+                ),
               ),
               child: Icon(
                 Icons.notifications_none_rounded,
-                size: 36,
-                color: AppColors.brand,
+                size: 46,
+                color: brand,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 22),
             Text(
               'هیچ ئاگادارییەک نییە',
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'کاتێک نوێیەک هەبێت، لێرە دەردەکەوێت',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
-                fontSize: 13,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'کاتێک داواکاری، ئۆفەر، یان نوێکارییەک هەبێت،\nنوێترین ئاگادارییەکان لێرە دەردەکەون',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 13.5,
+                height: 1.55,
+                fontWeight: FontWeight.w500,
                 color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 22),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: brand.withValues(alpha: dark ? 0.16 : 0.1),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: brand.withValues(alpha: 0.22),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.autorenew_rounded, size: 16, color: brand),
+                  const SizedBox(width: 8),
+                  Text(
+                    'چاوەڕوانی نوێترین ئاگادارییەکان',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: brand,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

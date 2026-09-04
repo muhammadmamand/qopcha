@@ -9,6 +9,7 @@ import '../../models/order_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/orders_provider.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/premium_bottom_nav.dart';
 import '../../widgets/product_image.dart';
 
 class ShopOrdersScreen extends ConsumerWidget {
@@ -206,18 +207,42 @@ class _ShopOrderCardState extends ConsumerState<_ShopOrderCard> {
             status == OrderStatus.confirmed
                 ? 'داواکاری قبوڵ کرا'
                 : 'داواکاری ڕەتکرایەوە',
+            style: const TextStyle(fontFamily: AppTheme.fontFamily),
           ),
           backgroundColor: status == OrderStatus.cancelled
               ? AppColors.error
               : AppColors.success,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(
+            16,
+            0,
+            16,
+            kPremiumBottomNavClearance,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
       );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('نەتوانرا دۆخی داواکاری بگۆڕدرێت'),
+          content: const Text(
+            'نەتوانرا دۆخی داواکاری بگۆڕدرێت',
+            style: TextStyle(fontFamily: AppTheme.fontFamily),
+          ),
           backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(
+            16,
+            0,
+            16,
+            kPremiumBottomNavClearance,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
       );
     } finally {
@@ -241,6 +266,7 @@ class _ShopOrderCardState extends ConsumerState<_ShopOrderCard> {
       OrderStatus.ready => AppColors.brand,
       OrderStatus.shipped => const Color(0xFF3B82F6),
       OrderStatus.cancelled => AppColors.error,
+      OrderStatus.returned => const Color(0xFF8B5CF6),
     };
 
     return Container(
@@ -498,6 +524,9 @@ class _ShopOrderCardState extends ConsumerState<_ShopOrderCard> {
                             icon: const Icon(Icons.inventory_rounded, size: 18),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.brand,
+                              foregroundColor: Colors.white,
+                              disabledForegroundColor:
+                                  Colors.white.withValues(alpha: 0.7),
                               padding: const EdgeInsets.symmetric(vertical: 12),
                             ),
                             label: const Text('ئۆردەرەکە ئامادەیە'),

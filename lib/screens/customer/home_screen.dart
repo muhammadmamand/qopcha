@@ -161,7 +161,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final allProductsAsync = ref.watch(productsProvider);
     final notifBadge = ref.watch(totalNotificationBadgeProvider);
 
-    final categoryOptions = <String>['هەموو', ...AppConstants.categories.where((c) => c != 'هەموو')];
+    final categoryOptions = <String>[
+      'هەموو',
+      ...AppConstants.clothingCategories,
+    ];
     final productCats = allProductsAsync.valueOrNull
             ?.where((p) => p.isClothing)
             .map((p) => p.category)

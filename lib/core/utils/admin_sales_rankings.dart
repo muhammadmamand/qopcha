@@ -40,7 +40,9 @@ class AdminSalesRankings {
   AdminSalesRankings._();
 
   static bool _counts(OrderModel o) =>
-      o.status != OrderStatus.cancelled && o.status != OrderStatus.pending;
+      o.status != OrderStatus.cancelled &&
+      o.status != OrderStatus.returned &&
+      o.status != OrderStatus.pending;
 
   static List<CustomerPurchaseRank> topCustomers(
     List<OrderModel> orders, {

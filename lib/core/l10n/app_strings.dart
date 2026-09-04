@@ -42,9 +42,9 @@ class AppStrings {
         'تعذر تحميل المنتجات',
       );
   String get noProductsFound => call(
-        'هێشتا هیچ بەرهەمێک لە سێرڤەر دانەنراوە — دووکانەکان دەتوانن بەرهەم زیاد بکەن',
-        'No products on the server yet — shops can add items',
-        'لا توجد منتجات على الخادم بعد — يمكن للمتاجر إضافة منتجات',
+        'هێشتان هیچ بەرهەمێک نییە',
+        'No products yet',
+        'لا توجد منتجات بعد',
       );
   String get pendingBrowseBanner => call(
         'هەژمارەکەت چاوەڕوانە — دەتوانیت ببینیت بەڵام ناتوانیت داواکاری بکەیت',

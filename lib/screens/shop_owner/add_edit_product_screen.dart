@@ -12,6 +12,7 @@ import '../../models/product_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../services/image_storage_service.dart';
+import '../../widgets/fabric_icon.dart';
 import '../../widgets/product_image.dart';
 
 class AddEditProductScreen extends ConsumerStatefulWidget {
@@ -41,6 +42,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
   final _imageUrlController = TextEditingController();
   final _customColorController = TextEditingController();
   final _customCategoryController = TextEditingController();
+  final _customFabricTypeController = TextEditingController();
   final _metersController = TextEditingController(text: '10');
   final _widthController = TextEditingController(text: '150');
   final _weightController = TextEditingController();
@@ -49,6 +51,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
 
   late List<String> _categoryOptions;
   late List<String> _colorOptions;
+  late List<String> _fabricTypeOptions;
   late bool _isFabric;
   String _category = AppConstants.categories[1];
   String _fabricType = AppConstants.fabricTypes[1];
@@ -56,6 +59,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
   String _fabricPattern = AppConstants.fabricPatterns[0];
   final Set<String> _selectedColors = {AppConstants.colors[0]};
   bool _isFeatured = false;
+  bool _discountEnabled = false;
   String _discountType = DiscountKind.percent;
   double _discountPercent = 0;
   final _discountAmountCtrl = TextEditingController();
@@ -70,10 +74,15 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
   @override
   void initState() {
     super.initState();
-    _categoryOptions =
-        AppConstants.categories.where((c) => c != 'هەموو').toList();
+    _categoryOptions = List<String>.from(AppConstants.clothingCategories);
     _colorOptions = List<String>.from(AppConstants.colors);
+    _fabricTypeOptions = AppConstants.fabricTypes
+        .where((t) => t != 'هەموو')
+        .toList();
     _isFabric = widget.isFabric;
+    if (_isFabric) {
+      _category = AppConstants.fabricCategory;
+    }
     for (final size in AppConstants.sizes) {
       _sizeControllers[size] = TextEditingController(text: '0');
     }
@@ -97,10 +106,14 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       _images
         ..clear()
         ..addAll(product.imageUrls);
-      if (!_categoryOptions.contains(product.category)) {
-        _categoryOptions = [..._categoryOptions, product.category];
+      if (product.isFabric) {
+        _category = AppConstants.fabricCategory;
+      } else {
+        if (!_categoryOptions.contains(product.category)) {
+          _categoryOptions = [..._categoryOptions, product.category];
+        }
+        _category = product.category;
       }
-      _category = product.category;
       _selectedColors
         ..clear()
         ..addAll(product.colors);
@@ -120,11 +133,18 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       _discountAmountCtrl.text = product.discountAmount > 0
           ? Formatters.grouped(product.discountAmount.round())
           : '';
+      _discountEnabled = product.discountType == DiscountKind.amount
+          ? product.discountAmount > 0
+          : product.discountPercent > 0;
       _isFabric = product.isFabric;
       if (product.isFabric) {
         _fabricType = product.fabricType.isNotEmpty
             ? product.fabricType
             : AppConstants.fabricTypes[1];
+        if (_fabricType.isNotEmpty &&
+            !_fabricTypeOptions.contains(_fabricType)) {
+          _fabricTypeOptions.add(_fabricType);
+        }
         _fabricQuality = product.fabricQuality.isNotEmpty
             ? product.fabricQuality
             : AppConstants.fabricQualities[1];
@@ -160,6 +180,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     _imageUrlController.dispose();
     _customColorController.dispose();
     _customCategoryController.dispose();
+    _customFabricTypeController.dispose();
     _metersController.dispose();
     _widthController.dispose();
     _weightController.dispose();
@@ -242,6 +263,78 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     });
   }
 
+  void _addCustomFabricType() {
+    final value = _customFabricTypeController.text.trim();
+    if (value.isEmpty) return;
+    setState(() {
+      if (!_fabricTypeOptions.contains(value)) {
+        _fabricTypeOptions.add(value);
+      }
+      _fabricType = value;
+      _customFabricTypeController.clear();
+    });
+  }
+
+  Future<void> _promptAddFabricType() async {
+    final ctrl = TextEditingController();
+    final value = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: AppColors.card,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Text(
+            'جۆری نوێی قوماش',
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'نموونە: ساتن، کتانێکی تایبەت...',
+              prefixIcon: Icon(Icons.add_rounded),
+            ),
+            onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('پاشگەزبوونەوە'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+              child: const Text('زیادکردن'),
+            ),
+          ],
+        );
+      },
+    );
+    ctrl.dispose();
+    if (value == null || value.isEmpty || !mounted) return;
+    setState(() {
+      if (!_fabricTypeOptions.contains(value)) {
+        _fabricTypeOptions.add(value);
+      }
+      _fabricType = value;
+    });
+  }
+
+  void _removeFabricType(String type) {
+    if (_fabricTypeOptions.length <= 1) return;
+    setState(() {
+      _fabricTypeOptions.remove(type);
+      if (_fabricType == type) {
+        _fabricType = _fabricTypeOptions.first;
+      }
+    });
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -295,7 +388,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       shopName: user.shopName ?? user.name,
       name: _nameController.text.trim(),
       description: _descController.text.trim(),
-      category: _isFabric ? 'قوماش' : _category,
+      category: _isFabric ? AppConstants.fabricCategory : _category,
       price: price,
       colors: _selectedColors.toList(),
       material: _materialController.text.trim(),
@@ -315,17 +408,21 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       fabricOrigin: _isFabric ? _originController.text.trim() : '',
       fabricCare: _isFabric ? _careController.text.trim() : '',
       isFeatured: _isFeatured,
-      discountType: _discountType,
-      discountPercent:
-          _discountType == DiscountKind.percent ? _discountPercent : 0,
-      discountAmount: _discountType == DiscountKind.amount
+      discountType: _discountEnabled ? _discountType : DiscountKind.percent,
+      discountPercent: _discountEnabled && _discountType == DiscountKind.percent
+          ? _discountPercent
+          : 0,
+      discountAmount: _discountEnabled && _discountType == DiscountKind.amount
           ? (Formatters.parseAmount(_discountAmountCtrl.text.trim()) ?? 0)
           : 0,
       discountForAllCustomers: true,
       discountCustomerIds: const [],
-      discountSetBy: (_discountType == DiscountKind.amount
-              ? (Formatters.parseAmount(_discountAmountCtrl.text.trim()) ?? 0) > 0
-              : _discountPercent > 0)
+      discountSetBy: _discountEnabled &&
+              (_discountType == DiscountKind.amount
+                  ? (Formatters.parseAmount(_discountAmountCtrl.text.trim()) ??
+                          0) >
+                      0
+                  : _discountPercent > 0)
           ? 'shop'
           : '',
       createdAt: DateTime.now(),
@@ -396,6 +493,23 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                 physics: const BouncingScrollPhysics(),
                 children: [
+                  if (!widget.isEditing) ...[
+                    _ProductKindSelector(
+                      isFabric: _isFabric,
+                      onChanged: (isFabric) {
+                        setState(() {
+                          _isFabric = isFabric;
+                          if (isFabric) {
+                            _category = AppConstants.fabricCategory;
+                          } else if (_category == AppConstants.fabricCategory ||
+                              !_categoryOptions.contains(_category)) {
+                            _category = AppConstants.clothingCategories.first;
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                  ],
                   _SectionCard(
                     index: 0,
                     title: 'زانیاری سەرەکی',
@@ -468,18 +582,6 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
-                        _ShopDiscountEditor(
-                          type: _discountType,
-                          percent: _discountPercent,
-                          amountController: _discountAmountCtrl,
-                          price: Formatters.parseAmount(_priceController.text) ?? 0,
-                          onTypeChanged: (value) =>
-                              setState(() => _discountType = value),
-                          onPercentChanged: (value) =>
-                              setState(() => _discountPercent = value),
-                          onAmountChanged: () => setState(() {}),
-                        ),
                         const SizedBox(height: 14),
                         TextFormField(
                           controller: _materialController,
@@ -503,7 +605,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'جۆر',
+                            'پۆل / جۆر',
                             style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w700,
@@ -511,20 +613,94 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                             ),
                           ),
                           const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.brand.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: AppColors.brand.withValues(alpha: 0.35),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                FabricIcon(size: 22, color: AppColors.brand),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    AppConstants.fabricCategory,
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.fontFamily,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 15,
+                                      color: AppColors.brand,
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.lock_outline_rounded,
+                                  size: 18,
+                                  color: AppColors.brand.withValues(alpha: 0.7),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'قوماش خۆکارانە دەخرێتە ناو پۆلی قوماش',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.textTertiary,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'جۆر',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'جۆرێک هەڵبژێرە، نوێ زیاد بکە، یان بسڕەوە',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.textTertiary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
-                            children: AppConstants.fabricTypes
-                                .where((t) => t != 'هەموو')
-                                .map(
-                                  (type) => _ChoiceChip(
-                                    label: type,
-                                    selected: _fabricType == type,
-                                    onTap: () =>
-                                        setState(() => _fabricType = type),
-                                  ),
-                                )
-                                .toList(),
+                            children: [
+                              ..._fabricTypeOptions.map((type) {
+                                return _ChoiceChip(
+                                  label: type,
+                                  selected: _fabricType == type,
+                                  onTap: () =>
+                                      setState(() => _fabricType = type),
+                                  onRemove: _fabricTypeOptions.length > 1
+                                      ? () => _removeFabricType(type)
+                                      : null,
+                                );
+                              }),
+                              _AddNewChip(
+                                label: 'جۆری نوێ',
+                                onTap: _promptAddFabricType,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          _AddCustomRow(
+                            controller: _customFabricTypeController,
+                            hint: 'یان لێرە بنووسە و زیاد بکە',
+                            onAdd: _addCustomFabricType,
                           ),
                           const SizedBox(height: 16),
                           Text(
@@ -968,17 +1144,51 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                       .animate()
                       .fadeIn(delay: 280.ms)
                       .slideY(begin: 0.08),
-                  const SizedBox(height: 100),
+                  const SizedBox(height: 14),
+                  _DiscountToggleCard(
+                    enabled: _discountEnabled,
+                    onEnabledChanged: (on) {
+                      setState(() {
+                        _discountEnabled = on;
+                        if (!on) {
+                          _discountPercent = 0;
+                          _discountAmountCtrl.clear();
+                          _discountType = DiscountKind.percent;
+                        }
+                      });
+                    },
+                    child: _discountEnabled
+                        ? _ShopDiscountEditor(
+                            type: _discountType,
+                            percent: _discountPercent,
+                            amountController: _discountAmountCtrl,
+                            price: Formatters.parseAmount(
+                                  _priceController.text,
+                                ) ??
+                                0,
+                            onTypeChanged: (value) =>
+                                setState(() => _discountType = value),
+                            onPercentChanged: (value) =>
+                                setState(() => _discountPercent = value),
+                            onAmountChanged: () => setState(() {}),
+                          )
+                        : null,
+                  )
+                      .animate()
+                      .fadeIn(delay: 320.ms)
+                      .slideY(begin: 0.08),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
           ),
+          _SaveBar(
+            isEditing: widget.isEditing,
+            isFabric: _isFabric,
+            isLoading: _isLoading,
+            onSave: _save,
+          ),
         ],
-      ),
-      bottomNavigationBar: _SaveBar(
-        isEditing: widget.isEditing,
-        isLoading: _isLoading,
-        onSave: _save,
       ),
     );
   }
@@ -1123,15 +1333,66 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
+class _AddNewChip extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _AddNewChip({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            color: AppColors.highlight.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: AppColors.highlight.withValues(alpha: 0.65),
+              width: 1.4,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.add_circle_rounded,
+                size: 16,
+                color: AppColors.highlight,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.highlight,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ChoiceChip extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final VoidCallback? onRemove;
 
   const _ChoiceChip({
     required this.label,
     required this.selected,
     required this.onTap,
+    this.onRemove,
   });
 
   @override
@@ -1144,7 +1405,12 @@ class _ChoiceChip extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          padding: EdgeInsetsDirectional.only(
+            start: 14,
+            end: onRemove != null ? 6 : 14,
+            top: 9,
+            bottom: 9,
+          ),
           decoration: BoxDecoration(
             color: selected
                 ? AppColors.secondary.withValues(alpha: 0.12)
@@ -1155,15 +1421,15 @@ class _ChoiceChip extends StatelessWidget {
               width: selected ? 1.4 : 1,
             ),
           ),
-              child: Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),
                 child: selected
                     ? Padding(
-                        key: ValueKey('check'),
-                        padding: EdgeInsetsDirectional.only(end: 6),
+                        key: const ValueKey('check'),
+                        padding: const EdgeInsetsDirectional.only(end: 6),
                         child: Icon(
                           Icons.check_circle_rounded,
                           size: 15,
@@ -1183,6 +1449,23 @@ class _ChoiceChip extends StatelessWidget {
                       : AppColors.textPrimary,
                 ),
               ),
+              if (onRemove != null) ...[
+                const SizedBox(width: 2),
+                InkWell(
+                  onTap: onRemove,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 15,
+                      color: selected
+                          ? AppColors.secondary.withValues(alpha: 0.85)
+                          : AppColors.textTertiary,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -1595,19 +1878,99 @@ class _FeaturedToggle extends StatelessWidget {
   }
 }
 
+class _DiscountToggleCard extends StatelessWidget {
+  final bool enabled;
+  final ValueChanged<bool> onEnabledChanged;
+  final Widget? child;
+
+  const _DiscountToggleCard({
+    required this.enabled,
+    required this.onEnabledChanged,
+    this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.card,
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: enabled
+              ? AppColors.highlight.withValues(alpha: 0.55)
+              : AppColors.border.withValues(alpha: 0.6),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SwitchListTile(
+            value: enabled,
+            onChanged: onEnabledChanged,
+            activeThumbColor: AppColors.highlight,
+            title: Text(
+              'داشکاندن',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            subtitle: Text(
+              enabled
+                  ? 'داشکاندن چالاکە — وردەکاری خوارەوە دابنێ'
+                  : 'داشکاندن کوژاندراوەتەوە',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 12,
+                color: AppColors.textTertiary,
+              ),
+            ),
+            secondary: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.highlight.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.local_offer_rounded,
+                color: AppColors.highlight,
+              ),
+            ),
+          ),
+          if (child != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              child: child,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SaveBar extends StatelessWidget {
   final bool isEditing;
+  final bool isFabric;
   final bool isLoading;
   final VoidCallback onSave;
 
   const _SaveBar({
     required this.isEditing,
+    required this.isFabric,
     required this.isLoading,
     required this.onSave,
   });
 
   @override
   Widget build(BuildContext context) {
+    final label = isEditing
+        ? 'نوێکردنەوە'
+        : (isFabric ? 'زیادکردنی قوماش' : 'زیادکردنی بەرهەم');
     return Container(
       padding: EdgeInsets.fromLTRB(
         20,
@@ -1640,9 +2003,128 @@ class _SaveBar extends StatelessWidget {
                   ),
                 )
               : Icon(isEditing ? Icons.save_rounded : Icons.add_rounded),
-          label: Text(isEditing ? 'نوێکردنەوە' : 'زیادکردنی بەرهەم'),
+          label: Text(label),
         ),
       ),
     ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2);
+  }
+}
+
+class _ProductKindSelector extends StatelessWidget {
+  final bool isFabric;
+  final ValueChanged<bool> onChanged;
+
+  const _ProductKindSelector({
+    required this.isFabric,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'جۆری بەرهەم',
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            fontWeight: FontWeight.w800,
+            fontSize: 14,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _KindChip(
+                selected: !isFabric,
+                icon: Icons.checkroom_rounded,
+                label: 'جل و بەرگ',
+                onTap: () => onChanged(false),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _KindChip(
+                selected: isFabric,
+                iconWidget: FabricIcon(
+                  size: 20,
+                  color: isFabric ? AppColors.brand : AppColors.textSecondary,
+                ),
+                label: 'قوماش',
+                onTap: () => onChanged(true),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _KindChip extends StatelessWidget {
+  final bool selected;
+  final IconData? icon;
+  final Widget? iconWidget;
+  final String label;
+  final VoidCallback onTap;
+
+  const _KindChip({
+    required this.selected,
+    this.icon,
+    this.iconWidget,
+    required this.label,
+    required this.onTap,
+  }) : assert(icon != null || iconWidget != null);
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? AppColors.brand : AppColors.textSecondary;
+    return Material(
+      color: selected
+          ? AppColors.brand.withValues(alpha: 0.14)
+          : AppColors.surfaceVariant,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected
+                  ? AppColors.brand
+                  : AppColors.border.withValues(alpha: 0.7),
+              width: selected ? 1.6 : 1,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              iconWidget ??
+                  Icon(
+                    icon,
+                    size: 20,
+                    color: color,
+                  ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13.5,
+                    color: selected ? AppColors.brand : AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

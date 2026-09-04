@@ -239,12 +239,14 @@ class ErrorView extends ConsumerWidget {
 class EmptyView extends StatelessWidget {
   final String message;
   final IconData icon;
+  final Widget? iconWidget;
   final Widget? action;
 
   const EmptyView({
     super.key,
     required this.message,
     this.icon = Icons.inbox_outlined,
+    this.iconWidget,
     this.action,
   });
 
@@ -280,11 +282,12 @@ class EmptyView extends StatelessWidget {
                             color: AppColors.surfaceVariant,
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(
-                            icon,
-                            size: iconSize,
-                            color: AppColors.textTertiary,
-                          ),
+                          child: iconWidget ??
+                              Icon(
+                                icon,
+                                size: iconSize,
+                                color: AppColors.textTertiary,
+                              ),
                         )
                         .animate()
                         .fadeIn(duration: AppAnimations.slow)

@@ -14,6 +14,7 @@ import '../../screens/admin/admin_orders_screen.dart';
 import '../../screens/admin/admin_leaders_screen.dart';
 import '../../screens/admin/admin_products_screen.dart';
 import '../../screens/admin/admin_reports_screen.dart';
+import '../../screens/admin/admin_returns_screen.dart';
 import '../../screens/auth/admin_login_screen.dart';
 import '../../screens/auth/auth_screen.dart';
 import '../../screens/auth/email_verification_screen.dart';
@@ -97,28 +98,34 @@ bool _isGuestBrowseRoute(String location) {
 }
 
 /// One persistent shell so bottom-nav animation state survives tab switches.
-Widget _roleShell(GoRouterState state, Widget child) {
+/// Role comes from the signed-in user so overlays (settings, product, …) keep
+/// the correct chrome when [matchedLocation] is not a tab path.
+Widget _roleShell(Ref ref, GoRouterState state, Widget child) {
+  final user = ref.read(authProvider).user;
+  final routePath = state.uri.path;
+  if (user?.isAdmin == true) return AdminShell(child: child);
+  if (user?.isShopOwner == true) {
+    return ShopOwnerShell(routePath: routePath, child: child);
+  }
   final loc = state.matchedLocation;
-  if (loc.startsWith('/admin')) {
-    return AdminShell(child: child);
-  }
+  if (loc.startsWith('/admin')) return AdminShell(child: child);
   if (loc.startsWith('/shop')) {
-    return ShopOwnerShell(child: child);
+    return ShopOwnerShell(routePath: routePath, child: child);
   }
-  return CustomerShell(child: child);
+  return CustomerShell(routePath: routePath, child: child);
 }
+
+/// Stable for the lifetime of the app — must not be recreated with GoRouter.
+final GlobalKey<NavigatorState> _rootNavigatorKey =
+    GlobalKey<NavigatorState>(debugLabel: 'root');
+final GlobalKey<NavigatorState> _shellNavigatorKey =
+    GlobalKey<NavigatorState>(debugLabel: 'shell');
 
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = _AuthRouterRefresh(ref);
-  final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
-  // Overlay shell: fullscreen pushes (notifications, product, settings…).
-  final overlayNavigatorKey =
-      GlobalKey<NavigatorState>(debugLabel: 'overlay');
-  // Tab shell: bottom navigation pages.
-  final shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shell');
 
   return GoRouter(
-    navigatorKey: rootNavigatorKey,
+    navigatorKey: _rootNavigatorKey,
     initialLocation: '/',
     refreshListenable: refresh,
     redirect: (context, state) {
@@ -317,166 +324,160 @@ final routerProvider = Provider<GoRouter>((ref) {
           state: state,
         ),
       ),
-      // Outer shell = overlay navigator (fullscreen pushes).
-      // Inner shell = bottom-nav tabs.
-      // This avoids go_router key collisions from sibling ShellRoute + root push.
+      // Shell owns tabs + fullscreen pushes. Overlays stay on the shell
+      // navigator (no parentNavigatorKey) so we never stack duplicate shell
+      // pages on root — shells hide the bottom nav for overlay paths.
       ShellRoute(
-        navigatorKey: overlayNavigatorKey,
-        pageBuilder: (context, state, child) => NoTransitionPage<void>(
-          key: const ValueKey<String>('overlay-shell'),
-          child: child,
-        ),
+        navigatorKey: _shellNavigatorKey,
+        builder: (context, state, child) => _roleShell(ref, state, child),
         routes: [
-          ShellRoute(
-            navigatorKey: shellNavigatorKey,
-            pageBuilder: (context, state, child) => NoTransitionPage<void>(
-              key: const ValueKey<String>('app-shell'),
-              child: _roleShell(state, child),
+          GoRoute(
+            path: '/admin',
+            pageBuilder: (context, state) => NoTransitionPage<void>(
+              key: shellTabKey(state),
+              child: const AdminAccountsScreen(),
             ),
-            routes: [
-              GoRoute(
-                path: '/admin',
-                pageBuilder: (context, state) => NoTransitionPage<void>(
-                  key: shellTabKey(state),
-                  child: const AdminAccountsScreen(),
-                ),
-              ),
-              GoRoute(
-                path: '/admin/leaders',
-                pageBuilder: (context, state) => NoTransitionPage<void>(
-                  key: shellTabKey(state),
-                  child: const AdminLeadersScreen(),
-                ),
-              ),
-              GoRoute(
-                path: '/admin/orders',
-                pageBuilder: (context, state) => NoTransitionPage<void>(
-                  key: shellTabKey(state),
-                  child: const AdminOrdersScreen(
-                    board: AdminOrderBoard.inbox,
-                  ),
-                ),
-              ),
-              GoRoute(
-                path: '/admin/delivery',
-                pageBuilder: (context, state) => NoTransitionPage<void>(
-                  key: shellTabKey(state),
-                  child: const AdminOrdersScreen(
-                    board: AdminOrderBoard.delivery,
-                  ),
-                ),
-              ),
-              GoRoute(
-                path: '/admin/reports',
-                pageBuilder: (context, state) => NoTransitionPage<void>(
-                  key: shellTabKey(state),
-                  child: const AdminReportsScreen(),
-                ),
-              ),
-              GoRoute(
-                path: '/admin/products',
-                pageBuilder: (context, state) => NoTransitionPage<void>(
-                  key: shellTabKey(state),
-                  child: const AdminProductsScreen(),
-                ),
-              ),
-              GoRoute(
-                path: '/admin/discounts',
-                pageBuilder: (context, state) => NoTransitionPage<void>(
-                  key: shellTabKey(state),
-                  child: const AdminDiscountsScreen(),
-                ),
-              ),
-              GoRoute(
-                path: '/admin/banners',
-                pageBuilder: (context, state) => NoTransitionPage<void>(
-                  key: shellTabKey(state),
-                  child: const AdminBannersScreen(),
-                ),
-              ),
-              GoRoute(
-                path: '/admin/content',
-                pageBuilder: (context, state) => NoTransitionPage<void>(
-                  key: shellTabKey(state),
-                  child: const AdminContentScreen(),
-                ),
-              ),
-              GoRoute(
-                path: '/home',
-                pageBuilder: (context, state) => NoTransitionPage<void>(
-                  key: shellTabKey(state),
-                  child: const HomeScreen(),
-                ),
-              ),
-              GoRoute(
-                path: '/fabrics',
-                pageBuilder: (context, state) => NoTransitionPage<void>(
-                  key: shellTabKey(state),
-                  child: const FabricsScreen(),
-                ),
-              ),
-              GoRoute(
-                path: '/cart',
-                pageBuilder: (context, state) => NoTransitionPage<void>(
-                  key: shellTabKey(state),
-                  child: const CartScreen(),
-                ),
-              ),
-              GoRoute(
-                path: '/orders',
-                pageBuilder: (context, state) => NoTransitionPage<void>(
-                  key: shellTabKey(state),
-                  child: OrdersScreen(
-                    initialTab: state.uri.queryParameters['tab'],
-                  ),
-                ),
-              ),
-              GoRoute(
-                path: '/discounts',
-                pageBuilder: (context, state) => NoTransitionPage<void>(
-                  key: shellTabKey(state),
-                  child: const DiscountsScreen(),
-                ),
-              ),
-              GoRoute(
-                path: '/favorites',
-                pageBuilder: (context, state) => NoTransitionPage<void>(
-                  key: shellTabKey(state),
-                  child: const FavoritesScreen(),
-                ),
-              ),
-              GoRoute(
-                path: '/profile',
-                pageBuilder: (context, state) => NoTransitionPage<void>(
-                  key: shellTabKey(state),
-                  child: const ProfileScreen(),
-                ),
-              ),
-              GoRoute(
-                path: '/shop',
-                pageBuilder: (context, state) => NoTransitionPage<void>(
-                  key: shellTabKey(state),
-                  child: const ShopDashboardScreen(),
-                ),
-              ),
-              GoRoute(
-                path: '/shop-orders',
-                pageBuilder: (context, state) => NoTransitionPage<void>(
-                  key: shellTabKey(state),
-                  child: const ShopOrdersScreen(),
-                ),
-              ),
-              GoRoute(
-                path: '/shop-profile',
-                pageBuilder: (context, state) => NoTransitionPage<void>(
-                  key: shellTabKey(state),
-                  child: const ShopProfileScreen(),
-                ),
-              ),
-            ],
           ),
           GoRoute(
-            parentNavigatorKey: overlayNavigatorKey,
+            path: '/admin/leaders',
+            pageBuilder: (context, state) => NoTransitionPage<void>(
+              key: shellTabKey(state),
+              child: const AdminLeadersScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/orders',
+            pageBuilder: (context, state) => NoTransitionPage<void>(
+              key: shellTabKey(state),
+              child: const AdminOrdersScreen(
+                board: AdminOrderBoard.inbox,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/delivery',
+            pageBuilder: (context, state) => NoTransitionPage<void>(
+              key: shellTabKey(state),
+              child: const AdminOrdersScreen(
+                board: AdminOrderBoard.delivery,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/returns',
+            pageBuilder: (context, state) => NoTransitionPage<void>(
+              key: shellTabKey(state),
+              child: const AdminReturnsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/reports',
+            pageBuilder: (context, state) => NoTransitionPage<void>(
+              key: shellTabKey(state),
+              child: const AdminReportsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/products',
+            pageBuilder: (context, state) => NoTransitionPage<void>(
+              key: shellTabKey(state),
+              child: const AdminProductsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/discounts',
+            pageBuilder: (context, state) => NoTransitionPage<void>(
+              key: shellTabKey(state),
+              child: const AdminDiscountsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/banners',
+            pageBuilder: (context, state) => NoTransitionPage<void>(
+              key: shellTabKey(state),
+              child: const AdminBannersScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/content',
+            pageBuilder: (context, state) => NoTransitionPage<void>(
+              key: shellTabKey(state),
+              child: const AdminContentScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/home',
+            pageBuilder: (context, state) => NoTransitionPage<void>(
+              key: shellTabKey(state),
+              child: const HomeScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/fabrics',
+            pageBuilder: (context, state) => NoTransitionPage<void>(
+              key: shellTabKey(state),
+              child: const FabricsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/cart',
+            pageBuilder: (context, state) => NoTransitionPage<void>(
+              key: shellTabKey(state),
+              child: const CartScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/orders',
+            pageBuilder: (context, state) => NoTransitionPage<void>(
+              key: shellTabKey(state),
+              child: OrdersScreen(
+                initialTab: state.uri.queryParameters['tab'],
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/discounts',
+            pageBuilder: (context, state) => NoTransitionPage<void>(
+              key: shellTabKey(state),
+              child: const DiscountsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/favorites',
+            pageBuilder: (context, state) => NoTransitionPage<void>(
+              key: shellTabKey(state),
+              child: const FavoritesScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/profile',
+            pageBuilder: (context, state) => NoTransitionPage<void>(
+              key: shellTabKey(state),
+              child: const ProfileScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/shop',
+            pageBuilder: (context, state) => NoTransitionPage<void>(
+              key: shellTabKey(state),
+              child: const ShopDashboardScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/shop-orders',
+            pageBuilder: (context, state) => NoTransitionPage<void>(
+              key: shellTabKey(state),
+              child: const ShopOrdersScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/shop-profile',
+            pageBuilder: (context, state) => NoTransitionPage<void>(
+              key: shellTabKey(state),
+              child: const ShopProfileScreen(),
+            ),
+          ),
+          GoRoute(
             path: '/notifications',
             pageBuilder: (context, state) => slideFromRightPage(
               child: const NotificationsScreen(),
@@ -484,7 +485,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            parentNavigatorKey: overlayNavigatorKey,
             path: '/product/:id',
             pageBuilder: (context, state) => slideFromRightPage(
               child: ProductDetailScreen(
@@ -495,7 +495,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            parentNavigatorKey: overlayNavigatorKey,
             path: '/store/:shopOwnerId',
             pageBuilder: (context, state) => slideFromRightPage(
               child: ShopStorefrontScreen(
@@ -506,7 +505,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            parentNavigatorKey: overlayNavigatorKey,
             path: '/shop/add-product',
             pageBuilder: (context, state) => slideFromRightPage(
               child: AddEditProductScreen(
@@ -516,7 +514,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            parentNavigatorKey: overlayNavigatorKey,
             path: '/shop/edit-product/:id',
             pageBuilder: (context, state) => slideFromRightPage(
               child:
@@ -525,13 +522,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            parentNavigatorKey: overlayNavigatorKey,
             path: '/settings',
             pageBuilder: (context, state) =>
                 slideFromRightPage(child: const SettingsScreen(), state: state),
           ),
           GoRoute(
-            parentNavigatorKey: overlayNavigatorKey,
             path: '/settings/edit-profile',
             pageBuilder: (context, state) => slideFromRightPage(
               child: const EditProfileScreen(),
@@ -539,7 +534,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            parentNavigatorKey: overlayNavigatorKey,
             path: '/settings/addresses',
             pageBuilder: (context, state) => slideFromRightPage(
               child: const AddressesScreen(),
@@ -547,7 +541,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            parentNavigatorKey: overlayNavigatorKey,
             path: '/settings/measurements',
             pageBuilder: (context, state) => slideFromRightPage(
               child: const BodyMeasurementsScreen(),
@@ -555,7 +548,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            parentNavigatorKey: overlayNavigatorKey,
             path: '/settings/payment-methods',
             pageBuilder: (context, state) => slideFromRightPage(
               child: const PaymentMethodsScreen(),

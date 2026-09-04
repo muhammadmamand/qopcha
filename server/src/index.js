@@ -13,6 +13,7 @@ const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const { createAppStore } = require('./create_store');
 const { sendOtpWithFallback, toE164Iraq } = require('./verifyway');
+const { pushForNotification } = require('./fcm');
 
 const ROOT = path.join(__dirname, '..');
 const DATA_DIR = path.join(ROOT, 'data');
@@ -164,6 +165,7 @@ const ORDER_STATUSES = new Set([
   'shipped',
   'completed',
   'cancelled',
+  'returned',
 ]);
 
 const SHOP_ORDER_PATCH_KEYS = ['status', 'statusUpdatedAt', 'readyAt'];
@@ -175,7 +177,19 @@ const ADMIN_ORDER_PATCH_KEYS = [
   'deliveryFee',
   'driverNote',
   'deliveryUpdatedAt',
+  'returnReason',
+  'returnNote',
+  'returnRequestedAt',
 ];
+
+const RETURN_REASON_PRESETS = new Set([
+  'قەبارە / سایز گونجاو نییە',
+  'کوالیتی خراپە یان زیانی هەیە',
+  'کاڵا وەک وەسف نییە',
+  'گۆڕینی بڕیار',
+  'هەڵەی داواکاری',
+  'هۆکاری تر',
+]);
 
 const NOTIFICATION_FIELDS = [
   'type',
@@ -850,6 +864,35 @@ app.patch('/api/orders/:id', authRequired, async (req, res) => {
   res.json({ order });
 });
 
+/** Customer requests a return on a delivered (completed) order. */
+app.post('/api/orders/:id/return', authRequired, async (req, res) => {
+  const current = await read('orders', req.params.id);
+  if (!current) return res.status(404).json({ error: 'داواکاری نەدۆزرایەوە' });
+  if (current.userId !== req.auth.sub && req.auth.role !== 'admin') {
+    return res.status(403).json({ error: 'ڕێگەپێنەدراو' });
+  }
+  if (String(current.status || '') !== 'completed') {
+    return res.status(400).json({ error: 'تەنها داواکاری گەیشتوو دەتوانرێت بگەڕێنرێتەوە' });
+  }
+  const reason = String(req.body?.reason || '').trim();
+  const note = String(req.body?.note || '').trim();
+  if (!reason) {
+    return res.status(400).json({ error: 'تکایە هۆکاری گەڕاندنەوە هەڵبژێرە' });
+  }
+  if (reason.length > 200 || note.length > 500) {
+    return res.status(400).json({ error: 'هۆکار زۆر درێژە' });
+  }
+  const now = new Date().toISOString();
+  const order = await merge('orders', current.id, {
+    status: 'returned',
+    returnReason: reason,
+    returnNote: note || null,
+    returnRequestedAt: now,
+    statusUpdatedAt: now,
+  });
+  res.json({ order });
+});
+
 app.get('/api/notifications', authRequired, async (req, res) => {
   const uid = req.auth.sub;
   const list = (await all('notifications')).filter((n) => {
@@ -913,6 +956,10 @@ app.post('/api/notifications', authRequired, async (req, res) => {
     id,
     audience: targetUserId ? 'user' : 'all',
     createdAt: new Date().toISOString(),
+  });
+  // Fire-and-forget FCM so phones get a system alert without opening the app.
+  pushForNotification(notification, { read, all }).catch((err) => {
+    console.warn('[fcm] push failed:', err.message || err);
   });
   res.json({ notification });
 });

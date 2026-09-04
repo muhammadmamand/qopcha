@@ -436,6 +436,7 @@ class _AdminErpOrderCardState extends ConsumerState<_AdminErpOrderCard> {
         OrderStatus.completed => 'گەیاندن تەواو بوو',
         OrderStatus.cancelled => 'داواکاری ڕەتکرایەوە',
         OrderStatus.pending => 'گەڕێندرایەوە بۆ چاوەڕوان',
+        OrderStatus.returned => 'داواکاری گەڕێنرایەوە',
       };
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -639,6 +640,7 @@ class _AdminErpOrderCardState extends ConsumerState<_AdminErpOrderCard> {
       OrderStatus.ready => AppColors.brand,
       OrderStatus.shipped => const Color(0xFF3B82F6),
       OrderStatus.cancelled => AppColors.error,
+      OrderStatus.returned => const Color(0xFF8B5CF6),
     };
 
     return Container(
@@ -999,6 +1001,20 @@ class _AdminErpOrderCardState extends ConsumerState<_AdminErpOrderCard> {
               fontSize: 12.5,
               fontWeight: FontWeight.w700,
               color: AppColors.textSecondary,
+            ),
+          ),
+        ];
+      case OrderStatus.returned:
+        return [
+          Text(
+            order.returnReason?.trim().isNotEmpty == true
+                ? 'گەڕاوەتەوە — ${order.returnReason}'
+                : order.statusDetail,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF8B5CF6),
             ),
           ),
         ];

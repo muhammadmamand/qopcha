@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -11,6 +13,7 @@ import '../../models/order_model.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/orders_provider.dart';
+import '../../providers/shell_navigation_provider.dart';
 import '../../widgets/order_preparing_animation.dart';
 import '../../widgets/premium_bottom_nav.dart';
 import '../../widgets/product_image.dart';
@@ -83,7 +86,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       _OrderFilter.delivered =>
         orders.where((o) => o.status == OrderStatus.completed).toList(),
       _OrderFilter.returned =>
-        orders.where((o) => o.status == OrderStatus.cancelled).toList(),
+        orders.where((o) => o.status == OrderStatus.returned).toList(),
     };
   }
 
@@ -229,8 +232,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 18, 4),
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
               child: _OrdersHeader(
+                orderCount: orders.length,
                 onBack: () {
                   HapticFeedback.selectionClick();
                   if (context.canPop()) {
@@ -285,59 +289,168 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 }
 
 class _OrdersHeader extends StatelessWidget {
+  final int orderCount;
   final VoidCallback onBack;
 
-  const _OrdersHeader({required this.onBack});
+  const _OrdersHeader({
+    required this.orderCount,
+    required this.onBack,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        IconButton(
-          onPressed: onBack,
-          tooltip: 'گەڕانەوە',
-          style: IconButton.styleFrom(
-            backgroundColor: AppColors.card,
-            foregroundColor: AppColors.textPrimary,
-            side: BorderSide(color: AppColors.border.withValues(alpha: 0.7)),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+    final dark = AppColors.isDark;
+    final theme = AppColors.colorTheme;
+    final brand = AppColors.brand;
+    final ink = dark ? const Color(0xFFF3F7F7) : const Color(0xFF121215);
+    // Same tint family as PremiumBottomNav — frosted glass via BackdropFilter
+    // (LiquidGlassLens can't refract inside scaffold body on Skia/Windows).
+    final glassTint = dark
+        ? (theme.isFloral
+            ? Color.alphaBlend(
+                brand.withValues(alpha: 0.22),
+                const Color(0x99181C1E),
+              )
+            : const Color(0x99181C1E))
+        : (theme.isFloral
+            ? Color.alphaBlend(
+                brand.withValues(alpha: 0.16),
+                const Color(0xB8FFFFFF),
+              )
+            : const Color(0xB8FFFFFF));
+    final rim = dark
+        ? Colors.white.withValues(alpha: 0.22)
+        : Colors.white.withValues(alpha: 0.72);
+    const radius = 24.0;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        boxShadow: [
+          BoxShadow(
+            color: (theme.isFloral ? brand : Colors.black)
+                .withValues(alpha: dark ? 0.22 : 0.1),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(radius),
+              color: glassTint,
+              border: Border.all(color: rim, width: 0.8),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 10, 14, 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: onBack,
+                    tooltip: 'گەڕانەوە',
+                    style: IconButton.styleFrom(
+                      backgroundColor: dark
+                          ? Colors.white.withValues(alpha: 0.1)
+                          : Colors.black.withValues(alpha: 0.05),
+                      foregroundColor: ink,
+                      side: BorderSide(
+                        color: dark
+                            ? Colors.white.withValues(alpha: 0.14)
+                            : Colors.black.withValues(alpha: 0.08),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 17),
+                  ),
+                  const SizedBox(width: 10),
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: brand.withValues(alpha: dark ? 0.28 : 0.16),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: brand.withValues(alpha: 0.28),
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.receipt_long_rounded,
+                      color: brand,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'داواکارییەکان',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.35,
+                            height: 1.2,
+                            color: ink,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          orderCount == 0
+                              ? 'شوێنپێی داواکارییەکانت بگرە'
+                              : '$orderCount داواکاری · شوێنپێی بکە',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            height: 1.25,
+                            color: dark
+                                ? Colors.white.withValues(alpha: 0.62)
+                                : const Color(0xFF5C5C66),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (orderCount > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: brand.withValues(alpha: dark ? 0.28 : 0.14),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: brand.withValues(alpha: 0.28),
+                        ),
+                      ),
+                      child: Text(
+                        '$orderCount',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w900,
+                          color: brand,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'داواکارییەکان',
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.4,
-                  height: 1.15,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'شوێنپێی داواکارییەکانت بگرە',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -562,6 +675,7 @@ class _OrderCard extends ConsumerWidget {
     OrderStatus.confirmed => const Color(0xFFE67E22),
     OrderStatus.pending => const Color(0xFFD4A017),
     OrderStatus.cancelled => AppColors.error,
+    OrderStatus.returned => const Color(0xFF8B5CF6),
   };
 
   IconData get _statusIcon => switch (order.status) {
@@ -571,11 +685,13 @@ class _OrderCard extends ConsumerWidget {
     OrderStatus.confirmed => Icons.verified_rounded,
     OrderStatus.pending => Icons.schedule_rounded,
     OrderStatus.cancelled => Icons.replay_rounded,
+    OrderStatus.returned => Icons.assignment_return_rounded,
   };
 
-  void _showDetails(BuildContext context) {
-    showModalBottomSheet<void>(
+  void _showDetails(BuildContext context, WidgetRef ref) {
+    showAppModalBottomSheet<void>(
       context: context,
+      ref: ref,
       isScrollControlled: true,
       backgroundColor: AppColors.sheet,
       shape: const RoundedRectangleBorder(
@@ -621,6 +737,55 @@ class _OrderCard extends ConsumerWidget {
                 if (order.status == OrderStatus.confirmed) ...[
                   const SizedBox(height: 14),
                   OrderPreparingAnimation(shopName: order.shopName),
+                ],
+                if (order.status == OrderStatus.returned &&
+                    (order.returnReason?.trim().isNotEmpty ?? false)) ...[
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.25),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'هۆکاری گەڕاندنەوە',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                            color: const Color(0xFF8B5CF6),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          order.returnReason!,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        if (order.returnNote?.trim().isNotEmpty == true) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            order.returnNote!,
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ],
                 const SizedBox(height: 14),
                 ConstrainedBox(
@@ -788,6 +953,81 @@ class _OrderCard extends ConsumerWidget {
           await ref.read(cartProvider.notifier).addCartItem(item);
         }
         if (context.mounted) context.go('/cart');
+      case OrderStatus.returned:
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                order.returnReason?.trim().isNotEmpty == true
+                    ? 'گەڕاوەتەوە: ${order.returnReason}'
+                    : 'ئەم داواکارییە گەڕێنراوەتەوە',
+                style: TextStyle(fontFamily: AppTheme.fontFamily),
+              ),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+    }
+  }
+
+  Future<void> _showReturnSheet(BuildContext context, WidgetRef ref) async {
+    HapticFeedback.selectionClick();
+    final result = await showAppModalBottomSheet<({String reason, String note})>(
+      context: context,
+      ref: ref,
+      isScrollControlled: true,
+      backgroundColor: AppColors.sheet,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => _ReturnReasonSheet(order: order),
+    );
+    if (result == null || !context.mounted) return;
+
+    try {
+      await ref.read(ordersProvider.notifier).requestReturn(
+            order.id,
+            reason: result.reason,
+            note: result.note,
+          );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'داواکاری گەڕاندنەوە نێردرا',
+            style: TextStyle(fontFamily: AppTheme.fontFamily),
+          ),
+          backgroundColor: AppColors.brand,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(
+            16,
+            0,
+            16,
+            kPremiumBottomNavClearance,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().replaceFirst('Exception: ', ''),
+            style: TextStyle(fontFamily: AppTheme.fontFamily),
+          ),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(
+            16,
+            0,
+            16,
+            kPremiumBottomNavClearance,
+          ),
+        ),
+      );
     }
   }
 
@@ -808,6 +1048,7 @@ class _OrderCard extends ConsumerWidget {
       OrderStatus.confirmed => ('ئامادە دەکرێت', Icons.checkroom_rounded),
       OrderStatus.pending => ('چاوەڕوان', Icons.schedule_rounded),
       OrderStatus.cancelled => ('دووبارە داواکاری', Icons.replay_rounded),
+      OrderStatus.returned => ('گەڕاوەتەوە', Icons.assignment_return_rounded),
     };
   }
 
@@ -821,7 +1062,7 @@ class _OrderCard extends ConsumerWidget {
       elevation: 0,
       borderRadius: BorderRadius.circular(22),
       child: InkWell(
-        onTap: () => _showDetails(context),
+        onTap: () => _showDetails(context, ref),
         borderRadius: BorderRadius.circular(22),
         child: Container(
           padding: const EdgeInsets.all(16),
@@ -952,7 +1193,7 @@ class _OrderCard extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: TextButton.icon(
-                      onPressed: () => _showDetails(context),
+                      onPressed: () => _showDetails(context, ref),
                       icon: const Icon(Icons.description_outlined, size: 16),
                       label: Text(
                         'وردەکاری',
@@ -1005,6 +1246,47 @@ class _OrderCard extends ConsumerWidget {
                   ),
                 ],
               ),
+              if (order.canRequestReturn) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _showReturnSheet(context, ref),
+                    icon: const Icon(Icons.assignment_return_outlined, size: 18),
+                    label: Text(
+                      'گەڕاندنەوەی کاڵا',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF8B5CF6),
+                      side: BorderSide(
+                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.45),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              if (order.status == OrderStatus.returned &&
+                  (order.returnReason?.trim().isNotEmpty ?? false)) ...[
+                const SizedBox(height: 10),
+                Text(
+                  'هۆکار: ${order.returnReason}',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF8B5CF6),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -1084,11 +1366,13 @@ class _OrderProgress extends StatelessWidget {
     OrderStatus.shipped => 4,
     OrderStatus.completed => 5,
     OrderStatus.cancelled => 0,
+    OrderStatus.returned => 0,
   };
 
   @override
   Widget build(BuildContext context) {
-    final cancelled = status == OrderStatus.cancelled;
+    final cancelled = status == OrderStatus.cancelled ||
+        status == OrderStatus.returned;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1263,6 +1547,211 @@ class _DetailItemRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ReturnReasonSheet extends StatefulWidget {
+  final OrderModel order;
+
+  const _ReturnReasonSheet({required this.order});
+
+  @override
+  State<_ReturnReasonSheet> createState() => _ReturnReasonSheetState();
+}
+
+class _ReturnReasonSheetState extends State<_ReturnReasonSheet> {
+  String? _reason;
+  final _note = TextEditingController();
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    final other = _reason == 'هۆکاری تر';
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 12, 20, 16 + bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'گەڕاندنەوەی کاڵا #${widget.order.shortId}',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'هۆکاری گەڕاندنەوە هەڵبژێرە',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 14),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.42,
+              ),
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final reason in OrderReturnReasons.presets) ...[
+                    Material(
+                      color: _reason == reason
+                          ? const Color(0xFF8B5CF6).withValues(alpha: 0.12)
+                          : AppColors.surfaceVariant.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(14),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () => setState(() => _reason = reason),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 13,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: _reason == reason
+                                  ? const Color(0xFF8B5CF6)
+                                      .withValues(alpha: 0.5)
+                                  : AppColors.border.withValues(alpha: 0.7),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _reason == reason
+                                    ? Icons.radio_button_checked_rounded
+                                    : Icons.radio_button_off_rounded,
+                                size: 20,
+                                color: _reason == reason
+                                    ? const Color(0xFF8B5CF6)
+                                    : AppColors.textTertiary,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  reason,
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.fontFamily,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13.5,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  if (other) ...[
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: _note,
+                      maxLines: 3,
+                      maxLength: 500,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        color: AppColors.textPrimary,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'هۆکارەکەت بنووسە…',
+                        hintStyle: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          color: AppColors.textTertiary,
+                        ),
+                        filled: true,
+                        fillColor: AppColors.surfaceVariant.withValues(
+                          alpha: 0.5,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 52,
+              child: ElevatedButton(
+                onPressed: _reason == null
+                    ? null
+                    : () {
+                        final note = other ? _note.text.trim() : '';
+                        if (other && note.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'تکایە هۆکارەکەت بنووسە',
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                ),
+                              ),
+                              backgroundColor: AppColors.error,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                          return;
+                        }
+                        Navigator.pop(context, (reason: _reason!, note: note));
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF8B5CF6),
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor:
+                      const Color(0xFF8B5CF6).withValues(alpha: 0.35),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: Text(
+                  'ناردنی داواکاری گەڕاندنەوە',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

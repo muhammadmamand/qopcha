@@ -6,12 +6,14 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_decorations.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/utils/shop_navigation.dart';
 import '../../models/order_model.dart';
 import '../../models/product_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/orders_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/fabric_icon.dart';
 import '../../widgets/product_image.dart';
 
 class ShopDashboardScreen extends ConsumerStatefulWidget {
@@ -56,70 +58,9 @@ class _ShopDashboardScreenState extends ConsumerState<ShopDashboardScreen> {
     }).toList();
   }
 
-  Future<void> _openAddChooser() async {
-    final kind = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: AppColors.sheet,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.border,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'چی زیاد دەکەیت؟',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 18,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ListTile(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  leading: Icon(Icons.checkroom_rounded, color: AppColors.brand),
-                  title: const Text('جل و بەرگ'),
-                  subtitle: const Text('پۆشاک، پێڵاو، جانتا...'),
-                  onTap: () => Navigator.pop(ctx, 'clothing'),
-                ),
-                ListTile(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  leading: Icon(Icons.texture_rounded, color: AppColors.brand),
-                  title: const Text('قوماش'),
-                  subtitle: const Text('فرۆشتن بە مەتر — جۆر، کوالێتی، ڕەنگ'),
-                  onTap: () => Navigator.pop(ctx, 'fabric'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-    if (!mounted || kind == null) return;
-    if (kind == 'fabric') {
-      context.push('/shop/add-product?kind=fabric');
-    } else {
-      context.push('/shop/add-product');
-    }
-  }
+  void _openAddClothing() => openShopAddProduct(context, isFabric: false);
+
+  void _openAddFabric() => openShopAddProduct(context, isFabric: true);
 
   @override
   Widget build(BuildContext context) {
@@ -241,13 +182,26 @@ class _ShopDashboardScreenState extends ConsumerState<ShopDashboardScreen> {
                             children: [
                               Expanded(
                                 child: _QuickAction(
-                                  icon: Icons.add_rounded,
-                                  label: 'بەرهەمی نوێ',
+                                  icon: Icons.checkroom_rounded,
+                                  label: 'زیادکردنی جل',
                                   color: AppColors.secondary,
-                                  onTap: _openAddChooser,
+                                  onTap: _openAddClothing,
                                 ),
                               ),
                               const SizedBox(width: 10),
+                              Expanded(
+                                child: _QuickAction(
+                                  icon: Icons.texture_rounded,
+                                  label: 'زیادکردنی قوماش',
+                                  color: AppColors.highlight,
+                                  onTap: _openAddFabric,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
                               Expanded(
                                 child: _QuickAction(
                                   icon: Icons.receipt_long_rounded,
@@ -318,7 +272,10 @@ class _ShopDashboardScreenState extends ConsumerState<ShopDashboardScreen> {
                           ),
                           const SizedBox(height: 14),
                           if (products.isEmpty)
-                            _EmptyProducts(onAdd: _openAddChooser)
+                            _EmptyProducts(
+                              onAddClothing: _openAddClothing,
+                              onAddFabric: _openAddFabric,
+                            )
                           else if (filtered.isEmpty)
                             _NoSearchResults(query: _query)
                           else
@@ -1259,9 +1216,13 @@ class _AlertBanner extends StatelessWidget {
 }
 
 class _EmptyProducts extends StatelessWidget {
-  final VoidCallback onAdd;
+  final VoidCallback onAddClothing;
+  final VoidCallback onAddFabric;
 
-  const _EmptyProducts({required this.onAdd});
+  const _EmptyProducts({
+    required this.onAddClothing,
+    required this.onAddFabric,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1288,7 +1249,7 @@ class _EmptyProducts extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'یەکەم بەرهەمەکەت زیاد بکە',
+            'جل و بەرگ یان قوماش زیاد بکە',
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               fontSize: 12,
@@ -1296,10 +1257,29 @@ class _EmptyProducts extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: onAdd,
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('زیادکردنی بەرهەم'),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: onAddClothing,
+                  icon: const Icon(Icons.checkroom_rounded, size: 18),
+                  label: const Text('جل و بەرگ'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onAddFabric,
+                  icon: const FabricIcon(size: 18),
+                  label: const Text('قوماش'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.highlight,
+                    side: BorderSide(color: AppColors.highlight),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

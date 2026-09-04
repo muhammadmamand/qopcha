@@ -21,6 +21,7 @@ class CategoryFilterIcon extends StatelessWidget {
     'جانتە': 'assets/images/category/bag.png',
     'کڵاو': 'assets/images/category/cap.png',
     'جلوبەرگی وەرزشی': 'assets/images/category/sports.png',
+    'قوماش': 'assets/images/category/fabric.png',
   };
 
   @override

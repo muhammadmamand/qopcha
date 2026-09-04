@@ -39,11 +39,16 @@ add_definitions(-DUNICODE -D_UNICODE)
 # of modifying this function.
 function(APPLY_STANDARD_SETTINGS TARGET)
   target_compile_features(${TARGET} PUBLIC cxx_std_17)
-  target_compile_options(${TARGET} PRIVATE /W4 /WX /wd"4100" /utf-8)
+  # /FS: allow parallel CL.EXE writes to the same PDB (fixes C1041).
+  target_compile_options(${TARGET} PRIVATE /W4 /WX /wd"4100" /utf-8 /FS)
   target_compile_options(${TARGET} PRIVATE /EHsc)
   target_compile_definitions(${TARGET} PRIVATE "_HAS_EXCEPTIONS=0")
   target_compile_definitions(${TARGET} PRIVATE "$<$<CONFIG:Debug>:_DEBUG>")
 endfunction()
+
+# Also apply /FS globally so plugin targets that skip APPLY_STANDARD_SETTINGS
+# don't hit C1041 under parallel MSVC compiles.
+add_compile_options(/FS)
 
 # Flutter library and tool build rules.
 set(FLUTTER_MANAGED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/flutter")

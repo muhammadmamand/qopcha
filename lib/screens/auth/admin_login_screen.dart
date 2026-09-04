@@ -18,7 +18,7 @@ class AdminLoginScreen extends ConsumerStatefulWidget {
 
 class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _email = TextEditingController();
+  final _email = TextEditingController(text: AdminSecurity.primaryEmail);
   final _password = TextEditingController();
   final _emailFocus = FocusNode();
   final _passwordFocus = FocusNode();
@@ -35,11 +35,19 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
   }
 
   Future<void> _login() async {
+    // Clear invisible RTL/bidi marks that make allowlist checks fail.
+    final cleaned = AdminSecurity.normalizeEmail(_email.text);
+    if (_email.text != cleaned) {
+      _email.value = TextEditingValue(
+        text: cleaned,
+        selection: TextSelection.collapsed(offset: cleaned.length),
+      );
+    }
     if (!_formKey.currentState!.validate()) return;
     HapticFeedback.lightImpact();
 
     final success = await ref.read(authProvider.notifier).loginAsAdmin(
-          _email.text.trim(),
+          cleaned,
           _password.text,
         );
 
@@ -228,19 +236,21 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                                         fontWeight: FontWeight.w600,
                                       ),
                                       decoration: _lightFieldDecoration(
-                                        hint: 'admin@…',
+                                        hint: AdminSecurity.primaryEmail,
                                         icon: Icons.mail_outline_rounded,
                                       ),
                                       validator: (v) {
-                                        final email = v?.trim() ?? '';
+                                        final email =
+                                            AdminSecurity.normalizeEmail(v);
                                         if (email.isEmpty) {
                                           return 'ئیمەیڵ بنووسە';
                                         }
-                                        if (!AdminSecurity.isAllowedAdminEmail(
-                                          email,
-                                        )) {
-                                          return 'ئەم ئیمەیڵە ڕێگەپێدراو نییە بۆ ئەدمین';
+                                        if (!email.contains('@') ||
+                                            !email.contains('.')) {
+                                          return 'ئیمەیڵی دروست بنووسە';
                                         }
+                                        // Allowlist is enforced after API login;
+                                        // only require a normal email shape here.
                                         return null;
                                       },
                                     ),

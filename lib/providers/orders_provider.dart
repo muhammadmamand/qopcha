@@ -9,9 +9,28 @@ import '../services/api_client.dart';
 import '../services/notification_service.dart';
 import 'auth_provider.dart';
 
+bool _sameOrderList(List<OrderModel> a, List<OrderModel> b) {
+  if (identical(a, b)) return true;
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    final x = a[i];
+    final y = b[i];
+    if (x.id != y.id ||
+        x.status != y.status ||
+        x.total != y.total ||
+        x.statusUpdatedAt != y.statusUpdatedAt) {
+      return false;
+    }
+  }
+  return true;
+}
+
 class OrdersNotifier extends StateNotifier<List<OrderModel>> {
   OrdersNotifier(this._ref) : super([]) {
     _ref.listen(currentUserProvider, (previous, next) {
+      // Auth polls every few seconds with a new UserModel instance —
+      // only rebind when the signed-in user actually changes.
+      if (previous?.id == next?.id) return;
       _bind(next?.id);
     });
     _bind(_ref.read(currentUserProvider)?.id);
@@ -28,7 +47,10 @@ class OrdersNotifier extends StateNotifier<List<OrderModel>> {
       return;
     }
     _sub = _api.poll(_fetchMine).listen(
-      (list) => state = list,
+      (list) {
+        if (_sameOrderList(state, list)) return;
+        state = list;
+      },
       onError: (_) {},
     );
   }
@@ -117,6 +139,23 @@ class OrdersNotifier extends StateNotifier<List<OrderModel>> {
     state = await _fetchMine();
   }
 
+  Future<OrderModel?> requestReturn(
+    String orderId, {
+    required String reason,
+    String note = '',
+  }) async {
+    final data = await _api.postJson('/api/orders/$orderId/return', {
+      'reason': reason.trim(),
+      'note': note.trim(),
+    });
+    final raw = data['order'];
+    state = await _fetchMine();
+    if (raw is Map) {
+      return OrderModel.fromJson(Map<String, dynamic>.from(raw));
+    }
+    return null;
+  }
+
   @override
   void dispose() {
     _sub?.cancel();
@@ -144,7 +183,7 @@ const _orderTabStatuses = <String, List<OrderStatus>>{
   'ready': [OrderStatus.ready],
   'shipped': [OrderStatus.shipped],
   'delivered': [OrderStatus.completed],
-  'returned': [OrderStatus.cancelled],
+  'returned': [OrderStatus.returned],
 };
 
 final unseenOrderTabCountsProvider = Provider<Map<String, int>>((ref) {
@@ -166,6 +205,11 @@ class ShopOrdersNotifier extends StateNotifier<AsyncValue<List<OrderModel>>> {
   ShopOrdersNotifier(this._ref) : super(const AsyncValue.loading()) {
     load();
     _ref.listen(currentUserProvider, (prev, next) {
+      if (prev?.id == next?.id &&
+          prev?.isShopOwner == next?.isShopOwner &&
+          (prev?.shopName?.trim() ?? '') == (next?.shopName?.trim() ?? '')) {
+        return;
+      }
       load();
     });
   }
@@ -182,7 +226,11 @@ class ShopOrdersNotifier extends StateNotifier<AsyncValue<List<OrderModel>>> {
       return;
     }
 
-    state = const AsyncValue.loading();
+    // Keep showing existing orders while reconnecting — avoid full-page
+    // loading flicker every time auth/poll restarts.
+    if (!state.hasValue) {
+      state = const AsyncValue.loading();
+    }
     try {
       _sub = _api.poll(() async {
         final data = await _api.getJson('/api/orders');
@@ -199,10 +247,18 @@ class ShopOrdersNotifier extends StateNotifier<AsyncValue<List<OrderModel>>> {
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         return orders;
       }).listen(
-        (orders) => state = AsyncValue.data(orders),
-        onError: (e, st) => state = AsyncValue.error(e, st),
+        (orders) {
+          final current = state.valueOrNull;
+          if (current != null && _sameOrderList(current, orders)) return;
+          state = AsyncValue.data(orders);
+        },
+        onError: (e, st) {
+          if (state.hasValue) return;
+          state = AsyncValue.error(e, st);
+        },
       );
     } catch (e, st) {
+      if (state.hasValue) return;
       state = AsyncValue.error(e, st);
     }
   }
@@ -212,6 +268,7 @@ class ShopOrdersNotifier extends StateNotifier<AsyncValue<List<OrderModel>>> {
       'status': status.name,
       'statusUpdatedAt': DateTime.now().toIso8601String(),
     });
+    await _applyLocalStatus(orderId, status);
   }
 
   Future<void> markReady(OrderModel order) async {
@@ -223,11 +280,13 @@ class ShopOrdersNotifier extends StateNotifier<AsyncValue<List<OrderModel>>> {
       if (name.isEmpty || !order.belongsToShop(name)) return;
     }
 
+    final readyAt = DateTime.now();
     await _api.patchJson('/api/orders/${order.id}', {
       'status': OrderStatus.ready.name,
-      'statusUpdatedAt': DateTime.now().toIso8601String(),
-      'readyAt': DateTime.now().toIso8601String(),
+      'statusUpdatedAt': readyAt.toIso8601String(),
+      'readyAt': readyAt.toIso8601String(),
     });
+    await _applyLocalStatus(order.id, OrderStatus.ready);
 
     try {
       await NotificationService().announceOrderReady(
@@ -238,6 +297,25 @@ class ShopOrdersNotifier extends StateNotifier<AsyncValue<List<OrderModel>>> {
         imageUrl: order.items.isEmpty ? null : order.items.first.imageUrl,
       );
     } catch (_) {}
+  }
+
+  Future<void> _applyLocalStatus(
+    String orderId,
+    OrderStatus status,
+  ) async {
+    final current = state.valueOrNull;
+    if (current == null) {
+      await load();
+      return;
+    }
+    final now = DateTime.now();
+    state = AsyncValue.data([
+      for (final o in current)
+        if (o.id == orderId)
+          o.copyWith(status: status, statusUpdatedAt: now)
+        else
+          o,
+    ]);
   }
 
   @override

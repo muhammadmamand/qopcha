@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme/app_theme.dart';
 import '../providers/settings_provider.dart';
+import '../providers/shell_navigation_provider.dart';
 
 class LanguageSwitcherButton extends ConsumerWidget {
   final bool onDark;
@@ -63,83 +64,81 @@ class LanguageSwitcherButton extends ConsumerWidget {
 Future<void> showLanguagePickerSheet(BuildContext context, WidgetRef ref) {
   HapticFeedback.selectionClick();
   final selected = ref.read(appSettingsProvider).language;
-  return showModalBottomSheet<void>(
+  return showAppModalBottomSheet<void>(
     context: context,
+    ref: ref,
     backgroundColor: Colors.transparent,
     builder: (ctx) {
-      return Container(
-        width: double.infinity,
-        padding: EdgeInsets.fromLTRB(
-          22,
-          16,
-          22,
-          18 + MediaQuery.paddingOf(ctx).bottom,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.sheet,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 42,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.textTertiary.withValues(alpha: 0.45),
-                borderRadius: BorderRadius.circular(99),
+      return SafeArea(
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
+          decoration: BoxDecoration(
+            color: AppColors.sheet,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.textTertiary.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(99),
+                ),
               ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              tr(selected, 'زمان', 'Language', 'اللغة'),
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                color: AppColors.textPrimary,
+              const SizedBox(height: 18),
+              Text(
+                tr(selected, 'زمان', 'Language', 'اللغة'),
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.textPrimary,
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              tr(
-                selected,
-                'دەتوانیت زمان بگۆڕیت بەبێ چوونەژوورەوە',
-                'You can change language without logging in',
-                'يمكنك تغيير اللغة دون تسجيل الدخول',
+              const SizedBox(height: 6),
+              Text(
+                tr(
+                  selected,
+                  'دەتوانیت زمان بگۆڕیت بەبێ چوونەژوورەوە',
+                  'You can change language without logging in',
+                  'يمكنك تغيير اللغة دون تسجيل الدخول',
+                ),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
               ),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                fontSize: 13,
-                color: AppColors.textSecondary,
+              const SizedBox(height: 18),
+              _LangTile(
+                code: 'KU',
+                title: 'کوردی',
+                subtitle: 'Kurdish · Sorani',
+                selected: selected == AppLanguage.kurdish,
+                onTap: () => _pick(ctx, ref, AppLanguage.kurdish),
               ),
-            ),
-            const SizedBox(height: 18),
-            _LangTile(
-              code: 'KU',
-              title: 'کوردی',
-              subtitle: 'Kurdish · Sorani',
-              selected: selected == AppLanguage.kurdish,
-              onTap: () => _pick(ctx, ref, AppLanguage.kurdish),
-            ),
-            const SizedBox(height: 8),
-            _LangTile(
-              code: 'AR',
-              title: 'العربية',
-              subtitle: 'Arabic',
-              selected: selected == AppLanguage.arabic,
-              onTap: () => _pick(ctx, ref, AppLanguage.arabic),
-            ),
-            const SizedBox(height: 8),
-            _LangTile(
-              code: 'EN',
-              title: 'English',
-              subtitle: 'English',
-              selected: selected == AppLanguage.english,
-              onTap: () => _pick(ctx, ref, AppLanguage.english),
-            ),
-          ],
+              const SizedBox(height: 8),
+              _LangTile(
+                code: 'AR',
+                title: 'العربية',
+                subtitle: 'Arabic',
+                selected: selected == AppLanguage.arabic,
+                onTap: () => _pick(ctx, ref, AppLanguage.arabic),
+              ),
+              const SizedBox(height: 8),
+              _LangTile(
+                code: 'EN',
+                title: 'English',
+                subtitle: 'English',
+                selected: selected == AppLanguage.english,
+                onTap: () => _pick(ctx, ref, AppLanguage.english),
+              ),
+            ],
+          ),
         ),
       );
     },

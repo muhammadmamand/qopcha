@@ -3,18 +3,29 @@ import 'package:go_router/go_router.dart';
 
 import '../theme/app_animations.dart';
 
-/// Stable key for bottom-nav / shell tabs (one page per path).
+/// Stable key for bottom-nav / shell tabs (one page per path, ignores query).
 LocalKey shellTabKey(GoRouterState state) =>
     ValueKey<String>('shell-tab:${state.matchedLocation}');
 
-/// Page key for root-navigator overlays (`push` screens).
-///
-/// Combines go_router's unique [GoRouterState.pageKey] with the concrete URI
-/// so stacked product pages and rematches never collide — and never equals
-/// the shell's stable `app-shell` key.
-LocalKey pageKeyForState(GoRouterState state) => ValueKey<String>(
-      'overlay:${state.pageKey.value}:${state.uri}',
-    );
+/// Page key for pushed overlays — prefer go_router's unique [GoRouterState.pageKey]
+/// (imperative pushes already get a unique key) and never collide with tab keys.
+LocalKey pageKeyForState(GoRouterState state) => state.pageKey;
+
+/// Routes shown inside the shell without the bottom navigation bar.
+bool isShellOverlayLocation(String location) {
+  final raw = location.trim();
+  if (raw.isEmpty) return false;
+  final path = (Uri.tryParse(raw)?.path ?? raw).split('?').first;
+  final normalized = path.startsWith('/') ? path : '/$path';
+  return normalized.startsWith('/notifications') ||
+      normalized.startsWith('/product/') ||
+      normalized.startsWith('/store/') ||
+      normalized.startsWith('/settings') ||
+      normalized.contains('/shop/add-product') ||
+      normalized.contains('/shop/edit-product') ||
+      normalized.endsWith('/add-product') ||
+      normalized.contains('/edit-product/');
+}
 
 CustomTransitionPage<T> fadeSlidePage<T>({
   required Widget child,

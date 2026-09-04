@@ -8,11 +8,14 @@ class NavItem {
   final IconData icon;
   final IconData activeIcon;
   final String label;
+  /// Optional asset glyph (e.g. fabric roll). Tint follows tab color.
+  final String? assetIcon;
 
   const NavItem({
     required this.icon,
     required this.activeIcon,
     required this.label,
+    this.assetIcon,
   });
 }
 
@@ -74,7 +77,9 @@ class PremiumBottomNav extends LiquidGlassTabBar {
         body: body,
         outerChild: outerChild,
         backgroundColor: backgroundColor,
-        bottomInset: bottomInset,
+        // Liquid glass asserts padding >= 0; clamp in case MediaQuery
+        // briefly reports a bad inset while a modal is opening.
+        bottomInset: bottomInset < 0 ? 0 : bottomInset,
         pixelRatio: pixelRatio,
         useSync: useSync,
         useImpellerBackdrop: useImpellerBackdrop,
@@ -251,19 +256,29 @@ class PremiumBottomNav extends LiquidGlassTabBar {
     return LiquidGlassTabBarItem(
       label: item.label,
       iconBuilder: (context, glyph) {
-        final icon = Icon(
-          glyph.selected ? item.activeIcon : item.icon,
-          size: glyph.size,
-          color: glyph.color,
-          shadows: glyph.selected
-              ? [
-                  Shadow(
-                    color: glyph.color.withValues(alpha: 0.85),
-                    blurRadius: 14,
-                  ),
-                ]
-              : null,
-        );
+        final Widget icon = item.assetIcon != null
+            ? ColorFiltered(
+                colorFilter: ColorFilter.mode(glyph.color, BlendMode.srcIn),
+                child: Image.asset(
+                  item.assetIcon!,
+                  width: glyph.size,
+                  height: glyph.size,
+                  fit: BoxFit.contain,
+                ),
+              )
+            : Icon(
+                glyph.selected ? item.activeIcon : item.icon,
+                size: glyph.size,
+                color: glyph.color,
+                shadows: glyph.selected
+                    ? [
+                        Shadow(
+                          color: glyph.color.withValues(alpha: 0.85),
+                          blurRadius: 14,
+                        ),
+                      ]
+                    : null,
+              );
 
         if (badge == null || badge <= 0) return icon;
 

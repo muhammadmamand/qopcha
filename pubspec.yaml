@@ -1,7 +1,7 @@
 name: qopcha
 description: "قۆپچە - Clothing marketplace app for customers and shop owners."
 publish_to: 'none'
-version: 1.0.4+9
+version: 1.0.5+10
 
 environment:
   sdk: ^3.12.2
@@ -51,11 +51,14 @@ dependency_overrides:
     path: packages/flutter_local_notifications_windows
 
 flutter_native_splash:
-  color: "#FFFFFF"
-  image: "assets/images/qopcha_logo.png"
+  color: "#116C71"
+  image: "assets/images/qopcha_app_icon.png"
   android: true
   ios: true
   web: true
+  android_12:
+    color: "#116C71"
+    image: "assets/images/qopcha_app_icon.png"
 
 flutter_launcher_icons:
   android: true
@@ -95,6 +98,7 @@ flutter:
     - assets/images/category/bag.png
     - assets/images/category/cap.png
     - assets/images/category/sports.png
+    - assets/images/category/fabric.png
     - assets/lottie/empty_cart.json
     - assets/lottie/order_packed.json
   fonts:

@@ -2,7 +2,29 @@ import 'cart_item.dart';
 import 'body_measurements.dart';
 import 'delivery_zone.dart';
 
-enum OrderStatus { pending, confirmed, ready, shipped, completed, cancelled }
+enum OrderStatus {
+  pending,
+  confirmed,
+  ready,
+  shipped,
+  completed,
+  cancelled,
+  returned,
+}
+
+/// Preset reasons a customer can pick when returning a delivered order.
+class OrderReturnReasons {
+  OrderReturnReasons._();
+
+  static const List<String> presets = [
+    'قەبارە / سایز گونجاو نییە',
+    'کوالیتی خراپە یان زیانی هەیە',
+    'کاڵا وەک وەسف نییە',
+    'گۆڕینی بڕیار',
+    'هەڵەی داواکاری',
+    'هۆکاری تر',
+  ];
+}
 
 class OrderModel {
   final String id;
@@ -30,6 +52,11 @@ class OrderModel {
   /// When the shop/admin last changed [status].
   final DateTime? statusUpdatedAt;
 
+  /// Customer return request (set when status is [OrderStatus.returned]).
+  final String? returnReason;
+  final String? returnNote;
+  final DateTime? returnRequestedAt;
+
   const OrderModel({
     required this.id,
     required this.userId,
@@ -49,6 +76,9 @@ class OrderModel {
     this.deliveryLatitude,
     this.deliveryLongitude,
     this.statusUpdatedAt,
+    this.returnReason,
+    this.returnNote,
+    this.returnRequestedAt,
   });
 
   int get itemCount => items.fold(0, (sum, i) => sum + i.quantity);
@@ -71,6 +101,7 @@ class OrderModel {
     OrderStatus.shipped => 'نێردراو',
     OrderStatus.completed => 'گەیشتوو',
     OrderStatus.cancelled => 'ڕەتکراوە',
+    OrderStatus.returned => 'گەڕاوەتەوە',
   };
 
   String get statusDetail => switch (status) {
@@ -80,9 +111,14 @@ class OrderModel {
     OrderStatus.shipped => 'لە ڕێگای گەیاندندایە',
     OrderStatus.completed => 'گەیەندرا بۆ کڕیار',
     OrderStatus.cancelled => 'ڕەتکرایەوە / هەڵوەشاوە',
+    OrderStatus.returned => returnReason?.trim().isNotEmpty == true
+        ? 'داواکاری گەڕاندنەوە: ${returnReason!.trim()}'
+        : 'کڕیار داوای گەڕاندنەوەی کردووە',
   };
 
   double get grandTotal => total + deliveryFee;
+
+  bool get canRequestReturn => status == OrderStatus.completed;
 
   List<CartItem> itemsForShop(String name) =>
       items.where((i) => i.shopName == name).toList();
@@ -116,7 +152,8 @@ class OrderModel {
 
   String get shopsLabel => shopNames.isEmpty ? '—' : shopNames.join('، ');
 
-  DateTime get lastStatusAt => statusUpdatedAt ?? createdAt;
+  DateTime get lastStatusAt =>
+      returnRequestedAt ?? statusUpdatedAt ?? createdAt;
 
   bool isUnseenSince(DateTime? seenAt) {
     if (seenAt == null) return true;
@@ -145,6 +182,9 @@ class OrderModel {
     double? deliveryLatitude,
     double? deliveryLongitude,
     DateTime? statusUpdatedAt,
+    String? returnReason,
+    String? returnNote,
+    DateTime? returnRequestedAt,
   }) {
     return OrderModel(
       id: id ?? this.id,
@@ -166,6 +206,9 @@ class OrderModel {
       deliveryLatitude: deliveryLatitude ?? this.deliveryLatitude,
       deliveryLongitude: deliveryLongitude ?? this.deliveryLongitude,
       statusUpdatedAt: statusUpdatedAt ?? this.statusUpdatedAt,
+      returnReason: returnReason ?? this.returnReason,
+      returnNote: returnNote ?? this.returnNote,
+      returnRequestedAt: returnRequestedAt ?? this.returnRequestedAt,
     );
   }
 
@@ -191,13 +234,16 @@ class OrderModel {
     if (deliveryLongitude != null) 'deliveryLongitude': deliveryLongitude,
     if (statusUpdatedAt != null)
       'statusUpdatedAt': statusUpdatedAt!.toIso8601String(),
+    if (returnReason != null) 'returnReason': returnReason,
+    if (returnNote != null) 'returnNote': returnNote,
+    if (returnRequestedAt != null)
+      'returnRequestedAt': returnRequestedAt!.toIso8601String(),
   };
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     final raw = json['status'] as String? ?? 'pending';
     final normalized = switch (raw) {
       'delivered' => 'completed',
-      'returned' => 'cancelled',
       _ => raw,
     };
     final status = OrderStatus.values.firstWhere(
@@ -244,6 +290,11 @@ class OrderModel {
       deliveryLongitude: (json['deliveryLongitude'] as num?)?.toDouble(),
       statusUpdatedAt: DateTime.tryParse(
         json['statusUpdatedAt'] as String? ?? '',
+      ),
+      returnReason: json['returnReason'] as String?,
+      returnNote: json['returnNote'] as String?,
+      returnRequestedAt: DateTime.tryParse(
+        json['returnRequestedAt'] as String? ?? '',
       ),
     );
   }
