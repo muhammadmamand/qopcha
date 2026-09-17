@@ -1,4 +1,4 @@
-﻿import 'dart:math' as math;
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -37,6 +37,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
   final _passwordFocus = FocusNode();
 
   bool _obscureLoginPass = true;
+  bool _loginBusy = false;
   int _secretTapCount = 0;
   DateTime? _secretTapAt;
 
@@ -56,11 +57,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
       _flipController.value = 1.0;
     }
     _tabController.addListener(() {
-      if (!mounted) return;
+      if (!mounted || _tabController.indexIsChanging) return;
       setState(() {});
     });
-    _phoneFocus.addListener(() => setState(() {}));
-    _passwordFocus.addListener(() => setState(() {}));
+    // Do NOT setState on focus changes — on MIUI/Redmi that rebuilds the
+    // TextFormField and instantly closes the keyboard.
   }
 
   @override
@@ -97,14 +98,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
   }
 
   Future<void> _handleLogin() async {
-    if (!_loginFormKey.currentState!.validate()) return;
+    if (_loginBusy) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    if (!(_loginFormKey.currentState?.validate() ?? false)) return;
     HapticFeedback.lightImpact();
+    setState(() => _loginBusy = true);
 
     final success = await ref
         .read(authProvider.notifier)
         .login(_loginPhone.text.trim(), _loginPassword.text);
 
     if (!mounted) return;
+    setState(() => _loginBusy = false);
 
     if (success) {
       final user = ref.read(authProvider).user;
@@ -173,14 +178,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
 
   Future<void> _openSignupWithFlip() async {
     if (_flipController.isAnimating) return;
-    if (_flipController.isCompleted) {
-      _tabController.animateTo(1);
-      return;
-    }
-    if (_flipController.value > 0) return;
     FocusManager.instance.primaryFocus?.unfocus();
     HapticFeedback.mediumImpact();
-    await _flipController.forward(from: 0);
+    _flipController.value = 1.0;
     if (!mounted) return;
     _tabController.animateTo(1);
   }
@@ -189,27 +189,24 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     if (_flipController.isAnimating) return;
     FocusManager.instance.primaryFocus?.unfocus();
     HapticFeedback.mediumImpact();
-    if (_flipController.value < 1.0) {
-      _flipController.value = 1.0;
-    }
     _tabController.index = 0;
     setState(() {});
-    await _flipController.reverse();
+    _flipController.value = 0.0;
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
+    ref.watch(authProvider);
     final lang = ref.watch(appSettingsProvider).language;
     final isLoginTab = _tabController.index == 0;
-    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
-      resizeToAvoidBottomInset: true,
+        // MIUI/Redmi needs real adjustResize — never disable this on login.
+        resizeToAvoidBottomInset: true,
         backgroundColor:
-            isLoginTab ? Colors.white : const Color(0xFFF7FBFA),
+            isLoginTab ? const Color(0xFFF3F8F8) : const Color(0xFFF7FBFA),
         body: AnimatedSwitcher(
           duration: _flipController.isAnimating
               ? Duration.zero
@@ -237,9 +234,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
               ? KeyedSubtree(
                   key: const ValueKey('login'),
                   child: _buildLoginTab(
-                    isLoading: authState.isLoading,
+                    isLoading: _loginBusy,
                     language: lang,
-                    keyboardOpen: keyboardOpen,
                   ),
                 )
               : KeyedSubtree(
@@ -254,39 +250,47 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
   InputDecoration _loginFieldDecoration({
     required String hint,
     Widget? suffix,
-    required bool focused,
   }) {
-    final line = focused ? Colors.white : Colors.white.withValues(alpha: 0.45);
+    final fill = Colors.white.withValues(alpha: 0.14);
+    final line = Colors.white.withValues(alpha: 0.20);
     return InputDecoration(
       hintText: hint,
       hintStyle: TextStyle(
         fontFamily: AppTheme.fontFamily,
         color: Colors.white.withValues(alpha: 0.42),
         fontWeight: FontWeight.w500,
-        fontSize: 14.5,
+        fontSize: 14,
       ),
       suffixIcon: suffix,
-      filled: false,
+      filled: true,
+      fillColor: fill,
       isDense: true,
-      contentPadding: const EdgeInsets.symmetric(vertical: 12),
-      border: UnderlineInputBorder(borderSide: BorderSide(color: line)),
-      enabledBorder: UnderlineInputBorder(
-        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.45)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: line),
       ),
-      focusedBorder: const UnderlineInputBorder(
-        borderSide: BorderSide(color: Colors.white, width: 1.6),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: line),
       ),
-      errorBorder: const UnderlineInputBorder(
-        borderSide: BorderSide(color: Color(0xFFFF8A80)),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Colors.white, width: 1.6),
       ),
-      focusedErrorBorder: const UnderlineInputBorder(
-        borderSide: BorderSide(color: Color(0xFFFF8A80), width: 1.4),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFFFF8A80)),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFFFF8A80), width: 1.4),
       ),
       errorStyle: TextStyle(
         fontFamily: AppTheme.fontFamily,
         color: const Color(0xFFFF8A80),
         fontWeight: FontWeight.w700,
-        fontSize: 12,
+        fontSize: 11.5,
       ),
     );
   }
@@ -304,248 +308,358 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     );
   }
 
+  Widget _buildLoginRegisterRow({
+    required AppLanguage language,
+    required bool isLoading,
+  }) {
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(
+          tr(
+            language,
+            'هەژمارت نییە؟ ',
+            "Don't have account? ",
+            'ليس لديك حساب؟ ',
+          ),
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: Colors.white.withValues(alpha: 0.86),
+          ),
+        ),
+        GestureDetector(
+          onTap: isLoading ? null : _openSignupWithFlip,
+          child: Text(
+            tr(language, 'تۆمارکردن', 'Register now', 'سجّل الآن'),
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: AppColors.highlight,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Fresh atelier-style login: light stage + teal card + sewing badge.
+  /// Keyboard-safe and iPad-safe: scrollable, opaque Login hit target.
   Widget _buildLoginTab({
     required bool isLoading,
     required AppLanguage language,
-    required bool keyboardOpen,
   }) {
-    final topPad = keyboardOpen ? 16.0 : 32.0;
-    const bottomPad = 20.0;
-    final screen = MediaQuery.sizeOf(context);
-    final btnSize = keyboardOpen ? 88.0 : 112.0;
-    final peakTop = screen.height * _LoginArtPainter.peakYFactor;
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final bottomSafe = MediaQuery.paddingOf(context).bottom;
+    final size = MediaQuery.sizeOf(context);
+    final isTablet = size.shortestSide >= 600;
+    final formMaxWidth = isTablet ? 480.0 : double.infinity;
+    final formHeight = keyboardOpen || isTablet ? null : size.height * 0.62;
 
-    return AnimatedBuilder(
-      animation: _flipController,
-      builder: (context, _) {
-        final openT = Curves.easeInBack.transform(
-          (_flipController.value / 0.34).clamp(0.0, 1.0),
-        );
-        final flipT = Curves.easeInOutBack.transform(
-          ((_flipController.value - 0.26) / 0.74).clamp(0.0, 1.0),
-        );
-
-        return Stack(
-              children: [
-            PositionedDirectional(
-              top: MediaQuery.paddingOf(context).top + 6,
-              end: 16,
-              child: const LanguageSwitcherButton(),
-            ),
-            SafeArea(
-                  child: Padding(
-                padding: EdgeInsets.fromLTRB(28, topPad, 28, 0),
-                    child: Column(
-                      children: [
-                    _buildLoginBrandHeader(),
-                        if (!keyboardOpen) ...[
-                      const SizedBox(height: 36),
-                      const _LoginFashionPicks(),
-                    ],
-                  ],
+    return ColoredBox(
+      color: const Color(0xFFF3F8F8),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -80,
+            right: -60,
+            child: IgnorePointer(
+              child: Container(
+                width: 220,
+                height: 220,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.brand.withValues(alpha: 0.08),
                 ),
               ),
             ),
-            Positioned(
-              top: peakTop,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Transform(
-                alignment: Alignment.topCenter,
-                filterQuality: FilterQuality.medium,
-                transform: Matrix4.identity()
-                  ..setEntry(3, 2, 0.00115)
-                  // Reverse the pocket fold on signup (opposite of before).
-                  ..rotateX(flipT * math.pi),
-                child: Opacity(
-                  opacity: (1 - flipT).clamp(0.0, 1.0),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Positioned.fill(
-                        child: ClipPath(
-                          clipper: const _LoginPeakClipper(),
-                          child: Stack(
-                            fit: StackFit.expand,
+          ),
+          Positioned(
+            top: 120,
+            left: -70,
+            child: IgnorePointer(
+              child: Container(
+                width: 180,
+                height: 180,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.highlight.withValues(alpha: 0.06),
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            bottom: false,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: EdgeInsets.only(bottom: bottomSafe),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight - bottomSafe,
+                    ),
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                          child: Row(
                             children: [
-                              const ColoredBox(color: Color(0xFF116C71)),
-                              ColorFiltered(
-                                colorFilter: const ColorFilter.mode(
-                                  Color(0xFF116C71),
-                                  BlendMode.color,
-                                ),
-                                child: Opacity(
-                                  opacity: 0.55,
-                              child: Image.asset(
-                                    'assets/images/login_panel_texture.png',
-                                    fit: BoxFit.cover,
-                                    alignment: Alignment.bottomRight,
-                                    errorBuilder: (_, _, _) =>
-                                        const SizedBox.shrink(),
-                                  ),
-                                ),
-                              ),
+                              const LanguageSwitcherButton(),
+                              const Spacer(),
                             ],
                           ),
                         ),
-                      ),
-                      Positioned.fill(
-                        child: IgnorePointer(
-                          child: CustomPaint(
-                            painter: _LoginStitchPainter(
-                              buttonClearance: btnSize * 0.46,
-                              seamProgress: flipT,
+                        if (!keyboardOpen) ...[
+                          const SizedBox(height: 6),
+                          _buildLoginBrandHeader(),
+                          const SizedBox(height: 6),
+                          Text(
+                            tr(
+                              language,
+                              'بازاڕی جل و بەرگی عێراق',
+                              'Iraq clothing marketplace',
+                              'سوق الملابس في العراق',
+                            ),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.brand.withValues(alpha: 0.72),
                             ),
                           ),
-                        ),
-                      ),
-                      SafeArea(
-                        top: false,
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            return SingleChildScrollView(
-                              physics: const BouncingScrollPhysics(
-                                parent: AlwaysScrollableScrollPhysics(),
+                          const SizedBox(height: 12),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 24),
+                            child: _LoginFashionPicks(),
+                          ),
+                          const SizedBox(height: 8),
+                        ] else
+                          const SizedBox(height: 8),
+                        if (!isTablet) const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.bottomCenter,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: formMaxWidth),
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: isTablet ? 24 : 0,
                               ),
-                              padding: EdgeInsets.fromLTRB(
-                                32,
-                                keyboardOpen ? 28 : 56,
-                                32,
-                                bottomPad,
-                              ),
-                              keyboardDismissBehavior:
-                                  ScrollViewKeyboardDismissBehavior.onDrag,
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  minHeight:
-                                      (constraints.maxHeight -
-                                              (keyboardOpen ? 28 : 56) -
-                                              bottomPad)
-                                          .clamp(0.0, double.infinity),
-                                ),
-                                child: Form(
-                                  key: _loginFormKey,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                            children: [
-                                      const SizedBox.shrink(),
-                                      _buildLoginFields(
-                                        isLoading: isLoading,
-                                        language: language,
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                alignment: Alignment.topCenter,
+                                children: [
+                                  Container(
+                                    width: double.infinity,
+                                    height: formHeight,
+                                    margin: EdgeInsets.only(
+                                      top: keyboardOpen ? 0 : 28,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.vertical(
+                                        top: const Radius.circular(28),
+                                        bottom: Radius.circular(
+                                          isTablet ? 28 : 0,
+                                        ),
                                       ),
-                                      Wrap(
-                                        alignment: WrapAlignment.center,
-                                        crossAxisAlignment:
-                                            WrapCrossAlignment.center,
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          AppColors.gradientStart,
+                                          AppColors.brand,
+                                          const Color(0xFF0A5A5F),
+                                        ],
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: AppColors.gradientStart
+                                              .withValues(alpha: 0.35),
+                                          blurRadius: 28,
+                                          offset: const Offset(0, 14),
+                                        ),
+                                      ],
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.vertical(
+                                        top: const Radius.circular(28),
+                                        bottom: Radius.circular(
+                                          isTablet ? 28 : 0,
+                                        ),
+                                      ),
+                                      child: Stack(
                                         children: [
-                              Text(
-                                            tr(
-                                              language,
-                                              'هەژمارت نییە؟ ',
-                                              "Don't have account? ",
-                                              'ليس لديك حساب؟ ',
-                                            ),
-                                style: TextStyle(
-                                  fontFamily: AppTheme.fontFamily,
-                                              fontSize: 13.5,
-                                              fontWeight: FontWeight.w500,
-                                              color: Colors.white.withValues(
-                                                alpha: 0.88,
+                                          Positioned.fill(
+                                            child: IgnorePointer(
+                                              child: CustomPaint(
+                                                painter:
+                                                    _LoginFormSewingBorderPainter(
+                                                  inset: 11,
+                                                  radius: 22,
+                                                  buttonGap:
+                                                      keyboardOpen ? 0 : 78,
+                                                ),
                                               ),
                                             ),
                                           ),
-                                          GestureDetector(
-                                            onTap: isLoading
-                                                ? null
-                                                : _openSignupWithFlip,
-                                            child: Text(
-                                              tr(
-                                                language,
-                                                'تۆمارکردن',
-                                                'Register now',
-                                                'سجّل الآن',
-                                              ),
-                                              style: TextStyle(
-                                                fontFamily:
-                                                    AppTheme.fontFamily,
-                                                fontSize: 13.5,
-                                                fontWeight: FontWeight.w800,
-                                                color: Colors.white,
-                    ),
-                  ),
-                ),
+                                          Padding(
+                                            padding: EdgeInsets.fromLTRB(
+                                              22,
+                                              keyboardOpen ? 18 : 44,
+                                              22,
+                                              18,
+                                            ),
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.stretch,
+                                              children: [
+                                                Text(
+                                                  tr(
+                                                    language,
+                                                    'چوونەژوورەوە',
+                                                    'Sign in',
+                                                    'تسجيل الدخول',
+                                                  ),
+                                                  textAlign: TextAlign.center,
+                                                  style: TextStyle(
+                                                    fontFamily:
+                                                        AppTheme.fontFamily,
+                                                    fontSize: keyboardOpen
+                                                        ? 20
+                                                        : 24,
+                                                    fontWeight: FontWeight.w900,
+                                                    color: Colors.white,
+                                                    height: 1.1,
+                                                  ),
+                                                ),
+                                                SizedBox(
+                                                  height:
+                                                      keyboardOpen ? 14 : 20,
+                                                ),
+                                                Form(
+                                                  key: _loginFormKey,
+                                                  child: _buildLoginFields(
+                                                    isLoading: isLoading,
+                                                    language: language,
+                                                    compact: true,
+                                                    showGuest: false,
+                                                  ),
+                                                ),
+                                                SizedBox(
+                                                  height:
+                                                      keyboardOpen ? 10 : 16,
+                                                ),
+                                                _buildLoginFieldsGuest(
+                                                  isLoading: isLoading,
+                                                  language: language,
+                                                ),
+                                                const SizedBox(height: 8),
+                                                _buildLoginRegisterRow(
+                                                  language: language,
+                                                  isLoading: isLoading,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
                                         ],
-                              ),
-                            ],
-                          ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                                      ),
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                  if (!keyboardOpen)
+                                    const Positioned(
+                                      top: 0,
+                                      child: IgnorePointer(
+                                        child: SewingButton(size: 64),
+                                      ),
+                                    ),
+                                ],
                               ),
-              ),
-            ),
-            Positioned(
-              top: peakTop - btnSize / 2 + 12,
-              left: 0,
-              right: 0,
-              child: IgnorePointer(
-                child: Opacity(
-                  opacity: (1 - openT).clamp(0.0, 1.0),
-                  child: Transform.translate(
-                    offset: Offset(18 * openT, -100 * openT),
-                    child: Transform.rotate(
-                      angle: openT * 2.35,
-                      child: Transform.scale(
-                        scale: 1 + 0.12 * openT,
-                        child: Center(
-                          child: SewingButton(size: btnSize),
-                      ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                ),
-              ),
+                );
+              },
             ),
-          ],
-        );
-      },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoginFieldsGuest({
+    required bool isLoading,
+    required AppLanguage language,
+  }) {
+    return TextButton(
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      onPressed: isLoading
+          ? null
+          : () {
+              HapticFeedback.selectionClick();
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/home');
+              }
+            },
+      child: Text(
+        tr(language, 'بەردەوامبە وەک میوان', 'Continue as guest',
+            'المتابعة كضيف'),
+        style: TextStyle(
+          fontFamily: AppTheme.fontFamily,
+          fontWeight: FontWeight.w700,
+          color: Colors.white.withValues(alpha: 0.9),
+          fontSize: 13,
+        ),
+      ),
     );
   }
 
   Widget _buildLoginFields({
     required bool isLoading,
     required AppLanguage language,
+    bool compact = false,
+    bool showGuest = true,
   }) {
+    final gap = compact ? 10.0 : 14.0;
+    final beforeBtn = compact ? 14.0 : 18.0;
+    const scrollPad = EdgeInsets.only(bottom: 100);
     return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-        _loginFieldLabel(tr(language, 'ژمارەی مۆبایل', 'Phone number', 'رقم الهاتف')),
-            TextFormField(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _loginFieldLabel(
+          tr(language, 'ژمارەی مۆبایل', 'Phone number', 'رقم الهاتف'),
+        ),
+        TextFormField(
+          key: const ValueKey('login_phone'),
           controller: _loginPhone,
           focusNode: _phoneFocus,
           textDirection: TextDirection.ltr,
           textAlign: TextAlign.left,
           style: _loginInputStyle,
-              textInputAction: TextInputAction.next,
+          textInputAction: TextInputAction.next,
           keyboardType: TextInputType.phone,
           cursorColor: Colors.white,
-              onFieldSubmitted: (_) => _passwordFocus.requestFocus(),
+          scrollPadding: scrollPad,
+          onFieldSubmitted: (_) => _passwordFocus.requestFocus(),
           validator: (v) => PhoneUtils.validate(v, language: language),
-          decoration: _loginFieldDecoration(
-            hint: '07xxxxxxxxx',
-            focused: _phoneFocus.hasFocus,
-          ),
+          decoration: _loginFieldDecoration(hint: '07xxxxxxxxx'),
         ),
-        const SizedBox(height: 22),
+        SizedBox(height: gap),
         Row(
           children: [
             Expanded(
@@ -559,108 +673,85 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                 tr(language, 'لەبیرچووە؟', 'Forgot?', 'نسيت؟'),
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white.withValues(alpha: 0.9),
-                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.highlight,
+                  fontSize: 12,
                 ),
               ),
             ),
           ],
         ),
-            TextFormField(
-              controller: _loginPassword,
-              focusNode: _passwordFocus,
+        TextFormField(
+          key: const ValueKey('login_password'),
+          controller: _loginPassword,
+          focusNode: _passwordFocus,
           textDirection: TextDirection.ltr,
           textAlign: TextAlign.left,
           style: _loginInputStyle,
-              textInputAction: TextInputAction.done,
-              obscureText: _obscureLoginPass,
+          textInputAction: TextInputAction.done,
+          obscureText: _obscureLoginPass,
           cursorColor: Colors.white,
-              onFieldSubmitted: (_) => _handleLogin(),
+          scrollPadding: scrollPad,
+          onFieldSubmitted: (_) => _handleLogin(),
           validator: (v) => v == null || v.length < 4
               ? tr(language, 'وشەی نهێنی بنووسە', 'Enter your password',
                   'أدخل كلمة المرور')
               : null,
           decoration: _loginFieldDecoration(
             hint: '********',
-            focused: _passwordFocus.hasFocus,
             suffix: IconButton(
-                  onPressed: () => setState(
-                    () => _obscureLoginPass = !_obscureLoginPass,
-                  ),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(
-                minWidth: 32,
-                minHeight: 32,
+              onPressed: () => setState(
+                () => _obscureLoginPass = !_obscureLoginPass,
               ),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
               visualDensity: VisualDensity.compact,
-                  icon: Icon(
-                    _obscureLoginPass
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
+              icon: Icon(
+                _obscureLoginPass
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
                 color: Colors.white.withValues(alpha: 0.9),
-                size: 20,
+                size: 18,
               ),
             ),
           ),
         ),
-        const SizedBox(height: 28),
-            SizedBox(
-              height: 52,
-                child: ElevatedButton(
-                  onPressed: isLoading ? null : _handleLogin,
-                  style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.highlight,
-                    foregroundColor: Colors.white,
-              disabledBackgroundColor:
-                  AppColors.highlight.withValues(alpha: 0.55),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: isLoading
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Text(
-                    tr(language, 'چوونەژوورەوە', 'Login', 'تسجيل الدخول'),
-                          style: TextStyle(
-                            fontFamily: AppTheme.fontFamily,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 16.5,
-                    ),
-                  ),
-                ),
+        SizedBox(height: beforeBtn),
+        _LoginCtaButton(
+          loading: isLoading,
+          label: tr(language, 'چوونەژوورەوە', 'Login', 'تسجيل الدخول'),
+          onPressed: isLoading ? null : _handleLogin,
         ),
-        const SizedBox(height: 10),
-                TextButton(
-                  onPressed: isLoading
-                      ? null
-                      : () {
-                  HapticFeedback.selectionClick();
-                  if (context.canPop()) {
-                    context.pop();
-                  } else {
-                    context.go('/home');
-                  }
-                },
-                  child: Text(
-            tr(language, 'بەردەوامبە وەک میوان', 'Continue as guest',
-                'المتابعة كضيف'),
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-              fontWeight: FontWeight.w700,
-              color: Colors.white.withValues(alpha: 0.92),
-                      fontSize: 13.5,
-                    ),
-                  ),
-                ),
+        if (showGuest) ...[
+          const SizedBox(height: 4),
+          TextButton(
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            onPressed: isLoading
+                ? null
+                : () {
+                    HapticFeedback.selectionClick();
+                    if (context.canPop()) {
+                      context.pop();
+                    } else {
+                      context.go('/home');
+                    }
+                  },
+            child: Text(
+              tr(language, 'بەردەوامبە وەک میوان', 'Continue as guest',
+                  'المتابعة كضيف'),
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontWeight: FontWeight.w700,
+                color: Colors.white.withValues(alpha: 0.9),
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -676,12 +767,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 72,
-            height: 72,
-            padding: const EdgeInsets.all(10),
+            width: 58,
+            height: 58,
+            padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
               color: AppColors.brand.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: ColorFiltered(
               colorFilter: const ColorFilter.mode(
@@ -691,12 +782,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
               child: Image.asset('assets/images/qopcha_logo.png'),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Text(
             AppConstants.appName,
             style: TextStyle(
           fontFamily: AppTheme.fontFamily,
-              fontSize: 32,
+              fontSize: 28,
               fontWeight: FontWeight.w900,
               color: AppColors.brand,
               height: 1.1,
@@ -709,12 +800,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
 
   Widget _loginFieldLabel(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: 4),
               child: Text(
         text,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-          fontSize: 12.5,
+          fontSize: 12,
               fontWeight: FontWeight.w600,
           color: Colors.white.withValues(alpha: 0.95),
         ),
@@ -726,8 +817,72 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                 fontFamily: AppTheme.fontFamily,
         color: Colors.white,
         fontWeight: FontWeight.w600,
-        fontSize: 15.5,
+        fontSize: 14.5,
       );
+}
+
+class _LoginCtaButton extends StatelessWidget {
+  const _LoginCtaButton({
+    required this.label,
+    required this.loading,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool loading;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      enabled: onPressed != null,
+      label: label,
+      child: MouseRegion(
+        cursor: onPressed == null
+            ? SystemMouseCursors.basic
+            : SystemMouseCursors.click,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onPressed,
+          child: Container(
+            height: 52,
+            width: double.infinity,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              gradient: AppColors.ctaGradient,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.highlight.withValues(alpha: 0.38),
+                  blurRadius: 14,
+                  offset: const Offset(0, 7),
+                ),
+              ],
+            ),
+            child: loading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.2,
+                      color: Colors.white,
+                    ),
+                  )
+                : Text(
+                    label,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                      color: Colors.white,
+                    ),
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _LoginFashionPicks extends StatefulWidget {
@@ -841,215 +996,67 @@ class _LoginFashionPicksState extends State<_LoginFashionPicks>
   }
 }
 
-class _LoginArtPainter extends CustomPainter {
-  const _LoginArtPainter({
-    required this.top,
-    this.layer = _LoginArtLayer.all,
+/// Dashed sewing stitch around the login form card.
+class _LoginFormSewingBorderPainter extends CustomPainter {
+  const _LoginFormSewingBorderPainter({
+    required this.inset,
+    required this.radius,
+    this.buttonGap = 0,
   });
 
-  final Color top;
-  final _LoginArtLayer layer;
-  static const _bottom = Color(0xFF116C71);
-  static const peakYFactor = 0.30;
-
-  static Path peakPath(Size size, {_LoginArtLayer layer = _LoginArtLayer.bottom}) {
-    final w = size.width;
-    final h = size.height;
-    final leftY = layer == _LoginArtLayer.bottom ? h * 0.257 : h * 0.48;
-    final peakY = layer == _LoginArtLayer.bottom ? 0.0 : h * peakYFactor;
-    final tip = w * 0.07;
-    final slope = (leftY - peakY) / (w * 0.5);
-    final joinY = peakY + slope * tip;
-
-    return Path()
-      ..moveTo(0, h)
-      ..lineTo(0, leftY)
-      ..lineTo(w * 0.5 - tip, joinY)
-      ..quadraticBezierTo(w * 0.5, peakY, w * 0.5 + tip, joinY)
-      ..lineTo(w, leftY)
-      ..lineTo(w, h)
-      ..close();
-  }
-
-  /// The two roof slopes only — the red-outlined sewing path.
-  static Path topSeamPath(
-    Size size, {
-    _LoginArtLayer layer = _LoginArtLayer.bottom,
-  }) {
-    final w = size.width;
-    final h = size.height;
-    final leftY = layer == _LoginArtLayer.bottom ? h * 0.257 : h * 0.48;
-    final peakY = layer == _LoginArtLayer.bottom ? 0.0 : h * peakYFactor;
-    final tip = w * 0.07;
-    final slope = (leftY - peakY) / (w * 0.5);
-    final joinY = peakY + slope * tip;
-
-    return Path()
-      ..moveTo(0, leftY)
-      ..lineTo(w * 0.5 - tip, joinY)
-      ..quadraticBezierTo(w * 0.5, peakY, w * 0.5 + tip, joinY)
-      ..lineTo(w, leftY);
-  }
+  final double inset;
+  final double radius;
+  final double buttonGap;
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (layer != _LoginArtLayer.bottom) {
-      canvas.drawRect(Offset.zero & size, Paint()..color = top);
-    }
-
-    if (layer == _LoginArtLayer.top) return;
-
-    canvas.drawPath(peakPath(size, layer: layer), Paint()..color = _bottom);
-  }
-
-  @override
-  bool shouldRepaint(covariant _LoginArtPainter oldDelegate) =>
-      oldDelegate.top != top || oldDelegate.layer != layer;
-}
-
-class _LoginPeakClipper extends CustomClipper<Path> {
-  const _LoginPeakClipper();
-
-  @override
-  Path getClip(Size size) => _LoginArtPainter.peakPath(size);
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
-}
-
-class _LoginStitchPainter extends CustomPainter {
-  const _LoginStitchPainter({
-    required this.buttonClearance,
-    this.seamProgress = 0,
-  });
-
-  final double buttonClearance;
-  final double seamProgress;
-
-  static Path? _inset(Path source, double distance) {
-    final out = Path();
-    var started = false;
-    for (final metric in source.computeMetrics()) {
-      const step = 2.0;
-      for (double d = 0; d <= metric.length; d += step) {
-        final tangent = metric.getTangentForOffset(d.clamp(0, metric.length));
-        if (tangent == null) continue;
-        final n = Offset(-tangent.vector.dy, tangent.vector.dx);
-        final len = n.distance;
-        if (len < 0.001) continue;
-        final p = tangent.position + n * (distance / len);
-        if (!started) {
-          out.moveTo(p.dx, p.dy);
-          started = true;
-        } else {
-          out.lineTo(p.dx, p.dy);
-        }
-      }
-    }
-    return started ? out : null;
-  }
-
-  static void _dash(
-    Canvas canvas,
-    Path path,
-    Paint paint, {
-    required double dash,
-    required double gap,
-    required double skipCenter,
-  }) {
-    for (final metric in path.computeMetrics()) {
-      final mid = metric.length / 2;
-      var d = 0.0;
-      var drawing = true;
-      while (d < metric.length) {
-        final span = drawing ? dash : gap;
-        final end = (d + span).clamp(0.0, metric.length);
-        if (drawing) {
-          final center = (d + end) / 2;
-          final underButton =
-              (center - mid).abs() < skipCenter;
-          if (!underButton && end > d) {
-            canvas.drawPath(metric.extractPath(d, end), paint);
-          }
-        }
-        d = end;
-        drawing = !drawing;
-      }
-    }
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final seam = _LoginArtPainter.topSeamPath(size);
-    final outer = _inset(seam, 10);
-    final inner = _inset(seam, 16);
-    if (outer == null) return;
-
-    if (seamProgress > 0.02) {
-      _drawSeamHighlight(canvas, outer, seamProgress);
-    }
-
-    final thread = Paint()
-      ..color = const Color(0xF2F7F3EC)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.7
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..isAntiAlias = true;
-
-    _dash(
-      canvas,
-      outer,
-      thread,
-      dash: 7.2,
-      gap: 5.4,
-      skipCenter: buttonClearance,
+    final rect = Rect.fromLTWH(
+      inset,
+      inset,
+      size.width - inset * 2,
+      size.height - inset * 2,
+    );
+    final rrect = RRect.fromRectAndCorners(
+      rect,
+      topLeft: Radius.circular(radius),
+      topRight: Radius.circular(radius),
+      bottomLeft: Radius.circular(radius * 0.35),
+      bottomRight: Radius.circular(radius * 0.35),
     );
 
-    if (inner != null) {
-      thread.strokeWidth = 1.45;
-      thread.color = const Color(0xD9F7F3EC);
-      _dash(
-        canvas,
-        inner,
-        thread,
-        dash: 6.4,
-        gap: 6.0,
-        skipCenter: buttonClearance + 4,
-      );
-    }
-  }
+    final path = Path()..addRRect(rrect);
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.55)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
 
-  void _drawSeamHighlight(Canvas canvas, Path seam, double progress) {
-    final t = progress.clamp(0.0, 1.0);
-    for (final metric in seam.computeMetrics()) {
-      final end = metric.length * t;
-      if (end <= 0.5) continue;
-      final segment = metric.extractPath(0, end);
-
-      final glow = Paint()
-        ..color = AppColors.highlight.withValues(alpha: 0.42)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 9
-        ..strokeCap = StrokeCap.round
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
-      canvas.drawPath(segment, glow);
-
-      final thread = Paint()
-        ..color = AppColors.highlight
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.6
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round;
-      canvas.drawPath(segment, thread);
+    const dash = 5.5;
+    const gap = 4.0;
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        if (buttonGap > 0) {
+          final t = metric.getTangentForOffset(distance);
+          if (t != null) {
+            final onTop = (t.position.dy - inset).abs() < 3;
+            final cx = size.width / 2;
+            if (onTop && (t.position.dx - cx).abs() < buttonGap / 2) {
+              distance += gap;
+              continue;
+            }
+          }
+        }
+        final next = math.min(distance + dash, metric.length);
+        canvas.drawPath(metric.extractPath(distance, next), paint);
+        distance = next + gap;
+      }
     }
   }
 
   @override
-  bool shouldRepaint(covariant _LoginStitchPainter oldDelegate) =>
-      oldDelegate.buttonClearance != buttonClearance ||
-      oldDelegate.seamProgress != seamProgress;
+  bool shouldRepaint(covariant _LoginFormSewingBorderPainter oldDelegate) =>
+      oldDelegate.inset != inset ||
+      oldDelegate.radius != radius ||
+      oldDelegate.buttonGap != buttonGap;
 }
-
-enum _LoginArtLayer { top, bottom, all }
-
