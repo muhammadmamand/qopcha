@@ -42,6 +42,7 @@ class AdminOrdersScreen extends ConsumerStatefulWidget {
 
 class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
   OrderStatus? _filter;
+  bool _markedSeen = false;
 
   @override
   void initState() {
@@ -54,16 +55,27 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
   }
 
   String get _title => switch (widget.board) {
-    AdminOrderBoard.inbox => 'وەرگرتنی داواکاری',
-    AdminOrderBoard.delivery => 'گەیاندن (ERP)',
-    AdminOrderBoard.all => 'هەموو داواکارییەکان',
-  };
+        AdminOrderBoard.inbox => 'وەرگرتنی داواکاری',
+        AdminOrderBoard.delivery => 'گەیاندن (ERP)',
+        AdminOrderBoard.all => 'هەموو داواکارییەکان',
+      };
 
   @override
   Widget build(BuildContext context) {
     final ordersAsync = ref.watch(adminOrdersProvider);
     final pendingCount = ref.watch(adminPendingOrdersCountProvider);
     final users = ref.watch(allManagedUsersProvider).valueOrNull ?? const [];
+
+    // Opening this page marks order notifications as seen (clears badge).
+    if (!_markedSeen &&
+        (widget.board == AdminOrderBoard.inbox ||
+            widget.board == AdminOrderBoard.all)) {
+      _markedSeen = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        markAdminPendingOrdersSeen(ref);
+      });
+    }
 
     return SafeArea(
       child: Column(

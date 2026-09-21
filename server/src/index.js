@@ -226,26 +226,28 @@ function shopMayTransitionOrder(from, to) {
 }
 
 async function seedAdmin() {
-  if ((await store.getAuthByEmail(ADMIN_EMAIL)) || (await store.getAuthByPhone(ADMIN_PHONE))) return;
+  if (await store.getAuthByPhone(ADMIN_PHONE)) return;
   const id = uuidv4();
   const password_hash = await bcrypt.hash(ADMIN_PASSWORD, 12);
-  await store.insertAuth({ id, email: ADMIN_EMAIL, phone: ADMIN_PHONE, password_hash });
+  // Phone-only admin login (no email required).
+  await store.insertAuth({ id, phone: ADMIN_PHONE, password_hash });
   await write('users', id, {
     id,
     name: 'ئەدمین',
-    email: ADMIN_EMAIL,
     phone: ADMIN_PHONE,
     role: 'admin',
     approvalStatus: 'approved',
     approvalNoticeSeen: true,
     createdAt: new Date().toISOString(),
   });
-  console.log(`Seeded admin ${ADMIN_EMAIL} / ${ADMIN_PHONE}`);
+  console.log(`Seeded admin phone ${ADMIN_PHONE}`);
 }
 
 async function seedStarterProducts() {
   if ((await all('products')).length > 0) return;
-  const adminAuth = await store.getAuthByEmail(ADMIN_EMAIL);
+  const adminAuth =
+    (await store.getAuthByPhone(ADMIN_PHONE)) ||
+    (await store.getAuthByEmail(ADMIN_EMAIL));
   if (!adminAuth) return;
   const adminUser = await read('users', adminAuth.id);
   if (!adminUser) return;
@@ -519,6 +521,14 @@ async function finalizeAuthUser(row) {
       approvalNoticeSeen: true,
     });
   }
+  const phoneNorm = normalizePhone(row.phone || user.phone || '');
+  if (phoneNorm && phoneNorm === ADMIN_PHONE && user.role !== 'admin') {
+    user = await merge('users', user.id, {
+      role: 'admin',
+      approvalStatus: 'approved',
+      approvalNoticeSeen: true,
+    });
+  }
   if (user.role === 'admin') return user;
   // OTP / phone-verified accounts stay approved without admin review.
   if (user.phoneVerified === true && user.approvalStatus === 'pending') {
@@ -576,17 +586,44 @@ app.post('/api/auth/login', authLimit, async (req, res) => {
   res.json({ token: signToken(user), user: publicUser(user) });
 });
 
-/** Send WhatsApp OTP for login, signup, or password reset. */
+/** Send WhatsApp OTP for login, signup, password reset, or phone change. */
 app.post('/api/auth/otp/send', authLimit, async (req, res) => {
   try {
     const phone = normalizePhone(req.body?.phone);
     const rawPurpose = String(req.body?.purpose || 'login').toLowerCase();
     const purpose =
-      rawPurpose === 'reset' || rawPurpose === 'signup' ? rawPurpose : 'login';
+      rawPurpose === 'reset' ||
+      rawPurpose === 'signup' ||
+      rawPurpose === 'change_phone'
+        ? rawPurpose
+        : 'login';
     if (!isValidPhone(phone)) {
       return res.status(400).json({ error: 'ژمارەی مۆبایل دروست نییە (07xxxxxxxxx)' });
     }
     const row = await store.getAuthByPhone(phone);
+    if (purpose === 'change_phone') {
+      const header = req.headers.authorization || '';
+      const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+      if (!token) {
+        return res.status(401).json({ error: 'تکایە بچۆ ژوورەوە' });
+      }
+      let auth;
+      try {
+        auth = jwt.verify(token, JWT_SECRET);
+      } catch {
+        return res.status(401).json({ error: 'کاتی چوونەژوورەوە بەسەرچوو' });
+      }
+      if (row && row.id !== auth.sub) {
+        return res.status(400).json({ error: 'ئەم ژمارەیە پێشتر تۆمارکراوە' });
+      }
+      const currentUser = await read('users', auth.sub);
+      const currentPhone = normalizePhone(currentUser?.phone || '');
+      if (currentPhone && currentPhone === phone) {
+        return res.status(400).json({ error: 'ئەمە هەمان ژمارەی ئێستاتە' });
+      }
+      const sent = await sendPhoneOtp(phone, 'change_phone');
+      return res.json({ ok: true, channel: sent.channel });
+    }
     if (purpose === 'signup') {
       if (row) {
         return res.status(400).json({ error: 'ئەم ژمارەیە پێشتر تۆمارکراوە' });
@@ -644,6 +681,61 @@ app.get('/api/auth/me', authRequired, async (req, res) => {
   res.json({ user });
 });
 
+app.delete('/api/auth/me', authRequired, async (req, res) => {
+  try {
+    const userId = req.auth.sub;
+    const user = await read('users', userId);
+    if (!user) return res.status(404).json({ error: 'هەژمارەکە نەدۆزرایەوە' });
+    if (user.role === 'admin' || req.auth.role === 'admin') {
+      return res.status(403).json({
+        error: 'هەژماری ئەدمین ناتوانرێت لە ئەپەکە بسڕدرێتەوە',
+      });
+    }
+
+    const [orders, products, notifications] = await Promise.all([
+      all('orders'),
+      all('products'),
+      all('notifications'),
+    ]);
+    for (const order of orders) {
+      if (order.userId === userId || order.shopOwnerId === userId) {
+        await store.deleteDoc('orders', order.id);
+      }
+    }
+    for (const product of products) {
+      if (product.shopOwnerId === userId) {
+        await store.deleteDoc('products', product.id);
+      }
+    }
+    for (const notification of notifications) {
+      if (
+        notification.targetUserId === userId ||
+        notification.shopOwnerId === userId
+      ) {
+        await store.deleteDoc('notifications', notification.id);
+      }
+    }
+
+    const addresses = await all(`addresses:${userId}`);
+    for (const address of addresses) {
+      await store.deleteDoc(`addresses:${userId}`, address.id);
+    }
+    await store.deleteDoc('users', userId);
+    await store.deleteOtp(user.phone, 'change_phone');
+    await store.deleteOtp(user.phone, 'login');
+    await store.deleteOtp(user.phone, 'signup');
+    await store.deleteOtp(user.phone, 'reset');
+    await store.deleteResetCode(user.phone);
+    await store.deleteAuth(userId);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Account deletion failed:', err);
+    res.status(500).json({
+      error: 'نەتوانرا هەژمارەکەت بسڕدرێتەوە — تکایە دواتر هەوڵ بدەرەوە',
+    });
+  }
+});
+
 app.patch('/api/auth/me', authRequired, async (req, res) => {
   const body = req.body || {};
   const patch = {};
@@ -659,12 +751,30 @@ app.patch('/api/auth/me', authRequired, async (req, res) => {
     if (!isValidPhone(phone)) {
       return res.status(400).json({ error: 'ژمارەی مۆبایل دروست نییە (07xxxxxxxxx)' });
     }
-    const existing = await store.getAuthByPhone(phone);
-    if (existing && existing.id !== req.auth.sub) {
-      return res.status(400).json({ error: 'ئەم ژمارەیە پێشتر تۆمارکراوە' });
+    const currentUser = await read('users', req.auth.sub);
+    const currentPhone = normalizePhone(currentUser?.phone || '');
+    if (phone !== currentPhone) {
+      const phoneCode = String(req.body?.phoneCode || req.body?.code || '').trim();
+      if (!/^\d{6}$/.test(phoneCode)) {
+        return res.status(400).json({
+          error: 'بۆ گۆڕینی ژمارە، کۆدی پشتڕاستکردنەوە پێویستە',
+        });
+      }
+      const otp = await store.getOtp(phone, 'change_phone');
+      if (!otp || otp.code !== phoneCode || otp.expires_at < Date.now()) {
+        return res.status(401).json({ error: 'کۆد نادروستە یان بەسەرچووە' });
+      }
+      const existing = await store.getAuthByPhone(phone);
+      if (existing && existing.id !== req.auth.sub) {
+        return res.status(400).json({ error: 'ئەم ژمارەیە پێشتر تۆمارکراوە' });
+      }
+      await store.deleteOtp(phone, 'change_phone');
+      await store.updateAuthPhone(req.auth.sub, phone);
+      patch.phone = phone;
+      patch.phoneVerified = true;
+    } else {
+      delete patch.phone;
     }
-    await store.updateAuthPhone(req.auth.sub, phone);
-    patch.phone = phone;
   }
   const user = await merge('users', req.auth.sub, patch);
   res.json({ user: publicUser(user) });

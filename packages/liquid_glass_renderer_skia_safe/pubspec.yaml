@@ -1,0 +1,14 @@
+name: liquid_glass_renderer
+description: Skia-safe stub for liquid_glass_renderer (no GLSL shaders; uses backdrop blur).
+version: 0.2.0-dev.4
+publish_to: none
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.32.4"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:

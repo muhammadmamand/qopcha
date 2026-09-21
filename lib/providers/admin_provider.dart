@@ -75,6 +75,25 @@ final adminPendingOrdersProvider = Provider<List<OrderModel>>((ref) {
       );
 });
 
+/// Cleared when admin opens the orders inbox / notifications sheet.
+final adminPendingOrdersSeenAtProvider = StateProvider<DateTime?>((ref) => null);
+
+/// Live count of pending orders (for screen copy / stats).
 final adminPendingOrdersCountProvider = Provider<int>((ref) {
   return ref.watch(adminPendingOrdersProvider).length;
 });
+
+/// Badge count — only pending orders newer than last visit.
+final adminUnseenPendingOrdersCountProvider = Provider<int>((ref) {
+  final pending = ref.watch(adminPendingOrdersProvider);
+  final seenAt = ref.watch(adminPendingOrdersSeenAtProvider);
+  if (seenAt == null) return pending.length;
+  return pending.where((o) {
+    final stamp = o.lastStatusAt;
+    return stamp.isAfter(seenAt);
+  }).length;
+});
+
+void markAdminPendingOrdersSeen(WidgetRef ref) {
+  ref.read(adminPendingOrdersSeenAtProvider.notifier).state = DateTime.now();
+}

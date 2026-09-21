@@ -160,9 +160,13 @@ class ApiClient {
     });
   }
 
-  Stream<T> poll<T>(Future<T> Function() fetch) async* {
+  Stream<T> poll<T>(
+    Future<T> Function() fetch, {
+    Duration? interval,
+  }) async* {
     yield await fetch();
-    yield* Stream.periodic(ApiConfig.pollInterval).asyncMap((_) => fetch());
+    yield* Stream.periodic(interval ?? ApiConfig.pollInterval)
+        .asyncMap((_) => fetch());
   }
 
   Map<String, dynamic> _decode(http.Response res) {

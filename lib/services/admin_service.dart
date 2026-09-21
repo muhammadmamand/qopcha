@@ -118,12 +118,16 @@ class AdminService {
   }
 
   Stream<AppContentModel> watchAppContent() {
-    return _api.poll(() async {
-      final data = await _api.getJson('/api/content');
-      final raw = data['content'];
-      if (raw is! Map || raw.isEmpty) return AppContentModel.defaults();
-      return AppContentModel.fromJson(Map<String, dynamic>.from(raw));
-    });
+    // Faster poll so legal/home copy from admin shows in the app quickly.
+    return _api.poll(
+      () async {
+        final data = await _api.getJson('/api/content');
+        final raw = data['content'];
+        if (raw is! Map || raw.isEmpty) return AppContentModel.defaults();
+        return AppContentModel.fromJson(Map<String, dynamic>.from(raw));
+      },
+      interval: const Duration(seconds: 2),
+    );
   }
 
   Future<void> saveAppContent(AppContentModel content) async {

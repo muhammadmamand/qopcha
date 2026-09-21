@@ -39,6 +39,8 @@ class ProductModel {
   final String material;
   final String brand;
   final List<String> imageUrls;
+  /// Color name → image URLs for that color. Empty map = use [imageUrls] only.
+  final Map<String, List<String>> colorImages;
   final List<SizeStock> sizeStocks;
   /// `clothing` (default) or `fabric`. Missing on old docs → clothing.
   final String productType;
@@ -77,6 +79,7 @@ class ProductModel {
     required this.material,
     required this.brand,
     required this.imageUrls,
+    this.colorImages = const {},
     required this.sizeStocks,
     this.productType = ProductKind.clothing,
     this.fabricType = '',
@@ -202,6 +205,17 @@ class ProductModel {
 
   double get salePrice => salePriceFor(null);
 
+  /// Gallery images for [color]. Falls back to [imageUrls] when unset/empty.
+  List<String> imagesForColor(String? color) {
+    if (color != null && color.trim().isNotEmpty) {
+      final mapped = colorImages[color.trim()];
+      if (mapped != null && mapped.isNotEmpty) {
+        return mapped.where((u) => u.trim().isNotEmpty).toList();
+      }
+    }
+    return imageUrls.where((u) => u.trim().isNotEmpty).toList();
+  }
+
   List<String> get availableSizes =>
       sizeStocks.where((s) => s.quantity > 0).map((s) => s.size).toList();
 
@@ -217,6 +231,7 @@ class ProductModel {
     String? material,
     String? brand,
     List<String>? imageUrls,
+    Map<String, List<String>>? colorImages,
     List<SizeStock>? sizeStocks,
     String? productType,
     String? fabricType,
@@ -248,6 +263,7 @@ class ProductModel {
       material: material ?? this.material,
       brand: brand ?? this.brand,
       imageUrls: imageUrls ?? this.imageUrls,
+      colorImages: colorImages ?? this.colorImages,
       sizeStocks: sizeStocks ?? this.sizeStocks,
       productType: productType ?? this.productType,
       fabricType: fabricType ?? this.fabricType,
@@ -283,6 +299,9 @@ class ProductModel {
         'material': material,
         'brand': brand,
         'imageUrls': imageUrls,
+        'colorImages': colorImages.map(
+          (key, value) => MapEntry(key, value),
+        ),
         'sizeStocks': sizeStocks.map((s) => s.toJson()).toList(),
         'productType': productType,
         'fabricType': fabricType,
@@ -314,6 +333,25 @@ class ProductModel {
       colors = const ['ڕەش'];
     }
 
+    final colorImagesRaw = json['colorImages'];
+    final Map<String, List<String>> colorImages = {};
+    if (colorImagesRaw is Map) {
+      for (final entry in colorImagesRaw.entries) {
+        final key = entry.key.toString().trim();
+        if (key.isEmpty) continue;
+        final value = entry.value;
+        if (value is List) {
+          final urls = value
+              .map((e) => e.toString().trim())
+              .where((u) => u.isNotEmpty)
+              .toList();
+          if (urls.isNotEmpty) colorImages[key] = urls;
+        } else if (value is String && value.trim().isNotEmpty) {
+          colorImages[key] = [value.trim()];
+        }
+      }
+    }
+
     return ProductModel(
       id: json['id'] as String,
       shopOwnerId: json['shopOwnerId'] as String,
@@ -326,6 +364,7 @@ class ProductModel {
       material: json['material'] as String,
       brand: json['brand'] as String,
       imageUrls: List<String>.from(json['imageUrls'] as List),
+      colorImages: colorImages,
       sizeStocks: (json['sizeStocks'] as List? ?? [])
           .map((s) => SizeStock.fromJson(s as Map<String, dynamic>))
           .toList(),

@@ -1,4 +1,6 @@
-﻿import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:async';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,6 +37,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _phoneOtpController = TextEditingController();
   final _locationDetailsController = TextEditingController();
   final _shopNameController = TextEditingController();
   final _shopDescriptionController = TextEditingController();
@@ -49,6 +52,10 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   String _avatarValue = ProfileAvatars.defaultOption.storageValue;
   bool _isDetectingLocation = false;
   bool _didLoadUser = false;
+  String _originalPhone = '';
+  bool _otpSending = false;
+  int _otpCooldownSecs = 0;
+  Timer? _otpCooldownTimer;
   String? _shopLogoUrl;
   String? _shopCoverUrl;
   Uint8List? _pendingLogoBytes;
@@ -62,6 +69,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   void initState() {
     super.initState();
     _nameController.addListener(() => setState(() {}));
+    _phoneController.addListener(() => setState(() {}));
+    _phoneOtpController.addListener(() => setState(() {}));
   }
 
   @override
@@ -75,7 +84,10 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   void _hydrateFromUser(UserModel? user) {
     final parsed = KurdistanLocations.parse(user?.location);
     _nameController.text = user?.name ?? '';
-    _phoneController.text = user?.phone ?? '';
+    final phone = user?.phone ?? '';
+    _phoneController.text = phone;
+    _originalPhone = PhoneUtils.normalize(phone);
+    _phoneOtpController.clear();
     _city = parsed.city;
     _neighborhood = parsed.neighborhood;
     _placeHint = user?.location;
@@ -98,10 +110,17 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _shopCoverUrl = user?.shopCoverUrl;
   }
 
+  bool get _phoneChanged {
+    final next = PhoneUtils.normalize(_phoneController.text);
+    return next.isNotEmpty && next != _originalPhone;
+  }
+
   @override
   void dispose() {
+    _otpCooldownTimer?.cancel();
     _nameController.dispose();
     _phoneController.dispose();
+    _phoneOtpController.dispose();
     _locationDetailsController.dispose();
     _shopNameController.dispose();
     _shopDescriptionController.dispose();
@@ -152,8 +171,102 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     }
   }
 
+  Future<void> _sendPhoneChangeOtp() async {
+    final phoneError = PhoneUtils.validate(_phoneController.text);
+    if (phoneError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(phoneError, style: const TextStyle(fontFamily: AppTheme.fontFamily)),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    if (!_phoneChanged) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'ئەمە هەمان ژمارەی ئێستاتە',
+            style: TextStyle(fontFamily: AppTheme.fontFamily),
+          ),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    if (_otpCooldownSecs > 0 || _otpSending) return;
+
+    HapticFeedback.selectionClick();
+    setState(() => _otpSending = true);
+    final error = await ref
+        .read(authProvider.notifier)
+        .sendChangePhoneOtp(_phoneController.text.trim());
+    if (!mounted) return;
+    setState(() => _otpSending = false);
+
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error.replaceFirst('Exception: ', ''),
+            style: const TextStyle(fontFamily: AppTheme.fontFamily),
+          ),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    _otpCooldownTimer?.cancel();
+    setState(() => _otpCooldownSecs = 45);
+    _otpCooldownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      if (_otpCooldownSecs <= 1) {
+        t.cancel();
+        setState(() => _otpCooldownSecs = 0);
+      } else {
+        setState(() => _otpCooldownSecs -= 1);
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'کۆد نێردرا بۆ ژمارە نوێیەکە (واتساپ یان SMS)',
+          style: TextStyle(fontFamily: AppTheme.fontFamily),
+        ),
+        backgroundColor: AppColors.brand,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (_phoneChanged) {
+      final code = _phoneOtpController.text.trim();
+      if (!RegExp(r'^\d{6}$').hasMatch(code)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'بۆ گۆڕینی ژمارە، کۆدی ٦ ژمارەیی بنووسە',
+              style: TextStyle(fontFamily: AppTheme.fontFamily),
+            ),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+    }
+
     HapticFeedback.lightImpact();
 
     final user = ref.read(currentUserProvider);
@@ -204,7 +317,10 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     );
 
     final success =
-        await ref.read(authProvider.notifier).updateProfile(updatedUser);
+        await ref.read(authProvider.notifier).updateProfile(
+              updatedUser,
+              phoneCode: _phoneChanged ? _phoneOtpController.text.trim() : null,
+            );
     if (!mounted) return;
 
     if (success) {
@@ -562,6 +678,79 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                         style: _valueStyle,
                         decoration: _filledDecoration(hint: '07xxxxxxxxx'),
                       ),
+                      if (_phoneChanged) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          'بۆ گۆڕینی ژمارە، کۆد دەنێردرێت بۆ ژمارە نوێیەکە',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 12.5,
+                            color: AppColors.textSecondary,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _phoneOtpController,
+                                keyboardType: TextInputType.number,
+                                textDirection: TextDirection.ltr,
+                                maxLength: 6,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
+                                style: _valueStyle,
+                                decoration: _filledDecoration(
+                                  hint: 'کۆدی ٦ ژمارەیی',
+                                ).copyWith(counterText: ''),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            SizedBox(
+                              height: 52,
+                              child: FilledButton(
+                                onPressed: (_otpSending || _otpCooldownSecs > 0)
+                                    ? null
+                                    : _sendPhoneChangeOtp,
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: AppColors.brand,
+                                  foregroundColor: Colors.white,
+                                  disabledBackgroundColor: AppColors.brand
+                                      .withValues(alpha: 0.45),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                child: _otpSending
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Text(
+                                        _otpCooldownSecs > 0
+                                            ? '${_otpCooldownSecs}s'
+                                            : 'ناردنی کۆد',
+                                        style: TextStyle(
+                                          fontFamily: AppTheme.fontFamily,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 22),

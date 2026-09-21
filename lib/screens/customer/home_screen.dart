@@ -12,15 +12,16 @@ import '../../core/utils/hero_tags.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notifications_provider.dart';
 import '../../providers/product_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../providers/shell_navigation_provider.dart';
 import '../../widgets/category_chips.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/home_search_field.dart';
-import '../../widgets/language_switcher.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/profile_avatar.dart';
 import '../../widgets/promo_banner.dart';
 import '../../widgets/special_discount_banner.dart';
+import '../../widgets/telegram_theme_reveal.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -33,12 +34,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode();
   final _scrollController = ScrollController();
+  bool _searchOpen = false;
 
   @override
   void initState() {
     super.initState();
     final existing = ref.read(searchQueryProvider);
-    if (existing.isNotEmpty) _searchController.text = existing;
+    if (existing.isNotEmpty) {
+      _searchController.text = existing;
+      _searchOpen = true;
+    }
   }
 
   @override
@@ -59,9 +64,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  void _toggleSearch() {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _searchOpen = !_searchOpen;
+      if (_searchOpen) {
+        Future.microtask(() => _searchFocus.requestFocus());
+      } else {
+        _searchFocus.unfocus();
+      }
+    });
+  }
+
   void _setQuery(String value) {
     ref.read(searchQueryProvider.notifier).state = value;
     setState(() {});
+  }
+
+  Future<void> _toggleTheme(BuildContext buttonContext) async {
+    HapticFeedback.selectionClick();
+    final themeMode = ref.read(appSettingsProvider).themeMode;
+    final platformBrightness = MediaQuery.platformBrightnessOf(context);
+    final isDarkMode = switch (themeMode) {
+      ThemeMode.dark => true,
+      ThemeMode.light => false,
+      ThemeMode.system => platformBrightness == Brightness.dark,
+    };
+    final next = isDarkMode ? ThemeMode.light : ThemeMode.dark;
+    final reveal = TelegramThemeReveal.of(context);
+    if (reveal == null) {
+      await ref.read(appSettingsProvider.notifier).setThemeMode(next);
+      return;
+    }
+    await reveal.reveal(
+      center: TelegramThemeReveal.centerFrom(buttonContext),
+      reverse: isDarkMode,
+      onThemeChange: () {
+        ref.read(appSettingsProvider.notifier).setThemeMode(next);
+      },
+    );
   }
 
   void _clearAll() {
@@ -160,6 +201,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final selectedCategory = ref.watch(selectedCategoryProvider);
     final allProductsAsync = ref.watch(productsProvider);
     final notifBadge = ref.watch(totalNotificationBadgeProvider);
+    final themeMode = ref.watch(appSettingsProvider.select((s) => s.themeMode));
+    final platformBrightness = MediaQuery.platformBrightnessOf(context);
+    final isDarkMode = switch (themeMode) {
+      ThemeMode.dark => true,
+      ThemeMode.light => false,
+      ThemeMode.system => platformBrightness == Brightness.dark,
+    };
 
     final categoryOptions = <String>[
       'هەموو',
@@ -216,14 +264,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     guestLabel: s.guest,
                     avatarUrl: user?.avatarUrl,
                     notificationCount: notifBadge,
-                    showLanguageSwitcher: user == null,
+                    searchActive: _searchOpen,
+                    isDarkMode: isDarkMode,
                     onProfileTap: () => context.go('/profile'),
                     onNotificationsTap: () => context.push('/notifications'),
+                    onSearchTap: _toggleSearch,
+                    onThemeTap: _toggleTheme,
                     onTitleTap: _scrollToTop,
                   ),
                 ),
               ),
             ),
+            if (_searchOpen)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
+                  child: HomeSearchField(
+                    controller: _searchController,
+                    focusNode: _searchFocus,
+                    onChanged: _setQuery,
+                    onClear: () {
+                      _searchController.clear();
+                      _setQuery('');
+                    },
+                    onFilterTap: _openFilterSheet,
+                  )
+                      .animate()
+                      .fadeIn(duration: 280.ms)
+                      .slideY(begin: -0.08, curve: Curves.easeOutCubic),
+                ),
+              ),
             if (user?.hasUnreadApprovalNotice == true)
               const SliverToBoxAdapter(
                 child: Padding(
@@ -233,32 +303,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             const SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(8, 20, 8, 8),
+                padding: EdgeInsets.fromLTRB(10, 14, 10, 2),
                 child: PromoBanner(),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 4, 18, 8),
-                child: HomeSearchField(
-                  controller: _searchController,
-                  focusNode: _searchFocus,
-                  onChanged: _setQuery,
-                  onClear: () {
-                    _searchController.clear();
-                    _setQuery('');
-                  },
-                  onFilterTap: _openFilterSheet,
-                )
-                    .animate()
-                    .fadeIn(duration: 380.ms)
-                    .slideY(begin: 0.04, curve: Curves.easeOutCubic),
               ),
             ),
             if (user != null && user.hasSpecialDiscount)
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 4, 18, 8),
+                  padding: const EdgeInsets.fromLTRB(18, 10, 18, 2),
                   child: SpecialDiscountBanner(
                     productPercent: user.productDiscountPercent,
                     deliveryPercent: user.deliveryDiscountPercent,
@@ -268,13 +320,65 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.only(top: 8, bottom: 12),
-                child: CategoryChips(
-                  selected: selectedCategory,
-                  categories: categoryOptions,
-                  onSelected: (cat) {
-                    ref.read(selectedCategoryProvider.notifier).state = cat;
-                  },
+                padding: const EdgeInsets.fromLTRB(20, 22, 20, 12),
+                child: Text(
+                  s.categories,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.35,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: CategoryChips(
+                selected: selectedCategory,
+                categories: categoryOptions,
+                onSelected: (cat) {
+                  ref.read(selectedCategoryProvider.notifier).state = cat;
+                },
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        s.latestProducts,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.35,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    if (_searchController.text.trim().isNotEmpty ||
+                        selectedCategory != 'هەموو')
+                      TextButton(
+                        onPressed: _clearAll,
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.brand,
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          s.clearAllFilters,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -297,12 +401,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   );
                 }
                 return SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(14, 4, 14, 120),
+                  padding: const EdgeInsets.fromLTRB(14, 2, 14, 120),
                   sliver: SliverGrid(
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
-                          childAspectRatio: 0.54,
+                          childAspectRatio: 0.58,
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 14,
                         ),
@@ -579,9 +683,12 @@ class _Header extends StatelessWidget {
   final String guestLabel;
   final String? avatarUrl;
   final int notificationCount;
-  final bool showLanguageSwitcher;
+  final bool searchActive;
+  final bool isDarkMode;
   final VoidCallback onProfileTap;
   final VoidCallback onNotificationsTap;
+  final VoidCallback onSearchTap;
+  final void Function(BuildContext buttonContext) onThemeTap;
   final VoidCallback? onTitleTap;
 
   const _Header({
@@ -589,16 +696,19 @@ class _Header extends StatelessWidget {
     required this.guestLabel,
     required this.avatarUrl,
     required this.notificationCount,
-    this.showLanguageSwitcher = false,
+    this.searchActive = false,
+    required this.isDarkMode,
     required this.onProfileTap,
     required this.onNotificationsTap,
+    required this.onSearchTap,
+    required this.onThemeTap,
     this.onTitleTap,
   });
 
   @override
   Widget build(BuildContext context) {
     // Kurdish/Arabic RTL: profile + names on the start (right),
-    // notification bell on the end (left).
+    // actions on the end (left).
     return Row(
       children: [
         GestureDetector(
@@ -609,7 +719,7 @@ class _Header extends StatelessWidget {
               ProfileAvatar(
                 name: name,
                 avatarValue: avatarUrl,
-                size: 44,
+                size: 46,
                 showBorder: true,
               ),
               const SizedBox(width: 12),
@@ -624,22 +734,22 @@ class _Header extends StatelessWidget {
                       AppConstants.appName,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        fontSize: 20,
+                        fontSize: 22,
                         fontWeight: FontWeight.w900,
                         color: AppColors.brand,
-                        letterSpacing: -0.4,
-                        height: 1.1,
+                        letterSpacing: -0.5,
+                        height: 1.05,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
                       name.trim().isEmpty
                           ? guestLabel
                           : name.trim().split(' ').first,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.textSecondary,
                       ),
                     ),
@@ -650,10 +760,22 @@ class _Header extends StatelessWidget {
           ),
         ),
         const Spacer(),
-        if (showLanguageSwitcher) ...[
-          const LanguageSwitcherButton(),
-          const SizedBox(width: 8),
-        ],
+        Builder(
+          builder: (btnCtx) => _HeaderActionButton(
+            icon: isDarkMode
+                ? Icons.light_mode_rounded
+                : Icons.dark_mode_rounded,
+            active: false,
+            onTap: () => onThemeTap(btnCtx),
+          ),
+        ),
+        const SizedBox(width: 8),
+        _HeaderActionButton(
+          icon: searchActive ? Icons.close_rounded : Icons.search_rounded,
+          active: searchActive,
+          onTap: onSearchTap,
+        ),
+        const SizedBox(width: 8),
         Material(
           color: Colors.transparent,
           child: InkWell(
@@ -665,6 +787,9 @@ class _Header extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.surfaceVariant,
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.border.withValues(alpha: 0.55),
+                ),
               ),
               child: Stack(
                 clipBehavior: Clip.none,
@@ -674,7 +799,7 @@ class _Header extends StatelessWidget {
                     notificationCount > 0
                         ? Icons.notifications_active_rounded
                         : Icons.notifications_none_rounded,
-                    size: 24,
+                    size: 22,
                     color: notificationCount > 0
                         ? AppColors.highlight
                         : AppColors.brand,
@@ -707,6 +832,56 @@ class _Header extends StatelessWidget {
         .animate()
         .fadeIn(duration: AppAnimations.normal, curve: AppAnimations.smooth)
         .slideY(begin: -0.06, curve: AppAnimations.smooth);
+  }
+}
+
+class _HeaderActionButton extends StatelessWidget {
+  final IconData icon;
+  final bool active;
+  final VoidCallback onTap;
+
+  const _HeaderActionButton({
+    required this.icon,
+    required this.active,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Ink(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: active ? AppColors.brand : AppColors.surfaceVariant,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: active
+                  ? AppColors.brand.withValues(alpha: 0.35)
+                  : AppColors.border.withValues(alpha: 0.55),
+            ),
+            boxShadow: active
+                ? [
+                    BoxShadow(
+                      color: AppColors.brand.withValues(alpha: 0.28),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Icon(
+            icon,
+            size: 21,
+            color: active ? AppColors.onBrand : AppColors.brand,
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -1,0 +1,1 @@
+import{$ as e,D as t,X as n,d as r,h as i}from"./index-79RekhUR.js";var a=e(n(),1);function o(e){let[n,o]=(0,a.useState)([]),[s,c]=(0,a.useState)(!0),[l,u]=(0,a.useState)(null);return(0,a.useEffect)(()=>(c(!0),t(e,e=>{o(e.docs.map(e=>i(e))),u(null),c(!1)},e=>{u(r(e)),c(!1)})),[e]),{data:n,loading:s,error:l}}export{o as t};

@@ -26,18 +26,18 @@ class CategoryChips extends ConsumerWidget {
     final items = categories ?? AppConstants.categories;
     final idleCircle = AppColors.isDark
         ? AppColors.surfaceVariant
-        : const Color(0xFFF2F4F5);
+        : const Color(0xFFF4F7F7);
     final idleIcon = AppColors.isDark
         ? AppColors.textSecondary
         : const Color(0xFF2C3A3C);
 
     return SizedBox(
-      height: 96,
+      height: 102,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 18),
         itemCount: items.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 14),
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
           final category = items[index];
           final isSelected = category == selected;
@@ -48,19 +48,43 @@ class CategoryChips extends ConsumerWidget {
                 onTap: () => onSelected(category),
                 behavior: HitTestBehavior.opaque,
                 child: SizedBox(
-                  width: 68,
+                  width: 72,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       AnimatedContainer(
-                        duration: const Duration(milliseconds: 260),
+                        duration: const Duration(milliseconds: 280),
                         curve: Curves.easeOutCubic,
-                        width: 58,
-                        height: 58,
+                        width: 62,
+                        height: 62,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: isSelected ? AppColors.brand : idleCircle,
+                          gradient: isSelected ? AppColors.accentGradient : null,
+                          color: isSelected ? null : idleCircle,
                           shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSelected
+                                ? AppColors.brand.withValues(alpha: 0.35)
+                                : AppColors.border.withValues(alpha: 0.55),
+                            width: 1.2,
+                          ),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: AppColors.brand.withValues(alpha: 0.28),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ]
+                              : [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(
+                                      alpha: AppColors.isDark ? 0.18 : 0.04,
+                                    ),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
                         ),
                         child: CategoryFilterIcon(
                           category: category,
@@ -68,7 +92,7 @@ class CategoryChips extends ConsumerWidget {
                           size: 26,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 9),
                       AnimatedDefaultTextStyle(
                         duration: const Duration(milliseconds: 220),
                         style: TextStyle(
@@ -76,7 +100,7 @@ class CategoryChips extends ConsumerWidget {
                           fontSize: 12,
                           height: 1.15,
                           fontWeight:
-                              isSelected ? FontWeight.w700 : FontWeight.w500,
+                              isSelected ? FontWeight.w800 : FontWeight.w500,
                           color: isSelected
                               ? AppColors.brand
                               : AppColors.textSecondary,

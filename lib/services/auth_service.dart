@@ -11,6 +11,8 @@ class AuthService {
   final _api = ApiClient.instance;
   UserModel? _cached;
 
+  UserModel? get currentUser => _cached;
+
   Stream<UserModel?> watchCurrentUser() {
     return _api.poll(_loadCurrent);
   }
@@ -97,6 +99,18 @@ class AuthService {
     });
   }
 
+  /// WhatsApp OTP to verify a new phone before changing profile number.
+  Future<void> sendChangePhoneOtp(String phone) async {
+    final normalized = PhoneUtils.normalize(phone);
+    if (!PhoneUtils.isValid(normalized)) {
+      throw Exception('ژمارەی مۆبایل دروست نییە (07xxxxxxxxx)');
+    }
+    await _api.postJson('/api/auth/otp/send', {
+      'phone': normalized,
+      'purpose': 'change_phone',
+    });
+  }
+
   Future<UserModel> login({
     required String phone,
     required String password,
@@ -162,9 +176,9 @@ class AuthService {
 
   Future<UserModel> bootstrapAdminIfAllowed(UserModel user) async {
     if (user.isAdmin) return user;
-    if (!AdminSecurity.isAllowedAdminEmail(user.email)) {
+    if (!AdminSecurity.isAllowedAdminPhone(user.phone)) {
       throw Exception(
-        'ئەم هەژمارە مۆڵەتی ئەدمینی نییە. تەنها admin@qopcha.com دەتوانێت بچێتە ژوورەوە.',
+        'ئەم ژمارەیە مۆڵەتی ئەدمینی نییە. تەنها ${AdminSecurity.primaryPhone} دەتوانێت بچێتە ژوورەوە.',
       );
     }
     return user;
@@ -208,12 +222,18 @@ class AuthService {
     await _api.setToken(null);
   }
 
+  Future<void> deleteAccount() async {
+    await _api.delete('/api/auth/me');
+    _cached = null;
+    await _api.setToken(null);
+  }
+
   Future<UserModel?> getUserById(String id) async {
     if (_cached?.id == id) return _cached;
     return _loadCurrent();
   }
 
-  Future<void> updateProfile(UserModel user) async {
+  Future<void> updateProfile(UserModel user, {String? phoneCode}) async {
     final data = user.toJson();
     data.remove('productDiscountPercent');
     data.remove('deliveryDiscountPercent');
@@ -223,6 +243,10 @@ class AuthService {
     data.remove('approvalStatus');
     data.remove('rejectionReason');
     data.remove('shopTier');
+    final code = phoneCode?.trim() ?? '';
+    if (code.isNotEmpty) {
+      data['phoneCode'] = code;
+    }
     final res = await _api.patchJson('/api/auth/me', data);
     _cached = _user(res['user']) ?? user;
   }

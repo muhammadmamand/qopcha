@@ -169,8 +169,8 @@ Future<void> _openSupportSheet(BuildContext context, WidgetRef ref) async {
           !hasContact && !hasSocial
               ? s.noSupportYet
               : hours.isNotEmpty
-                  ? s.workingHours(hours)
-                  : s.socialMedia,
+              ? s.workingHours(hours)
+              : s.socialMedia,
           style: const TextStyle(fontFamily: AppTheme.fontFamily),
         ),
         actions: actions,
@@ -358,6 +358,57 @@ class ProfileScreen extends ConsumerWidget {
       if (context.mounted) context.go('/home');
     }
 
+    Future<void> deleteAccount() async {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppColors.sheet,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Text(
+            s.deleteAccount,
+            style: const TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          content: Text(
+            s.deleteAccountConfirm,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(s.no),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: TextButton.styleFrom(foregroundColor: AppColors.error),
+              child: Text(s.deleteAccount),
+            ),
+          ],
+        ),
+      );
+      if (ok != true) return;
+      try {
+        await ref.read(authProvider.notifier).deleteAccount();
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(s.deleteAccountSuccess)));
+        context.go('/home');
+      } catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+
     void soon() {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -407,157 +458,159 @@ class ProfileScreen extends ConsumerWidget {
           ),
           physics: const BouncingScrollPhysics(),
           children: [
-              Row(
-                children: [
-                  Text(
-                    s.myProfile,
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 26,
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.textPrimary,
-                      letterSpacing: -0.3,
-                    ),
+            Row(
+              children: [
+                Text(
+                  s.myProfile,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.textPrimary,
+                    letterSpacing: -0.3,
                   ),
-                  const Spacer(),
-                  Builder(
-                    builder: (btnCtx) => _HeaderIcon(
-                      icon: isDarkMode
-                          ? Icons.light_mode_outlined
-                          : Icons.dark_mode_outlined,
-                      onTap: () => toggleTheme(btnCtx),
-                    ),
+                ),
+                const Spacer(),
+                Builder(
+                  builder: (btnCtx) => _HeaderIcon(
+                    icon: isDarkMode
+                        ? Icons.light_mode_outlined
+                        : Icons.dark_mode_outlined,
+                    onTap: () => toggleTheme(btnCtx),
                   ),
-                  const SizedBox(width: 8),
-                  _HeaderIcon(
-                    icon: Icons.settings_outlined,
-                    onTap: () => context.push('/settings'),
-                  ),
-                ],
-              ).animate().fadeIn(duration: 350.ms),
-              const SizedBox(height: 20),
-              _ProfileHeader(
-                    user: user,
-                    editLabel: s.editProfile,
-                    preferredSizeLabel: user.isCustomer &&
-                            (user.preferredSize ?? '').trim().isNotEmpty
-                        ? s.preferredSize(user.preferredSize!.trim())
-                        : null,
-                    onEdit: () {
-                      HapticFeedback.selectionClick();
-                      context.push('/settings/edit-profile');
-                    },
-                  )
-                  .animate()
-                  .fadeIn(delay: 40.ms, duration: 400.ms)
-                  .slideY(begin: 0.04, curve: Curves.easeOutCubic),
-              if (user.hasMapPin) ...[
-                const SizedBox(height: 14),
-                LocationMapPreview(
-                      latitude: user.latitude!,
-                      longitude: user.longitude!,
-                      caption: user.location?.trim().isNotEmpty == true
-                          ? user.location
-                          : s.deliveryPlace,
-                    )
-                    .animate()
-                    .fadeIn(delay: 80.ms, duration: 400.ms)
-                    .slideY(begin: 0.04, curve: Curves.easeOutCubic),
-              ] else if ((user.location ?? '').trim().isNotEmpty) ...[
-                const SizedBox(height: 14),
-                _LocationTextCard(
-                  location: user.location!.trim(),
-                  deliveryLabel: s.deliveryPlace,
-                  onEdit: () => context.push('/settings/edit-profile'),
+                ),
+                const SizedBox(width: 8),
+                _HeaderIcon(
+                  icon: Icons.settings_outlined,
+                  onTap: () => context.push('/settings'),
                 ),
               ],
-              const SizedBox(height: 16),
-              _OrdersCard(
-                    pending: pending,
-                    confirmed: confirmed,
-                    shipped: shipped,
-                    delivered: delivered,
-                    returned: returned,
-                    title: s.myOrders,
-                    seeAllLabel: s.seeAll,
-                    pendingLabel: s.orderPending,
-                    confirmedLabel: s.orderConfirmed,
-                    shippedLabel: s.orderShipped,
-                    deliveredLabel: s.orderDelivered,
-                    returnedLabel: s.orderReturned,
-                    onViewAll: () => context.go('/orders'),
-                    onOpenTab: (tab) => context.go('/orders?tab=$tab'),
+            ).animate().fadeIn(duration: 350.ms),
+            const SizedBox(height: 20),
+            _ProfileHeader(
+                  user: user,
+                  editLabel: s.editProfile,
+                  preferredSizeLabel:
+                      user.isCustomer &&
+                          (user.preferredSize ?? '').trim().isNotEmpty
+                      ? s.preferredSize(user.preferredSize!.trim())
+                      : null,
+                  onEdit: () {
+                    HapticFeedback.selectionClick();
+                    context.push('/settings/edit-profile');
+                  },
+                )
+                .animate()
+                .fadeIn(delay: 40.ms, duration: 400.ms)
+                .slideY(begin: 0.04, curve: Curves.easeOutCubic),
+            if (user.hasMapPin) ...[
+              const SizedBox(height: 14),
+              LocationMapPreview(
+                    latitude: user.latitude!,
+                    longitude: user.longitude!,
+                    caption: user.location?.trim().isNotEmpty == true
+                        ? user.location
+                        : s.deliveryPlace,
                   )
                   .animate()
                   .fadeIn(delay: 80.ms, duration: 400.ms)
                   .slideY(begin: 0.04, curve: Curves.easeOutCubic),
+            ] else if ((user.location ?? '').trim().isNotEmpty) ...[
               const SizedBox(height: 14),
-              _MenuCard(
-                    items: [
-                      _MenuEntry(
-                        icon: Icons.person_outline_rounded,
-                        title: s.personalInfo,
-                        onTap: () => context.push('/settings/edit-profile'),
-                      ),
-                      _MenuEntry(
-                        icon: Icons.location_on_outlined,
-                        title: s.addresses,
-                        onTap: () => context.push('/settings/addresses'),
-                      ),
-                      if (user.isCustomer)
-                        _MenuEntry(
-                          icon: Icons.straighten_rounded,
-                          title: s.bodyMeasurements,
-                          onTap: () => context.push('/settings/measurements'),
-                        ),
-                      _MenuEntry(
-                        icon: Icons.credit_card_outlined,
-                        title: s.paymentMethods,
-                        onTap: () => context.push('/settings/payment-methods'),
-                      ),
-                      _MenuEntry(
-                        icon: favoritesCount > 0
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_border_rounded,
-                        title: s.myFavorites,
-                        onTap: () => context.push('/favorites'),
-                        badge: favoritesCount,
-                        pulseHeart: favoritesCount > 0,
-                      ),
-                      _MenuEntry(
-                        icon: Icons.star_border_rounded,
-                        title: s.myReviews,
-                        onTap: soon,
-                      ),
-                      _MenuEntry(
-                        icon: Icons.local_offer_outlined,
-                        title: s.discounts,
-                        onTap: () => context.go('/discounts'),
-                      ),
-                      _MenuEntry(
-                        icon: Icons.headset_mic_outlined,
-                        title: s.helpSupport,
-                        onTap: () => _openSupportSheet(context, ref),
-                      ),
-                      _MenuEntry(
-                        icon: Icons.logout_rounded,
-                        title: s.logout,
-                        onTap: () {
-                          HapticFeedback.mediumImpact();
-                          logout();
-                        },
-                        isLogout: true,
-                      ),
-                    ],
-                  )
-                  .animate()
-                  .fadeIn(delay: 160.ms, duration: 400.ms)
-                  .slideY(begin: 0.04, curve: Curves.easeOutCubic),
+              _LocationTextCard(
+                location: user.location!.trim(),
+                deliveryLabel: s.deliveryPlace,
+                onEdit: () => context.push('/settings/edit-profile'),
+              ),
             ],
-          ),
+            const SizedBox(height: 16),
+            _OrdersCard(
+                  pending: pending,
+                  confirmed: confirmed,
+                  shipped: shipped,
+                  delivered: delivered,
+                  returned: returned,
+                  title: s.myOrders,
+                  seeAllLabel: s.seeAll,
+                  pendingLabel: s.orderPending,
+                  confirmedLabel: s.orderConfirmed,
+                  shippedLabel: s.orderShipped,
+                  deliveredLabel: s.orderDelivered,
+                  returnedLabel: s.orderReturned,
+                  onViewAll: () => context.go('/orders'),
+                  onOpenTab: (tab) => context.go('/orders?tab=$tab'),
+                )
+                .animate()
+                .fadeIn(delay: 80.ms, duration: 400.ms)
+                .slideY(begin: 0.04, curve: Curves.easeOutCubic),
+            const SizedBox(height: 14),
+            _MenuCard(
+                  items: [
+                    _MenuEntry(
+                      icon: Icons.person_outline_rounded,
+                      title: s.personalInfo,
+                      onTap: () => context.push('/settings/edit-profile'),
+                    ),
+                    _MenuEntry(
+                      icon: Icons.location_on_outlined,
+                      title: s.addresses,
+                      onTap: () => context.push('/settings/addresses'),
+                    ),
+                    if (user.isCustomer)
+                      _MenuEntry(
+                        icon: Icons.straighten_rounded,
+                        title: s.bodyMeasurements,
+                        onTap: () => context.push('/settings/measurements'),
+                      ),
+                    _MenuEntry(
+                      icon: favoritesCount > 0
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      title: s.myFavorites,
+                      onTap: () => context.push('/favorites'),
+                      badge: favoritesCount,
+                      pulseHeart: favoritesCount > 0,
+                    ),
+                    _MenuEntry(
+                      icon: Icons.star_border_rounded,
+                      title: s.myReviews,
+                      onTap: soon,
+                    ),
+                    _MenuEntry(
+                      icon: Icons.local_offer_outlined,
+                      title: s.discounts,
+                      onTap: () => context.go('/discounts'),
+                    ),
+                    _MenuEntry(
+                      icon: Icons.headset_mic_outlined,
+                      title: s.helpSupport,
+                      onTap: () => _openSupportSheet(context, ref),
+                    ),
+                    _MenuEntry(
+                      icon: Icons.logout_rounded,
+                      title: s.logout,
+                      onTap: () {
+                        HapticFeedback.mediumImpact();
+                        logout();
+                      },
+                      isLogout: true,
+                    ),
+                    _MenuEntry(
+                      icon: Icons.delete_outline_rounded,
+                      title: s.deleteAccount,
+                      onTap: deleteAccount,
+                      isLogout: true,
+                    ),
+                  ],
+                )
+                .animate()
+                .fadeIn(delay: 160.ms, duration: 400.ms)
+                .slideY(begin: 0.04, curve: Curves.easeOutCubic),
+          ],
         ),
-      );
-    }
+      ),
+    );
+  }
 }
 
 class _LocationTextCard extends StatelessWidget {

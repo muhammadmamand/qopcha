@@ -26,6 +26,7 @@ class ProductCard extends ConsumerWidget {
   /// one is actually applied. Used on the discounts page.
   final bool showDiscountBreakdown;
   final bool showDiscountBadge;
+  final bool showFavorite;
 
   const ProductCard({
     super.key,
@@ -37,6 +38,7 @@ class ProductCard extends ConsumerWidget {
     this.heroTag,
     this.showDiscountBreakdown = false,
     this.showDiscountBadge = true,
+    this.showFavorite = true,
   });
 
   @override
@@ -109,15 +111,17 @@ class ProductCard extends ConsumerWidget {
                       ),
                     ),
                   ),
-                Positioned(
-                  top: 8,
-                  left: 8,
-                  child: _FavoriteButton(
-                    isFavorite: isFavorite,
-                    onTap: () =>
-                        ref.read(favoritesProvider.notifier).toggle(product.id),
+                if (showFavorite)
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: _FavoriteButton(
+                      isFavorite: isFavorite,
+                      onTap: () => ref
+                          .read(favoritesProvider.notifier)
+                          .toggle(product.id),
+                    ),
                   ),
-                ),
                 if (showDiscountBadge &&
                     product.hasDiscountFor(
                       customerId,
@@ -135,7 +139,7 @@ class ProductCard extends ConsumerWidget {
                       color: AppColors.highlight,
                     ),
                   )
-                else if (product.isFabric)
+                else if (showDiscountBadge && product.isFabric)
                   Positioned(
                     top: 8,
                     right: 8,

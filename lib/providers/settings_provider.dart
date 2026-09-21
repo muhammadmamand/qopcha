@@ -60,7 +60,7 @@ class AppSettingsState {
   final bool isLoaded;
 
   const AppSettingsState({
-    this.themeMode = ThemeMode.system,
+    this.themeMode = ThemeMode.light,
     this.colorTheme = AppColorTheme.teal,
     this.language = AppLanguage.kurdish,
     this.notificationsEnabled = true,
@@ -137,7 +137,7 @@ class AppSettingsNotifier extends StateNotifier<AppSettingsState> {
 
     state = state.copyWith(
       themeMode: themeIndex == null
-          ? ThemeMode.system
+          ? ThemeMode.light
           : ThemeMode.values[themeIndex],
       colorTheme: colorTheme,
       language: AppLanguage.fromCode(lang),

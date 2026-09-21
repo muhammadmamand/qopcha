@@ -170,10 +170,13 @@ class _AdminContentScreenState extends ConsumerState<AdminContentScreen>
       );
       await ref.read(adminServiceProvider).saveAppContent(content);
       if (!mounted) return;
+      _docStamp = content.updatedAt.toIso8601String();
+      _hydrated = true;
+      ref.invalidate(appContentProvider);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'ناوەڕۆک پاشەکەوت کرا',
+            'ناوەڕۆک پاشەکەوت کرا — لە ئەپدا دەردەکەوێت',
             style: TextStyle(fontFamily: AppTheme.fontFamily),
           ),
           backgroundColor: AppColors.brand,
@@ -292,7 +295,7 @@ class _AdminContentScreenState extends ConsumerState<AdminContentScreen>
                         label: 'مەرجەکان',
                         controller: _terms,
                         maxLines: 10,
-                        hint: 'مەرجەکانی بەکارهێنان',
+                        hint: 'مەرجەکانی بەکارهێنان — دوای پاشەکەوت لە ئەپدا دەردەکەوێت',
                       ),
                       _FieldCard(
                         label: 'سیاسەتی پاراستن',

@@ -18,27 +18,26 @@ class AdminLoginScreen extends ConsumerStatefulWidget {
 
 class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _email = TextEditingController(text: AdminSecurity.primaryEmail);
+  final _phone = TextEditingController(text: AdminSecurity.primaryPhone);
   final _password = TextEditingController();
-  final _emailFocus = FocusNode();
+  final _phoneFocus = FocusNode();
   final _passwordFocus = FocusNode();
 
   bool _obscure = true;
 
   @override
   void dispose() {
-    _email.dispose();
+    _phone.dispose();
     _password.dispose();
-    _emailFocus.dispose();
+    _phoneFocus.dispose();
     _passwordFocus.dispose();
     super.dispose();
   }
 
   Future<void> _login() async {
-    // Clear invisible RTL/bidi marks that make allowlist checks fail.
-    final cleaned = AdminSecurity.normalizeEmail(_email.text);
-    if (_email.text != cleaned) {
-      _email.value = TextEditingValue(
+    final cleaned = AdminSecurity.normalizePhone(_phone.text);
+    if (_phone.text != cleaned) {
+      _phone.value = TextEditingValue(
         text: cleaned,
         selection: TextSelection.collapsed(offset: cleaned.length),
       );
@@ -220,12 +219,12 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                                   crossAxisAlignment:
                                       CrossAxisAlignment.stretch,
                                   children: [
-                                    _Label('ئیمەیڵی ئەدمین'),
+                                    _Label('ژمارەی مۆبایل'),
                                     const SizedBox(height: 8),
                                     TextFormField(
-                                      controller: _email,
-                                      focusNode: _emailFocus,
-                                      keyboardType: TextInputType.emailAddress,
+                                      controller: _phone,
+                                      focusNode: _phoneFocus,
+                                      keyboardType: TextInputType.phone,
                                       textDirection: TextDirection.ltr,
                                       textInputAction: TextInputAction.next,
                                       onFieldSubmitted: (_) =>
@@ -236,21 +235,19 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                                         fontWeight: FontWeight.w600,
                                       ),
                                       decoration: _lightFieldDecoration(
-                                        hint: AdminSecurity.primaryEmail,
-                                        icon: Icons.mail_outline_rounded,
+                                        hint: AdminSecurity.primaryPhone,
+                                        icon: Icons.phone_iphone_rounded,
                                       ),
                                       validator: (v) {
-                                        final email =
-                                            AdminSecurity.normalizeEmail(v);
-                                        if (email.isEmpty) {
-                                          return 'ئیمەیڵ بنووسە';
+                                        final phone =
+                                            AdminSecurity.normalizePhone(v);
+                                        if (phone.isEmpty) {
+                                          return 'ژمارەی مۆبایل بنووسە';
                                         }
-                                        if (!email.contains('@') ||
-                                            !email.contains('.')) {
-                                          return 'ئیمەیڵی دروست بنووسە';
+                                        if (!RegExp(r'^07[0-9]{9}$')
+                                            .hasMatch(phone)) {
+                                          return 'ژمارەی دروست بنووسە (07xxxxxxxxx)';
                                         }
-                                        // Allowlist is enforced after API login;
-                                        // only require a normal email shape here.
                                         return null;
                                       },
                                     ),

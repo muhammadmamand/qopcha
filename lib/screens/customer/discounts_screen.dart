@@ -56,8 +56,6 @@ class DiscountsScreen extends ConsumerWidget {
             .toList()
           ..sort((a, b) => percentOf(b).compareTo(percentOf(a)));
 
-    final topPercent =
-        discounted.isEmpty ? 0.0 : percentOf(discounted.first);
     final hasAnyDiscount = discounted.isNotEmpty ||
         personalDiscount > 0 ||
         deliveryDiscount > 0;
@@ -107,19 +105,7 @@ class DiscountsScreen extends ConsumerWidget {
                         slivers: [
                           SliverToBoxAdapter(
                             child: Padding(
-                              padding: const EdgeInsets.fromLTRB(18, 0, 18, 4),
-                              child: _ActiveDiscountsPanel(
-                                strings: s,
-                                productCount: discounted.length,
-                                productPercent: topPercent,
-                                personalPercent: personalDiscount,
-                                deliveryPercent: deliveryDiscount,
-                              ),
-                            ),
-                          ),
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(18, 22, 18, 10),
+                              padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
                               child: _SectionTitle(
                                 title: s.discountedProducts,
                                 trailing: discounted.isEmpty
@@ -154,7 +140,7 @@ class DiscountsScreen extends ConsumerWidget {
                                   crossAxisCount: 2,
                                   mainAxisSpacing: 14,
                                   crossAxisSpacing: 12,
-                                  childAspectRatio: 0.55,
+                                  childAspectRatio: 0.62,
                                 ),
                                 delegate: SliverChildBuilderDelegate(
                                   (context, index) {
@@ -167,7 +153,9 @@ class DiscountsScreen extends ConsumerWidget {
                                     return ProductCard(
                                       product: product,
                                       heroTag: tag,
-                                      showDiscountBreakdown: true,
+                                      showDiscountBreakdown: false,
+                                      showDiscountBadge: false,
+                                      showFavorite: false,
                                       onTap: () => context.push(
                                         '/product/${product.id}',
                                         extra: tag,
@@ -295,171 +283,6 @@ class _DiscountsHeader extends StatelessWidget {
         .animate()
         .fadeIn(duration: AppAnimations.normal, curve: AppAnimations.smooth)
         .slideY(begin: -0.06, curve: AppAnimations.smooth);
-  }
-}
-
-class _ActiveDiscountsPanel extends StatelessWidget {
-  final AppStrings strings;
-  final int productCount;
-  final double productPercent;
-  final double personalPercent;
-  final double deliveryPercent;
-
-  const _ActiveDiscountsPanel({
-    required this.strings,
-    required this.productCount,
-    required this.productPercent,
-    required this.personalPercent,
-    required this.deliveryPercent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final s = strings;
-    return Column(
-      children: [
-        if (personalPercent > 0)
-          _TypeCard(
-            icon: Icons.workspace_premium_rounded,
-            color: AppColors.brand,
-            title: s.personalDiscount,
-            value: '${personalPercent.round()}٪',
-            subtitle: s.personalDiscountSub,
-            note: s.personalDiscountNote,
-          ),
-        if (personalPercent > 0 &&
-            (deliveryPercent > 0 || productCount > 0 || productPercent > 0))
-          const SizedBox(height: 10),
-        if (deliveryPercent > 0)
-          _TypeCard(
-            icon: Icons.local_shipping_rounded,
-            color: AppColors.success,
-            title: s.deliveryDiscount,
-            value: '${deliveryPercent.round()}٪',
-            subtitle: s.deliveryDiscountSub,
-          ),
-        if (deliveryPercent > 0 &&
-            (productCount > 0 || productPercent > 0))
-          const SizedBox(height: 10),
-        if (productCount > 0 || productPercent > 0)
-          _TypeCard(
-            icon: Icons.sell_rounded,
-            color: AppColors.highlight,
-            title: s.productOffer,
-            value: productPercent > 0
-                ? s.upToPercent(productPercent.round())
-                : '$productCount',
-            subtitle: productCount > 0
-                ? s.productsWithOwnOffer(productCount)
-                : s.productOfferActive,
-          ),
-      ],
-    )
-        .animate()
-        .fadeIn(duration: AppAnimations.normal, curve: AppAnimations.smooth)
-        .slideY(begin: 0.04, curve: AppAnimations.smooth);
-  }
-}
-
-class _TypeCard extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String value;
-  final String subtitle;
-  final String? note;
-
-  const _TypeCard({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.value,
-    required this.subtitle,
-    this.note,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.22)),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: AppColors.isDark ? 0.18 : 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: 11.5,
-                    height: 1.35,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                if (note != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    note!,
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 10.5,
-                      height: 1.35,
-                      color: AppColors.textTertiary,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            value,
-            textDirection: TextDirection.ltr,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              height: 1,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

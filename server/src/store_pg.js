@@ -51,6 +51,10 @@ function createPgStore(connectionString) {
       return rows[0] || null;
     },
 
+    async deleteAuth(id) {
+      await pool.query('DELETE FROM auth WHERE id = $1', [id]);
+    },
+
     async insertAuth(row) {
       await pool.query(
         'INSERT INTO auth (id, phone, email, password_hash) VALUES ($1, $2, $3, $4)',

@@ -24,6 +24,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./uploads:/app/uploads
+      - ./secrets:/app/secrets:ro
     ports:
       - '8080:8080'
     depends_on:

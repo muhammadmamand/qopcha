@@ -30,7 +30,7 @@ const links = [
   { to: '/admin/reports', label: 'ڕاپۆرتەکان', icon: LayoutDashboard, group: 'فرۆشتن' },
   { to: '/admin/products', label: 'بەرهەمەکان', icon: Boxes, group: 'کاتالۆگ' },
   { to: '/admin/discounts', label: 'داشکاندن', icon: BadgePercent, group: 'کاتالۆگ' },
-  { to: '/admin/banners', label: 'بانەرەکان', icon: Image, group: 'ناوەڕۆک' },
+  { to: '/admin/banners', label: 'ڕیکلامەکان', icon: Image, group: 'ناوەڕۆک' },
   { to: '/admin/content', label: 'ناوەڕۆک', icon: FileText, group: 'ناوەڕۆک' },
 ]
 
@@ -77,7 +77,7 @@ function Sidebar({
   onNavigate?: () => void
 }) {
   const { logout, user } = useAuth()
-  const initial = (user?.email ?? 'A').trim().slice(0, 1).toUpperCase()
+  const initial = (user?.phone ?? user?.name ?? 'A').trim().slice(0, 1).toUpperCase()
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden">
@@ -159,7 +159,9 @@ function Sidebar({
               {initial}
             </span>
             <div className="min-w-0">
-              <p className="truncate text-xs font-bold text-white">{user?.email}</p>
+              <p className="truncate text-xs font-bold text-white" dir="ltr">
+                {user?.phone || user?.name || 'ئەدمین'}
+              </p>
               <p className="mt-0.5 text-[10px] text-white/45">بەڕێوەبەری سیستەم</p>
             </div>
           </div>

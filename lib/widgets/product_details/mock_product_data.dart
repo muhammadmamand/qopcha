@@ -3,7 +3,14 @@ import 'package:flutter/material.dart';
 class MockColorOption {
   final String name;
   final Color color;
-  const MockColorOption({required this.name, required this.color});
+  /// Optional product photo for this color (shown in the swatch).
+  final String? imageUrl;
+
+  const MockColorOption({
+    required this.name,
+    required this.color,
+    this.imageUrl,
+  });
 }
 
 class MockRelatedProduct {

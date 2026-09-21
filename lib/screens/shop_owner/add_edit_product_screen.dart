@@ -66,6 +66,8 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
   bool _isLoading = false;
   bool _isPickingImage = false;
   final List<String> _images = [];
+  /// Per-color gallery (color name → local/remote image paths).
+  final Map<String, List<String>> _colorImages = {};
   final _imageStorage = ImageStorageService();
   final _picker = ImagePicker();
 
@@ -106,6 +108,13 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       _images
         ..clear()
         ..addAll(product.imageUrls);
+      _colorImages
+        ..clear()
+        ..addAll(
+          product.colorImages.map(
+            (key, value) => MapEntry(key, List<String>.from(value)),
+          ),
+        );
       if (product.isFabric) {
         _category = AppConstants.fabricCategory;
       } else {
@@ -192,7 +201,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     super.dispose();
   }
 
-  Future<void> _pickImages(ImageSource source) async {
+  Future<void> _pickImages(ImageSource source, {String? forColor}) async {
     if (_isPickingImage) return;
     setState(() => _isPickingImage = true);
     try {
@@ -202,7 +211,13 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
         for (final file in files) {
           final saved = await _imageStorage.persistPickedImage(file.path);
           if (!mounted) return;
-          setState(() => _images.add(saved));
+          setState(() {
+            if (forColor == null) {
+              _images.add(saved);
+            } else {
+              (_colorImages[forColor] ??= <String>[]).add(saved);
+            }
+          });
         }
       } else {
         final file = await _picker.pickImage(
@@ -212,7 +227,13 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
         if (file == null) return;
         final saved = await _imageStorage.persistPickedImage(file.path);
         if (!mounted) return;
-        setState(() => _images.add(saved));
+        setState(() {
+          if (forColor == null) {
+            _images.add(saved);
+          } else {
+            (_colorImages[forColor] ??= <String>[]).add(saved);
+          }
+        });
       }
     } catch (_) {
       if (!mounted) return;
@@ -222,7 +243,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     }
   }
 
-  void _addImageFromUrl() {
+  void _addImageFromUrl({String? forColor}) {
     final url = _imageUrlController.text.trim();
     if (url.isEmpty) return;
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -230,13 +251,50 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       return;
     }
     setState(() {
-      _images.add(url);
+      if (forColor == null) {
+        _images.add(url);
+      } else {
+        (_colorImages[forColor] ??= <String>[]).add(url);
+      }
       _imageUrlController.clear();
     });
   }
 
   void _removeImage(int index) {
     setState(() => _images.removeAt(index));
+  }
+
+  void _removeColorImage(String color, int index) {
+    setState(() {
+      final list = _colorImages[color];
+      if (list == null) return;
+      list.removeAt(index);
+      if (list.isEmpty) _colorImages.remove(color);
+    });
+  }
+
+  void _toggleColor(String color, bool selected) {
+    setState(() {
+      if (selected) {
+        if (_selectedColors.length > 1) {
+          _selectedColors.remove(color);
+          _colorImages.remove(color);
+        }
+      } else {
+        _selectedColors.add(color);
+      }
+    });
+  }
+
+  Map<String, List<String>> _colorImagesForSave() {
+    final out = <String, List<String>>{};
+    for (final color in _selectedColors) {
+      final list = _colorImages[color];
+      if (list == null || list.isEmpty) continue;
+      final urls = list.where((u) => u.trim().isNotEmpty).toList();
+      if (urls.isNotEmpty) out[color] = urls;
+    }
+    return out;
   }
 
   void _addCustomColor() {
@@ -394,6 +452,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       material: _materialController.text.trim(),
       brand: _brandController.text.trim(),
       imageUrls: List<String>.from(_images),
+      colorImages: _colorImagesForSave(),
       sizeStocks: sizeStocks,
       productType: _isFabric ? ProductKind.fabric : ProductKind.clothing,
       fabricType: _isFabric ? _fabricType : '',
@@ -869,17 +928,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                             return _ChoiceChip(
                               label: color,
                               selected: selected,
-                              onTap: () {
-                                setState(() {
-                                  if (selected) {
-                                    if (_selectedColors.length > 1) {
-                                      _selectedColors.remove(color);
-                                    }
-                                  } else {
-                                    _selectedColors.add(color);
-                                  }
-                                });
-                              },
+                              onTap: () => _toggleColor(color, selected),
                             )
                                 .animate()
                                 .fadeIn(delay: (25 * e.key).ms)
@@ -907,7 +956,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'لە مۆبایل وێنە هەڵبژێرە یان لینک زیاد بکە',
+                          'وێنەی گشتی (سەرەکی بۆ لیستەکان)',
                           style: TextStyle(
                             fontSize: 12,
                             color: AppColors.textTertiary,
@@ -1076,6 +1125,156 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                             ),
                           ],
                         ),
+                        if (_selectedColors.isNotEmpty) ...[
+                          const SizedBox(height: 22),
+                          Text(
+                            'وێنە بەپێی ڕەنگ',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'بۆ هەر ڕەنگێک وێنەی ئەو ڕەنگە زیاد بکە — کڕیار کاتێک ڕەنگ هەڵدەبژێرێت ئەو وێنانە دەبینێت',
+                            style: TextStyle(
+                              fontSize: 12,
+                              height: 1.4,
+                              color: AppColors.textTertiary,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ..._selectedColors.map((color) {
+                            final list = _colorImages[color] ?? const <String>[];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surface,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: AppColors.border),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            color,
+                                            style: TextStyle(
+                                              fontFamily: AppTheme.fontFamily,
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 13.5,
+                                              color: AppColors.textPrimary,
+                                            ),
+                                          ),
+                                        ),
+                                        Text(
+                                          list.isEmpty
+                                              ? 'هیچ وێنەیەک'
+                                              : '${list.length} وێنە',
+                                          style: TextStyle(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.textTertiary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    if (list.isNotEmpty) ...[
+                                      const SizedBox(height: 10),
+                                      SizedBox(
+                                        height: 72,
+                                        child: ListView.separated(
+                                          scrollDirection: Axis.horizontal,
+                                          itemCount: list.length,
+                                          separatorBuilder: (_, _) =>
+                                              const SizedBox(width: 8),
+                                          itemBuilder: (context, index) {
+                                            return Stack(
+                                              children: [
+                                                ClipRRect(
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  child: ProductImage(
+                                                    path: list[index],
+                                                    width: 72,
+                                                    height: 72,
+                                                  ),
+                                                ),
+                                                Positioned(
+                                                  top: 4,
+                                                  left: 4,
+                                                  child: Material(
+                                                    color: Colors.black54,
+                                                    shape: const CircleBorder(),
+                                                    child: InkWell(
+                                                      customBorder:
+                                                          const CircleBorder(),
+                                                      onTap: () =>
+                                                          _removeColorImage(
+                                                        color,
+                                                        index,
+                                                      ),
+                                                      child: const Padding(
+                                                        padding:
+                                                            EdgeInsets.all(3),
+                                                        child: Icon(
+                                                          Icons.close_rounded,
+                                                          size: 14,
+                                                          color: Colors.white,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: _ImagePickButton(
+                                            icon: Icons.photo_library_rounded,
+                                            label: 'گەلەری',
+                                            onTap: _isPickingImage
+                                                ? null
+                                                : () => _pickImages(
+                                                      ImageSource.gallery,
+                                                      forColor: color,
+                                                    ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: _ImagePickButton(
+                                            icon: Icons.photo_camera_rounded,
+                                            label: 'کامێرا',
+                                            onTap: _isPickingImage
+                                                ? null
+                                                : () => _pickImages(
+                                                      ImageSource.camera,
+                                                      forColor: color,
+                                                    ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
                       ],
                     ),
                   ),

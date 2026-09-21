@@ -31,7 +31,12 @@ class LegalDocumentScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(stringsProvider);
     final lang = ref.watch(appSettingsProvider.select((st) => st.language));
-    final content = ref.watch(resolvedAppContentProvider);
+    // Live Contabo CMS — rebuilds when admin saves About / Terms / Privacy.
+    final contentAsync = ref.watch(appContentProvider);
+    final content = contentAsync.maybeWhen(
+      data: (c) => c.withDefaults(),
+      orElse: () => AppContentModel.defaults(),
+    );
     final aboutContent = LegalAboutContent(lang);
     final title = switch (kind) {
       LegalDocumentKind.about => s.aboutUs,
@@ -49,10 +54,13 @@ class LegalDocumentScreen extends ConsumerWidget {
       LegalDocumentKind.privacy => content.privacyBody,
     };
     final fallback = _fallbackBody(s, kind);
+    // Prefer admin CMS text whenever it differs from empty/default baked copy.
+    // Terms always come from admin CMS (or short fallback).
     final useBuiltInAbout = kind == LegalDocumentKind.about &&
         !_hasCustomAboutBody(content.aboutBody);
     final useBuiltInPrivacy = kind == LegalDocumentKind.privacy &&
         !_hasCustomPrivacyBody(content.privacyBody);
+    final displayText = body.trim().isNotEmpty ? body.trim() : fallback;
 
     return Scaffold(
       backgroundColor: SpatialScene.backgroundColor,
@@ -120,7 +128,7 @@ class LegalDocumentScreen extends ConsumerWidget {
                     )
                   else
                     _LegalTextCard(
-                      text: body.trim().isNotEmpty ? body.trim() : fallback,
+                      text: displayText,
                     )
                         .animate()
                         .fadeIn(duration: AppAnimations.normal)
@@ -140,6 +148,7 @@ class LegalDocumentScreen extends ConsumerWidget {
   static bool _hasCustomAboutBody(String body) {
     final trimmed = body.trim();
     if (trimmed.isEmpty) return false;
+    // Any admin-saved about text (including short CMS) replaces the built-in page.
     return trimmed != AppContentModel.defaults().aboutBody;
   }
 

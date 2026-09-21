@@ -49,6 +49,10 @@ function createStore(dataDir) {
     getAuthById(id) {
       return state.auth[id] || null;
     },
+    deleteAuth(id) {
+      delete state.auth[id];
+      save();
+    },
     insertAuth(row) {
       state.auth[row.id] = row;
       save();

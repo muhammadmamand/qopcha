@@ -16,6 +16,19 @@ migrate_working_dir/
 server/.env
 server/data/
 server/uploads/
+server/secrets/
+*firebase-adminsdk*.json
+*serviceAccount*.json
+*serviceAccountKey*.json
+
+# Android Play Store signing (never commit)
+android/key.properties
+android/UPLOAD_KEY_BACKUP.txt
+android/app/upload-keystore.jks
+*.jks
+*.keystore
+
+
 !server/data/.gitkeep
 !server/uploads/.gitkeep
 server/node_modules/

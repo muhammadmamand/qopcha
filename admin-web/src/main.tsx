@@ -6,9 +6,14 @@ import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthContext.tsx'
 import { ThemeProvider } from './contexts/ThemeContext.tsx'
 
+const basename =
+  import.meta.env.BASE_URL === '/'
+    ? undefined
+    : import.meta.env.BASE_URL.replace(/\/$/, '')
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <ThemeProvider>
         <AuthProvider>
           <App />

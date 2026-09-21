@@ -168,30 +168,34 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Dedicated admin console login. Rejects non-admins and non-allowlisted emails.
-  Future<bool> loginAsAdmin(String email, String password) async {
+  /// Dedicated admin console login (phone + password).
+  Future<bool> loginAsAdmin(String phone, String password) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      if (!AdminSecurity.isAllowedAdminEmail(email)) {
+      final normalized = AdminSecurity.normalizePhone(phone);
+      if (!AdminSecurity.isAllowedAdminPhone(normalized)) {
         state = state.copyWith(
           isLoading: false,
           error:
-              'ئەم هەژمارە مۆڵەتی ئەدمینی نییە. بە ${AdminSecurity.primaryEmail} بچۆ ژوورەوە.',
+              'ئەم ژمارەیە مۆڵەتی ئەدمینی نییە. بە ${AdminSecurity.primaryPhone} بچۆ ژوورەوە.',
         );
         return false;
       }
 
-      var user = await _authService.loginWithEmail(email: email, password: password);
+      var user = await _authService.login(
+        phone: normalized,
+        password: password,
+      );
       if (!user.isAdmin) {
         user = await _authService.bootstrapAdminIfAllowed(user);
       }
 
-      if (!user.isAdmin || !AdminSecurity.isAllowedAdminEmail(user.email)) {
+      if (!user.isAdmin || !AdminSecurity.isAllowedAdminPhone(user.phone)) {
         await _authService.logout();
         state = AuthState(
           isLoading: false,
           error:
-              'ئەم هەژمارە مۆڵەتی ئەدمینی نییە. بە ${AdminSecurity.primaryEmail} بچۆ ژوورەوە.',
+              'ئەم ژمارەیە مۆڵەتی ئەدمینی نییە. بە ${AdminSecurity.primaryPhone} بچۆ ژوورەوە.',
         );
         return false;
       }
@@ -267,6 +271,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// Send OTP to a new phone number before updating profile.
+  Future<String?> sendChangePhoneOtp(String phone) async {
+    try {
+      await _authService.sendChangePhoneOtp(phone);
+      return null;
+    } catch (e) {
+      return e.toString().replaceFirst('Exception: ', '');
+    }
+  }
+
   Future<void> logout() async {
     try {
       await PushNotificationService.instance.clearForLogout();
@@ -275,12 +289,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = const AuthState();
   }
 
-  Future<bool> updateProfile(UserModel user) async {
+  Future<void> deleteAccount() async {
+    try {
+      await PushNotificationService.instance.clearForLogout();
+    } catch (_) {}
+    await _authService.deleteAccount();
+    state = const AuthState();
+  }
+
+  Future<bool> updateProfile(UserModel user, {String? phoneCode}) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      await _authService.updateProfile(user);
+      await _authService.updateProfile(user, phoneCode: phoneCode);
       state = AuthState(
-        user: user,
+        user: _authService.currentUser ?? user,
         isLoading: false,
         emailVerified: _authService.isEmailVerified,
       );
@@ -306,8 +328,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       var msg = e.toString();
       msg = msg.replaceFirst(RegExp(r'^Exception:\s*'), '');
       msg = msg.replaceFirst(RegExp(r'^\.'), '');
-      if (msg.toLowerCase().contains('internal error') ||
-          msg.trim().isEmpty) {
+      if (msg.toLowerCase().contains('internal error') || msg.trim().isEmpty) {
         return 'وشەی نهێنی ئێستات هەڵەیە';
       }
       return msg;
@@ -424,8 +445,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = AuthState(
       user: user.copyWith(
         orderTabsSeenAt: next,
-        lastDeliveredOrdersSeenAt:
-            keys.contains('delivered') ? now : user.lastDeliveredOrdersSeenAt,
+        lastDeliveredOrdersSeenAt: keys.contains('delivered')
+            ? now
+            : user.lastDeliveredOrdersSeenAt,
       ),
       isLoading: false,
       emailVerified: state.emailVerified,

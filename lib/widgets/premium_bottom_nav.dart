@@ -286,28 +286,28 @@ class PremiumBottomNav extends LiquidGlassTabBar {
           clipBehavior: Clip.none,
           children: [
             icon,
-            Positioned(
+                Positioned(
               right: -10,
               top: -8,
               child: Container(
                 constraints: const BoxConstraints(minWidth: 16),
                 padding: const EdgeInsets.symmetric(horizontal: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.highlight,
+      decoration: BoxDecoration(
+        color: AppColors.highlight,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: Colors.white.withValues(alpha: 0.9),
                     width: 1.2,
                   ),
-                ),
-                child: Text(
+      ),
+      child: Text(
                   badge > 99 ? '99+' : '$badge',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: Colors.white,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontFamily: AppTheme.fontFamily,
+          color: Colors.white,
                     fontSize: 9,
-                    fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w800,
                     height: 1.2,
                   ),
                 ),

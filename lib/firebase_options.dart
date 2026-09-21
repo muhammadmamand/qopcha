@@ -2,7 +2,7 @@ import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 
-/// From Firebase project "qopchaapp" (package: com.shikposh.shik_posh).
+/// From Firebase project "qopchaapp" (Android: com.shikposh.shik_posh · iOS: com.qopcha.Qopcha).
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {

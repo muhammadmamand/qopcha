@@ -3,7 +3,7 @@ class BannerModel {
   /// Matches [sliderHeight] at a typical phone width (~390dp).
   static const int recommendedWidthPx = 1080;
   static const int recommendedHeightPx = 980;
-  static const double sliderHeight = 340;
+  static const double sliderHeight = 420;
   static const double aspectRatio =
       recommendedWidthPx / recommendedHeightPx; // ≈ 1.10
 

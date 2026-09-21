@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../product_image.dart';
 import 'mock_product_data.dart';
 import 'pd_theme.dart';
 
 class ColorSelector extends StatelessWidget {
   final List<MockColorOption> colors;
   final ValueNotifier<int> selectedIndex;
+  final ValueChanged<int>? onColorSelected;
 
   const ColorSelector({
     super.key,
     required this.colors,
     required this.selectedIndex,
+    this.onColorSelected,
   });
 
   @override
@@ -46,61 +49,61 @@ class ColorSelector extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             Wrap(
-              spacing: 12,
-              runSpacing: 12,
+              spacing: 14,
+              runSpacing: 14,
               children: List.generate(colors.length, (i) {
                 final c = colors[i];
                 final selected = i == safeIndex;
                 final isLight = c.color.computeLuminance() > 0.72;
+                final hasPhoto =
+                    c.imageUrl != null && c.imageUrl!.trim().isNotEmpty;
 
-                // Outer ring keeps the selected swatch readable for both very
-                // light and very dark colors.
                 return GestureDetector(
                   onTap: () {
                     HapticFeedback.selectionClick();
                     selectedIndex.value = i;
+                    onColorSelected?.call(i);
                   },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 280),
                     curve: Curves.easeOutCubic,
-                    width: 44,
-                    height: 44,
-                    padding: const EdgeInsets.all(3),
+                    width: 56,
+                    height: 56,
+                    padding: const EdgeInsets.all(3.5),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: selected
-                          ? PdColors.primary.withValues(alpha: 0.14)
+                          ? PdColors.primary.withValues(alpha: 0.12)
                           : Colors.transparent,
                       border: Border.all(
                         color: selected
                             ? PdColors.primary
                             : PdColors.border.withValues(alpha: 0.9),
-                        width: selected ? 2 : 1,
+                        width: selected ? 2.4 : 1,
                       ),
                     ),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: c.color,
-                        border: isLight
-                            ? Border.all(
-                                color: PdColors.border.withValues(alpha: 0.9),
+                    child: ClipOval(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: hasPhoto ? Colors.transparent : c.color,
+                          border: !hasPhoto && isLight
+                              ? Border.all(
+                                  color: PdColors.border.withValues(alpha: 0.9),
+                                )
+                              : null,
+                        ),
+                        child: hasPhoto
+                            ? ProductImage(
+                                path: c.imageUrl!,
+                                fit: BoxFit.cover,
+                                width: 56,
+                                height: 56,
                               )
                             : null,
                       ),
-                      child: selected
-                          ? Center(
-                              child: Icon(
-                                Icons.check_rounded,
-                                size: 17,
-                                color: isLight
-                                    ? PdColors.primary
-                                    : Colors.white,
-                              ),
-                            )
-                          : null,
                     ),
                   ),
                 );

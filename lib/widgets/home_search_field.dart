@@ -132,21 +132,21 @@ class _HomeSearchFieldState extends ConsumerState<HomeSearchField>
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 240),
-      height: 56,
+      height: 52,
       padding: const EdgeInsetsDirectional.only(start: 14, end: 6),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: focused
-              ? accent.withValues(alpha: 0.45)
-              : AppColors.border.withValues(alpha: 0.65),
+              ? accent.withValues(alpha: 0.5)
+              : AppColors.border.withValues(alpha: 0.55),
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: AppColors.brand.withValues(alpha: focused ? 0.12 : 0.05),
+            blurRadius: focused ? 18 : 12,
+            offset: const Offset(0, 5),
           ),
         ],
       ),

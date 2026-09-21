@@ -25,6 +25,16 @@ class AdminShell extends ConsumerStatefulWidget {
 }
 
 class _AdminShellState extends ConsumerState<AdminShell> {
+  @override
+  void initState() {
+    super.initState();
+    // Dismiss any leftover orange snackbars from older builds.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).clearSnackBars();
+    });
+  }
+
   int _indexFor(String location) {
     if (location.startsWith('/admin/leaders')) return 1;
     if (location.startsWith('/admin/orders')) return 2;
@@ -44,44 +54,8 @@ class _AdminShellState extends ConsumerState<AdminShell> {
     final index = _indexFor(location);
     final pendingAccounts =
         ref.watch(pendingUsersProvider).valueOrNull?.length ?? 0;
-    final pendingOrders = ref.watch(adminPendingOrdersCountProvider);
+    final pendingOrders = ref.watch(adminUnseenPendingOrdersCountProvider);
     final bottom = MediaQuery.paddingOf(context).bottom;
-
-    ref.listen<int>(adminPendingOrdersCountProvider, (previous, next) {
-      if (previous == null) return;
-      if (next <= previous || !mounted) return;
-      final added = next - previous;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.notifications_active_rounded,
-                  color: Colors.white, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  added == 1
-                      ? 'داواکارییەکی نوێ هات'
-                      : '$added داواکاریی نوێ هات',
-                  style: const TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: AppColors.highlight,
-          behavior: SnackBarBehavior.floating,
-          action: SnackBarAction(
-            label: 'بینین',
-            textColor: Colors.white,
-            onPressed: () => context.go('/admin/orders'),
-          ),
-        ),
-      );
-    });
 
     void goTab(int i) {
       HapticFeedback.selectionClick();
@@ -1540,56 +1514,62 @@ class _BannerEditorSheetState extends State<_BannerEditorSheet> {
             const SizedBox(height: 12),
             const _BannerSizeGuide(),
             const SizedBox(height: 14),
-            AspectRatio(
-              aspectRatio: BannerModel.aspectRatio,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  color: AppColors.surfaceVariant,
-                  child: preview.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.aspect_ratio_rounded,
-                                color: AppColors.brand.withValues(alpha: 0.7),
-                                size: 28,
+            Align(
+              alignment: Alignment.center,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420, maxHeight: 220),
+                child: AspectRatio(
+                  aspectRatio: BannerModel.aspectRatio,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      color: AppColors.surfaceVariant,
+                      child: preview.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.aspect_ratio_rounded,
+                                    color: AppColors.brand.withValues(alpha: 0.7),
+                                    size: 28,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'وێنەی ڕیکلام',
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.fontFamily,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${BannerModel.recommendedWidthPx} × ${BannerModel.recommendedHeightPx}',
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.fontFamily,
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.brand,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'وێنەی ڕیکلام',
-                                style: TextStyle(
-                                  fontFamily: AppTheme.fontFamily,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textSecondary,
+                            )
+                          : CachedNetworkImage(
+                              imageUrl: preview,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: double.infinity,
+                              errorWidget: (_, _, _) => Center(
+                                child: Icon(
+                                  Icons.broken_image_outlined,
+                                  color: AppColors.textTertiary,
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${BannerModel.recommendedWidthPx} × ${BannerModel.recommendedHeightPx}',
-                                style: TextStyle(
-                                  fontFamily: AppTheme.fontFamily,
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppColors.brand,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : CachedNetworkImage(
-                          imageUrl: preview,
-                          fit: BoxFit.contain,
-                          width: double.infinity,
-                          height: double.infinity,
-                          errorWidget: (_, _, _) => Center(
-                            child: Icon(
-                              Icons.broken_image_outlined,
-                              color: AppColors.textTertiary,
                             ),
-                          ),
-                        ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -1668,11 +1648,6 @@ class _BannerEditorSheetState extends State<_BannerEditorSheet> {
             ),
             const SizedBox(height: 10),
             TextField(
-              controller: _cta,
-              decoration: const InputDecoration(labelText: 'دوگمە'),
-            ),
-            const SizedBox(height: 10),
-            TextField(
               controller: _tag,
               decoration: const InputDecoration(labelText: 'تاگ (AD / NEW)'),
             ),
@@ -1717,7 +1692,7 @@ class AdminHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final pendingOrders = showNotifications
-        ? ref.watch(adminPendingOrdersCountProvider)
+        ? ref.watch(adminUnseenPendingOrdersCountProvider)
         : 0;
 
     return Container(
@@ -1832,6 +1807,7 @@ class AdminHeader extends ConsumerWidget {
 }
 
 void showAdminOrderNotifications(BuildContext context, WidgetRef ref) {
+  markAdminPendingOrdersSeen(ref);
   final pending = ref.read(adminPendingOrdersProvider);
 
   showModalBottomSheet<void>(
@@ -2555,196 +2531,185 @@ class _BannerTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onEdit,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         child: Ink(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(color: const Color(0xFFE8EEEE)),
             boxShadow: [
               BoxShadow(
                 color: AppColors.brand.withValues(alpha: 0.06),
-                blurRadius: 22,
-                offset: const Offset(0, 10),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AspectRatio(
-                aspectRatio: BannerModel.aspectRatio,
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(23),
-                  ),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      ColoredBox(
-                        color: const Color(0xFFEFF5F5),
-                        child: hasImage
-                            ? CachedNetworkImage(
-                                imageUrl: banner.imageUrl,
-                                fit: BoxFit.contain,
-                                width: double.infinity,
-                                height: double.infinity,
-                                placeholder: (_, _) => Center(
-                                  child: SizedBox(
-                                    width: 28,
-                                    height: 28,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.4,
-                                      color: AppColors.brand
-                                          .withValues(alpha: 0.7),
-                                    ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: SizedBox(
+                    width: 96,
+                    height: 88,
+                    child: ColoredBox(
+                      color: const Color(0xFFEFF5F5),
+                      child: hasImage
+                          ? CachedNetworkImage(
+                              imageUrl: banner.imageUrl,
+                              fit: BoxFit.cover,
+                              width: 96,
+                              height: 88,
+                              placeholder: (_, _) => Center(
+                                child: SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.2,
+                                    color: AppColors.brand
+                                        .withValues(alpha: 0.7),
                                   ),
                                 ),
-                                errorWidget: (_, _, _) => Center(
-                                  child: Icon(
-                                    Icons.broken_image_outlined,
-                                    size: 36,
-                                    color: AppColors.textTertiary,
-                                  ),
-                                ),
-                              )
-                            : Center(
+                              ),
+                              errorWidget: (_, _, _) => Center(
                                 child: Icon(
-                                  Icons.image_outlined,
-                                  size: 40,
+                                  Icons.broken_image_outlined,
+                                  size: 28,
                                   color: AppColors.textTertiary,
                                 ),
                               ),
-                      ),
-                      Positioned(
-                        top: 12,
-                        right: 12,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: banner.active
-                                ? AppColors.success
-                                : AppColors.textTertiary,
-                            borderRadius: BorderRadius.circular(999),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.12),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
+                            )
+                          : Center(
+                              child: Icon(
+                                Icons.image_outlined,
+                                size: 30,
+                                color: AppColors.textTertiary,
                               ),
-                            ],
-                          ),
-                          child: Text(
-                            banner.active ? 'چالاک' : 'ناچالاک',
-                            style: const TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w900,
                             ),
-                          ),
-                        ),
-                      ),
-                      if (banner.tag.trim().isNotEmpty)
-                        Positioned(
-                          top: 12,
-                          left: 12,
-                          child: Container(
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
+                              horizontal: 8,
+                              vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.55),
+                              color: banner.active
+                                  ? AppColors.success
+                                  : AppColors.textTertiary,
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
-                              banner.tag,
+                              banner.active ? 'چالاک' : 'ناچالاک',
                               style: const TextStyle(
                                 fontFamily: AppTheme.fontFamily,
                                 color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w900,
                               ),
                             ),
                           ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title.isEmpty ? 'ڕیکلام بێ ناونیشان' : title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 15.5,
-                        color: AppColors.textPrimary,
+                          if (banner.tag.trim().isNotEmpty) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF5F5),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                banner.tag,
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  color: AppColors.textSecondary,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ),
-                    if (banner.subtitle.trim().isNotEmpty) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 8),
                       Text(
-                        banner.subtitle,
-                        maxLines: 2,
+                        title.isEmpty ? 'ڕیکلام بێ ناونیشان' : title,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondary,
-                          height: 1.35,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 15,
+                          color: AppColors.textPrimary,
                         ),
                       ),
-                    ],
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
+                      if (banner.subtitle.trim().isNotEmpty) ...[
+                        const SizedBox(height: 4),
                         Text(
-                          banner.active ? 'پیشاندان' : 'شاردنەوە',
+                          banner.subtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                             color: AppColors.textSecondary,
+                            height: 1.35,
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        Switch.adaptive(
-                          value: banner.active,
-                          activeThumbColor: AppColors.brand,
-                          onChanged: onToggle,
-                        ),
-                        const Spacer(),
-                        _BannerActionBtn(
-                          icon: Icons.edit_rounded,
-                          color: AppColors.brand,
-                          tooltip: 'دەستکاری',
-                          onTap: onEdit,
-                        ),
-                        const SizedBox(width: 8),
-                        _BannerActionBtn(
-                          icon: Icons.delete_outline_rounded,
-                          color: AppColors.error,
-                          tooltip: 'سڕینەوە',
-                          onTap: onDelete,
-                        ),
                       ],
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Text(
+                            banner.active ? 'پیشاندان' : 'شاردنەوە',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Switch.adaptive(
+                            value: banner.active,
+                            activeThumbColor: AppColors.brand,
+                            onChanged: onToggle,
+                          ),
+                          const Spacer(),
+                          _BannerActionBtn(
+                            icon: Icons.edit_rounded,
+                            color: AppColors.brand,
+                            tooltip: 'دەستکاری',
+                            onTap: onEdit,
+                          ),
+                          const SizedBox(width: 8),
+                          _BannerActionBtn(
+                            icon: Icons.delete_outline_rounded,
+                            color: AppColors.error,
+                            tooltip: 'سڕینەوە',
+                            onTap: onDelete,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

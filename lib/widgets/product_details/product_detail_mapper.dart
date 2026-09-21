@@ -46,9 +46,17 @@ MockProduct toDetailView({
       .clamp(0, 100);
   final colors = product.colors.isEmpty
       ? [const MockColorOption(name: 'سەرەکی', color: Color(0xFF136C72))]
-      : product.colors
-          .map((c) => MockColorOption(name: c, color: colorSwatchFor(c)))
-          .toList();
+      : product.colors.map((c) {
+          final dedicated = product.colorImages[c];
+          final thumb = (dedicated != null && dedicated.isNotEmpty)
+              ? dedicated.first
+              : null;
+          return MockColorOption(
+            name: c,
+            color: colorSwatchFor(c),
+            imageUrl: thumb,
+          );
+        }).toList();
 
   final sizes = product.availableSizes.isNotEmpty
       ? product.availableSizes

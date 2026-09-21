@@ -311,12 +311,31 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   ),
                   slivers: [
                     SliverToBoxAdapter(
-                      child: ProductGallery(
-                        imageUrls: view.imageUrls,
-                        discountPercent: view.discountPercent,
-                        imageIndex: _imageIndex,
-                        heroTag:
-                            widget.heroTag ?? 'pd-hero-${widget.productId}',
+                      child: ValueListenableBuilder<int>(
+                        valueListenable: _colorIndex,
+                        builder: (context, colorIdx, _) {
+                          final colorName = view.colors.isEmpty
+                              ? null
+                              : view
+                                  .colors[
+                                      colorIdx.clamp(0, view.colors.length - 1)]
+                                  .name;
+                          final galleryImages =
+                              product.imagesForColor(colorName);
+                          final urls = galleryImages.isNotEmpty
+                              ? galleryImages
+                              : view.imageUrls;
+                          return ProductGallery(
+                            key: ValueKey(
+                              'pd-gallery-${product.id}-${colorName ?? 'default'}',
+                            ),
+                            imageUrls: urls,
+                            discountPercent: view.discountPercent,
+                            imageIndex: _imageIndex,
+                            heroTag: widget.heroTag ??
+                                'pd-hero-${widget.productId}',
+                          );
+                        },
                       )
                           .animate()
                           .fadeIn(duration: AppAnimations.normal)
@@ -376,6 +395,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                     ColorSelector(
                                       colors: view.colors,
                                       selectedIndex: _colorIndex,
+                                      onColorSelected: (_) {
+                                        _imageIndex.value = 0;
+                                      },
                                     ),
                                     if (!product.isFabric) ...[
                                       if (view.colors.isNotEmpty)
@@ -576,34 +598,23 @@ class _CircleIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Dark translucent chrome reads well over any product photo, in both modes.
-    return Material(
-      color: Colors.transparent,
-      elevation: 0,
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: Ink(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.black.withValues(alpha: 0.38),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.22),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Icon(
-            icon,
-            size: 21,
-            color: iconColor ?? Colors.white,
-          ),
+    // GestureDetector + Container only — Material/InkWell leave a square plate.
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 44,
+        height: 44,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.black.withValues(alpha: 0.42),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
+        ),
+        child: Icon(
+          icon,
+          size: 21,
+          color: iconColor ?? Colors.white,
         ),
       ),
     );

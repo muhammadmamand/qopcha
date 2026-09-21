@@ -12,6 +12,7 @@ function wrapJsonStore(syncStore) {
     getAuthByPhone: wrap(syncStore.getAuthByPhone.bind(syncStore)),
     getAuthByEmail: wrap(syncStore.getAuthByEmail.bind(syncStore)),
     getAuthById: wrap(syncStore.getAuthById.bind(syncStore)),
+    deleteAuth: wrap(syncStore.deleteAuth.bind(syncStore)),
     insertAuth: wrap(syncStore.insertAuth.bind(syncStore)),
     updateAuthPassword: wrap(syncStore.updateAuthPassword.bind(syncStore)),
     updateAuthPhone: wrap(syncStore.updateAuthPhone.bind(syncStore)),

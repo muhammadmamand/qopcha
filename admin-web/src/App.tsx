@@ -41,14 +41,15 @@ function ProtectedAdmin() {
       </div>
     )
   }
-  if (!user || !authorized) return <Navigate to="/staff-console" replace />
+  if (!user || !authorized) return <Navigate to="/" replace />
   return <AdminLayout />
 }
 
 function App() {
   return (
     <Routes>
-      <Route path="/staff-console" element={<LoginPage />} />
+      <Route path="/" element={<LoginPage />} />
+      <Route path="/staff-console" element={<Navigate to="/" replace />} />
       <Route element={<ProtectedAdmin />}>
         <Route path="/admin" element={<Suspense fallback={<LoadingState />}><AccountsPage /></Suspense>} />
         <Route path="/admin/leaders" element={<Suspense fallback={<LoadingState />}><LeadersPage /></Suspense>} />
@@ -60,8 +61,7 @@ function App() {
         <Route path="/admin/banners" element={<Suspense fallback={<LoadingState />}><BannersPage /></Suspense>} />
         <Route path="/admin/content" element={<Suspense fallback={<LoadingState />}><ContentPage /></Suspense>} />
       </Route>
-      <Route path="/" element={<Navigate to="/admin" replace />} />
-      <Route path="*" element={<Navigate to="/admin" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }

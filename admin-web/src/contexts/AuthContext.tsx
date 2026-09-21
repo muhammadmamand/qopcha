@@ -8,171 +8,140 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import {
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut,
-  type User,
-} from 'firebase/auth'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
-import { httpsCallable } from 'firebase/functions'
-import { FirebaseError } from 'firebase/app'
-import { auth, db, functions } from '../lib/firebase'
 
 const IDLE_MS = 15 * 60 * 1000
-const ALLOWED_ADMIN_EMAILS = new Set(['admin@qopcha.com', 'admin@shikposh.com'])
+const ADMIN_PHONE = '07503727574'
+const API_BASE =
+  import.meta.env.VITE_API_BASE || 'https://169-58-230-144.sslip.io'
+const TOKEN_KEY = 'qopcha_admin_token'
+const USER_KEY = 'qopcha_admin_user'
+
+export interface AdminSessionUser {
+  id: string
+  name: string
+  phone: string
+  email?: string
+  role: string
+}
 
 interface AuthValue {
-  user: User | null
+  user: AdminSessionUser | null
   loading: boolean
   authorized: boolean
-  login: (email: string, password: string) => Promise<void>
+  token: string | null
+  login: (phone: string, password: string) => Promise<void>
   logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthValue | null>(null)
 
-async function hasAdminClaim(user: User, force = false) {
-  const token = await user.getIdTokenResult(force)
-  return token.claims.admin === true
+function normalizePhone(phone: string) {
+  let value = phone.trim().replace(/[\s\-()]/g, '')
+  if (value.startsWith('+964')) value = `0${value.slice(4)}`
+  else if (value.startsWith('964')) value = `0${value.slice(3)}`
+  return value
 }
 
-function adminErrorMessage(error: unknown) {
-  if (error instanceof FirebaseError) {
-    const text = error.message.replace(/^Firebase:\s*/i, '').trim()
-    if (text.includes('permission-denied') || error.code.includes('permission-denied')) {
-      return 'ئەم ئیمەیڵە ڕێگەپێدراوی ئەدمین نییە. بە admin@qopcha.com بچۆ ژوورەوە.'
-    }
-    if (text) return text
-  }
-  if (error instanceof Error && error.message.trim()) return error.message
-  return 'ئەم هەژمارە مۆڵەتی ئەدمینی نییە'
-}
-
-async function hasAdminRole(user: User) {
-  const snap = await getDoc(doc(db, 'users', user.uid))
-  return snap.exists() && snap.data()?.role === 'admin'
-}
-
-async function promoteAllowlistedAdmin(user: User) {
-  const email = user.email?.trim().toLowerCase() ?? ''
-  await setDoc(
-    doc(db, 'users', user.uid),
-    {
-      role: 'admin',
-      email,
-      approvalStatus: 'approved',
-      approvalNoticeSeen: true,
-    },
-    { merge: true },
-  )
-}
-
-async function ensureAdminClaim(user: User) {
-  const email = user.email?.trim().toLowerCase() ?? ''
-  if (!ALLOWED_ADMIN_EMAILS.has(email)) {
-    throw new Error(
-      'ئەم هەژمارە مۆڵەتی ئەدمینی نییە. تەنها admin@qopcha.com دەتوانێت بچێتە ژوورەوە.',
-    )
-  }
-  if (await hasAdminClaim(user)) return true
+function readStoredUser(): AdminSessionUser | null {
   try {
-    const bootstrap = httpsCallable(functions, 'bootstrapAdminClaim')
-    await bootstrap()
-    await user.getIdToken(true)
-    if (await hasAdminClaim(user, true)) return true
+    const raw = sessionStorage.getItem(USER_KEY)
+    if (!raw) return null
+    return JSON.parse(raw) as AdminSessionUser
   } catch {
-    // No Cloud Functions on Spark — fall back to Firestore role.
+    return null
   }
-  if (await hasAdminRole(user)) return true
-  try {
-    await promoteAllowlistedAdmin(user)
-    if (await hasAdminRole(user)) return true
-  } catch (error) {
-    throw new Error(adminErrorMessage(error))
-  }
-  throw new Error(
-    'ئەم هەژمارە مۆڵەتی ئەدمینی نییە. تەنها admin@qopcha.com دەتوانێت بچێتە ژوورەوە.',
-  )
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<AdminSessionUser | null>(() => readStoredUser())
+  const [token, setToken] = useState<string | null>(
+    () => sessionStorage.getItem(TOKEN_KEY),
+  )
   const [loading, setLoading] = useState(true)
-  const [authorized, setAuthorized] = useState(false)
-  const timer = useRef<number | null>(null)
+  const idleTimer = useRef<number | null>(null)
 
-  useEffect(
-    () =>
-      onAuthStateChanged(auth, async (nextUser) => {
-        setLoading(true)
-        setUser(nextUser)
-        if (!nextUser) {
-          setAuthorized(false)
-          setLoading(false)
-          return
-        }
-        try {
-          await ensureAdminClaim(nextUser)
-          setAuthorized(true)
-        } catch {
-          await signOut(auth)
-          setUser(null)
-          setAuthorized(false)
-        }
-        setLoading(false)
-      }),
-    [],
+  const authorized = Boolean(
+    user &&
+      user.role === 'admin' &&
+      normalizePhone(user.phone) === ADMIN_PHONE &&
+      token,
   )
 
+  function clearSession() {
+    sessionStorage.removeItem(TOKEN_KEY)
+    sessionStorage.removeItem(USER_KEY)
+    setToken(null)
+    setUser(null)
+  }
+
+  function bumpIdle() {
+    if (idleTimer.current) window.clearTimeout(idleTimer.current)
+    if (!token) return
+    idleTimer.current = window.setTimeout(() => {
+      clearSession()
+    }, IDLE_MS)
+  }
+
   useEffect(() => {
-    if (!user || !authorized) return
+    setLoading(false)
+  }, [])
 
-    const bump = () => {
-      if (timer.current) window.clearTimeout(timer.current)
-      timer.current = window.setTimeout(() => {
-        void signOut(auth)
-      }, IDLE_MS)
-    }
-
-    bump()
-    const events: Array<keyof WindowEventMap> = [
-      'mousemove',
-      'keydown',
-      'click',
-      'scroll',
-      'touchstart',
-    ]
-    for (const event of events) window.addEventListener(event, bump)
+  useEffect(() => {
+    if (!authorized) return
+    const onActivity = () => bumpIdle()
+    bumpIdle()
+    window.addEventListener('mousemove', onActivity)
+    window.addEventListener('keydown', onActivity)
+    window.addEventListener('touchstart', onActivity)
     return () => {
-      if (timer.current) window.clearTimeout(timer.current)
-      for (const event of events) window.removeEventListener(event, bump)
+      if (idleTimer.current) window.clearTimeout(idleTimer.current)
+      window.removeEventListener('mousemove', onActivity)
+      window.removeEventListener('keydown', onActivity)
+      window.removeEventListener('touchstart', onActivity)
     }
-  }, [authorized, user])
+  }, [authorized, token])
 
   const value = useMemo<AuthValue>(
     () => ({
       user,
       loading,
       authorized,
-      login: async (email, password) => {
-        const credential = await signInWithEmailAndPassword(
-          auth,
-          email.trim().toLowerCase(),
-          password,
-        )
-        try {
-          await ensureAdminClaim(credential.user)
-        } catch (error) {
-          await signOut(auth)
-          throw error instanceof Error
-            ? error
-            : new Error(adminErrorMessage(error))
+      token,
+      login: async (phone, password) => {
+        const normalized = normalizePhone(phone)
+        if (normalized !== ADMIN_PHONE) {
+          throw new Error(
+            `ئەم ژمارەیە مۆڵەتی ئەدمینی نییە. بە ${ADMIN_PHONE} بچۆ ژوورەوە.`,
+          )
         }
+        const res = await fetch(`${API_BASE}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: normalized, password }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          throw new Error(
+            typeof data.error === 'string'
+              ? data.error
+              : 'ژمارەی مۆبایل یان وشەی نهێنی هەڵەیە',
+          )
+        }
+        const nextUser = data.user as AdminSessionUser
+        if (!nextUser || nextUser.role !== 'admin') {
+          throw new Error('ئەم هەژمارە مۆڵەتی ئەدمینی نییە')
+        }
+        const nextToken = String(data.token || '')
+        sessionStorage.setItem(TOKEN_KEY, nextToken)
+        sessionStorage.setItem(USER_KEY, JSON.stringify(nextUser))
+        setToken(nextToken)
+        setUser(nextUser)
       },
-      logout: () => signOut(auth),
+      logout: async () => {
+        clearSession()
+      },
     }),
-    [authorized, loading, user],
+    [authorized, loading, token, user],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

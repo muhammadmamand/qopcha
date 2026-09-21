@@ -71,16 +71,7 @@ class _SignupWizardState extends ConsumerState<SignupWizard> {
   @override
   void initState() {
     super.initState();
-    for (final n in [
-      _nameFocus,
-      _phoneFocus,
-      _otpFocus,
-      _passFocus,
-      _confirmFocus,
-      _shopFocus,
-    ]) {
-      n.addListener(() => setState(() {}));
-    }
+    // Do not setState on FocusNode — closes keyboard on MIUI/Redmi.
     _otp.addListener(() => setState(() {}));
   }
 
