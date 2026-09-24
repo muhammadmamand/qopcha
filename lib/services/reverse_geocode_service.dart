@@ -258,13 +258,15 @@ class ReverseGeocodeService {
       'accept-language': 'ckb,ku,ar,en',
     });
 
-    final response = await http.get(
-      uri,
-      headers: const {
-        'User-Agent': 'QopchaApp/1.0 (shik-posh; contact@qopcha.app)',
-        'Accept': 'application/json',
-      },
-    );
+    final response = await http
+        .get(
+          uri,
+          headers: const {
+            'User-Agent': 'QopchaApp/1.0 (shik-posh; contact@qopcha.app)',
+            'Accept': 'application/json',
+          },
+        )
+        .timeout(const Duration(seconds: 20));
 
     if (response.statusCode != 200) {
       return (

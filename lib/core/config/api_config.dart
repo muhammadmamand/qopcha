@@ -43,4 +43,7 @@ class ApiConfig {
   }
 
   static const pollInterval = Duration(seconds: 8);
+
+  /// Keep a stalled network request from leaving an action permanently busy.
+  static const requestTimeout = Duration(seconds: 20);
 }

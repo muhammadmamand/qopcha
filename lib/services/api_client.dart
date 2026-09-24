@@ -40,7 +40,9 @@ class ApiClient {
   }
 
   Uri _uri(String path, [Map<String, String>? query]) {
-    return Uri.parse('${ApiConfig.baseUrl}$path').replace(queryParameters: query);
+    return Uri.parse(
+      '${ApiConfig.baseUrl}$path',
+    ).replace(queryParameters: query);
   }
 
   Map<String, String> _headers({bool json = true}) {
@@ -83,7 +85,9 @@ class ApiClient {
   }) async {
     await _ensureLoaded();
     return _guard(() async {
-      final res = await http.get(_uri(path, query), headers: _headers(json: false));
+      final res = await http
+          .get(_uri(path, query), headers: _headers(json: false))
+          .timeout(ApiConfig.requestTimeout);
       return _decode(res);
     });
   }
@@ -94,11 +98,13 @@ class ApiClient {
   ) async {
     await _ensureLoaded();
     return _guard(() async {
-      final res = await http.post(
-        _uri(path),
-        headers: _headers(),
-        body: jsonEncode(body ?? const {}),
-      );
+      final res = await http
+          .post(
+            _uri(path),
+            headers: _headers(),
+            body: jsonEncode(body ?? const {}),
+          )
+          .timeout(ApiConfig.requestTimeout);
       return _decode(res);
     });
   }
@@ -109,11 +115,9 @@ class ApiClient {
   ) async {
     await _ensureLoaded();
     return _guard(() async {
-      final res = await http.patch(
-        _uri(path),
-        headers: _headers(),
-        body: jsonEncode(body),
-      );
+      final res = await http
+          .patch(_uri(path), headers: _headers(), body: jsonEncode(body))
+          .timeout(ApiConfig.requestTimeout);
       return _decode(res);
     });
   }
@@ -124,11 +128,9 @@ class ApiClient {
   ) async {
     await _ensureLoaded();
     return _guard(() async {
-      final res = await http.put(
-        _uri(path),
-        headers: _headers(),
-        body: jsonEncode(body),
-      );
+      final res = await http
+          .put(_uri(path), headers: _headers(), body: jsonEncode(body))
+          .timeout(ApiConfig.requestTimeout);
       return _decode(res);
     });
   }
@@ -136,12 +138,17 @@ class ApiClient {
   Future<void> delete(String path) async {
     await _ensureLoaded();
     await _guard(() async {
-      final res = await http.delete(_uri(path), headers: _headers(json: false));
+      final res = await http
+          .delete(_uri(path), headers: _headers(json: false))
+          .timeout(ApiConfig.requestTimeout);
       _decode(res);
     });
   }
 
-  Future<String> uploadBytes(Uint8List bytes, {String filename = 'image.jpg'}) async {
+  Future<String> uploadBytes(
+    Uint8List bytes, {
+    String filename = 'image.jpg',
+  }) async {
     await _ensureLoaded();
     return _guard(() async {
       final req = http.MultipartRequest('POST', _uri('/api/upload'));
@@ -150,7 +157,9 @@ class ApiClient {
         http.MultipartFile.fromBytes('file', bytes, filename: filename),
       );
       final streamed = await req.send();
-      final res = await http.Response.fromStream(streamed);
+      final res = await http.Response.fromStream(
+        streamed,
+      ).timeout(ApiConfig.requestTimeout);
       final data = _decode(res);
       final url = data['url'] as String?;
       if (url == null || url.isEmpty) {
@@ -160,13 +169,11 @@ class ApiClient {
     });
   }
 
-  Stream<T> poll<T>(
-    Future<T> Function() fetch, {
-    Duration? interval,
-  }) async* {
+  Stream<T> poll<T>(Future<T> Function() fetch, {Duration? interval}) async* {
     yield await fetch();
-    yield* Stream.periodic(interval ?? ApiConfig.pollInterval)
-        .asyncMap((_) => fetch());
+    yield* Stream.periodic(
+      interval ?? ApiConfig.pollInterval,
+    ).asyncMap((_) => fetch());
   }
 
   Map<String, dynamic> _decode(http.Response res) {
