@@ -1,3 +1,4 @@
+import '../core/constants/review_demo_catalog.dart';
 import '../models/product_model.dart';
 import 'api_client.dart';
 import 'notification_service.dart';
@@ -6,20 +7,34 @@ class ProductService {
   final _api = ApiClient.instance;
 
   Future<List<ProductModel>> getAllProducts() async {
-    final data = await _api.getJson('/api/products');
-    return _list(data)..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    try {
+      final data = await _api.getJson('/api/products');
+      return ReviewDemoCatalog.mergeWith(_list(data));
+    } catch (_) {
+      return ReviewDemoCatalog.products;
+    }
   }
 
   Future<List<ProductModel>> getProductsByShop(String shopOwnerId) async {
     final data = await _api.getJson('/api/products', query: {
       'shopOwnerId': shopOwnerId,
     });
-    return _list(data)..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final live = _list(data)..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    if (shopOwnerId == ReviewDemoCatalog.shopOwnerId) {
+      return ReviewDemoCatalog.mergeWith(live);
+    }
+    return live;
   }
 
   Future<List<ProductModel>> getFeaturedProducts() async {
-    final data = await _api.getJson('/api/products', query: {'featured': '1'});
-    return _list(data)..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    try {
+      final data = await _api.getJson('/api/products', query: {'featured': '1'});
+      final merged = ReviewDemoCatalog.mergeWith(_list(data));
+      return merged.where((p) => p.isFeatured).toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    } catch (_) {
+      return ReviewDemoCatalog.products.where((p) => p.isFeatured).toList();
+    }
   }
 
   Future<List<ProductModel>> searchProducts(String query) async {
@@ -35,14 +50,27 @@ class ProductService {
   }
 
   Future<List<ProductModel>> getProductsByCategory(String category) async {
-    if (category == 'هەموو') return getAllProducts();
-    final data = await _api.getJson('/api/products', query: {
-      'category': category,
-    });
-    return _list(data)..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    if (category == 'هەموو' || category.toLowerCase() == 'all') {
+      return getAllProducts();
+    }
+    try {
+      final data = await _api.getJson('/api/products', query: {
+        'category': category,
+      });
+      final live = _list(data);
+      final demos = ReviewDemoCatalog.products
+          .where((p) => p.category.toLowerCase() == category.toLowerCase());
+      return ReviewDemoCatalog.mergeWith([...live, ...demos]);
+    } catch (_) {
+      return ReviewDemoCatalog.products
+          .where((p) => p.category.toLowerCase() == category.toLowerCase())
+          .toList();
+    }
   }
 
   Future<ProductModel?> getProductById(String id) async {
+    final demo = ReviewDemoCatalog.byId(id);
+    if (demo != null) return demo;
     try {
       final data = await _api.getJson('/api/products/$id');
       return _one(data['product']);
