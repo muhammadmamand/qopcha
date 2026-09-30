@@ -254,64 +254,7 @@ async function seedStarterProducts() {
 
   const shopName = 'قۆپچە';
   const now = new Date().toISOString();
-  const demos = [
-    {
-      name: 'کاتی شەرت کلاسیک',
-      description: 'شەرتی نەرم و ڕۆژانە',
-      category: 'پۆشاک',
-      price: 35000,
-      colors: ['سپی', 'ڕەش'],
-      material: 'کاتن',
-      brand: 'قۆپچە',
-      imageUrls: ['https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800'],
-      sizeStocks: [{ size: 'M', quantity: 8 }, { size: 'L', quantity: 10 }],
-      isFeatured: true,
-      productType: 'clothing',
-    },
-    {
-      name: 'جلکی هاوینەی ئافرەتان',
-      description: 'جلکی سووک و مۆدێرن',
-      category: 'کراس',
-      price: 55000,
-      colors: ['پەمەیی', 'سپی'],
-      material: 'لینن',
-      brand: 'قۆپچە',
-      imageUrls: ['https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=800'],
-      sizeStocks: [{ size: 'S', quantity: 5 }, { size: 'M', quantity: 7 }],
-      isFeatured: true,
-      discountPercent: 15,
-      discountType: 'percent',
-      discountForAllCustomers: true,
-      discountSetBy: 'shop',
-      productType: 'clothing',
-    },
-    {
-      name: 'پانتۆڵی جین',
-      description: 'جینی نەرم بۆ ڕۆژانە',
-      category: 'پانتۆڵ',
-      price: 48000,
-      colors: ['شینی جین'],
-      material: 'دینم',
-      brand: 'قۆپچە',
-      imageUrls: ['https://images.unsplash.com/photo-1542272604-787c3835535d?w=800'],
-      sizeStocks: [{ size: '32', quantity: 6 }, { size: '34', quantity: 5 }],
-      isFeatured: false,
-      productType: 'clothing',
-    },
-    {
-      name: 'کۆتی زستانە',
-      description: 'کۆتی گەرم و مۆدێرن',
-      category: 'کۆت',
-      price: 89000,
-      colors: ['ڕەش', 'قاوەیی'],
-      material: 'وۆڵ',
-      brand: 'قۆپچە',
-      imageUrls: ['https://images.unsplash.com/photo-1544022613-e87ca75a784a?w=800'],
-      sizeStocks: [{ size: 'L', quantity: 4 }, { size: 'XL', quantity: 3 }],
-      isFeatured: true,
-      productType: 'clothing',
-    },
-  ];
+  const demos = reviewCatalogDemos();
 
   for (const demo of demos) {
     const id = uuidv4();
@@ -325,6 +268,209 @@ async function seedStarterProducts() {
     });
   }
   console.log(`Seeded ${demos.length} starter products`);
+}
+
+/** Stable demo SKUs so App Review always has visible English clothing. */
+function reviewCatalogDemos() {
+  return [
+    {
+      reviewDemoKey: 'demo_white_shirt',
+      name: 'Classic White Shirt',
+      description: 'Soft cotton shirt for everyday wear. App Review demo product.',
+      category: 'Shirt',
+      price: 35000,
+      colors: ['White', 'Black'],
+      material: 'Cotton',
+      brand: 'Qopcha',
+      imageUrls: [
+        'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800',
+      ],
+      sizeStocks: [
+        { size: 'M', quantity: 8 },
+        { size: 'L', quantity: 10 },
+      ],
+      isFeatured: true,
+      productType: 'clothing',
+    },
+    {
+      reviewDemoKey: 'demo_summer_dress',
+      name: 'Summer Floral Dress',
+      description: 'Light modern dress for summer. App Review demo product.',
+      category: 'Dress',
+      price: 55000,
+      colors: ['Pink', 'White'],
+      material: 'Linen',
+      brand: 'Qopcha',
+      imageUrls: [
+        'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=800',
+      ],
+      sizeStocks: [
+        { size: 'S', quantity: 5 },
+        { size: 'M', quantity: 7 },
+      ],
+      isFeatured: true,
+      discountPercent: 15,
+      discountType: 'percent',
+      discountForAllCustomers: true,
+      discountSetBy: 'shop',
+      productType: 'clothing',
+    },
+    {
+      reviewDemoKey: 'demo_blue_jeans',
+      name: 'Slim Blue Jeans',
+      description: 'Comfortable denim jeans for daily use. App Review demo product.',
+      category: 'Pants',
+      price: 48000,
+      colors: ['Blue'],
+      material: 'Denim',
+      brand: 'Qopcha',
+      imageUrls: [
+        'https://images.unsplash.com/photo-1542272604-787c3835535d?w=800',
+      ],
+      sizeStocks: [
+        { size: '32', quantity: 6 },
+        { size: '34', quantity: 5 },
+      ],
+      isFeatured: true,
+      productType: 'clothing',
+    },
+    {
+      reviewDemoKey: 'demo_winter_coat',
+      name: 'Warm Winter Coat',
+      description: 'Modern warm coat for cold weather. App Review demo product.',
+      category: 'Coat',
+      price: 89000,
+      colors: ['Black', 'Brown'],
+      material: 'Wool',
+      brand: 'Qopcha',
+      imageUrls: [
+        'https://images.unsplash.com/photo-1544022613-e87ca75a784a?w=800',
+      ],
+      sizeStocks: [
+        { size: 'L', quantity: 4 },
+        { size: 'XL', quantity: 3 },
+      ],
+      isFeatured: true,
+      productType: 'clothing',
+    },
+    {
+      reviewDemoKey: 'demo_sneakers',
+      name: 'Urban White Sneakers',
+      description: 'Clean white sneakers for casual outfits. App Review demo product.',
+      category: 'Shoes',
+      price: 62000,
+      colors: ['White'],
+      material: 'Canvas',
+      brand: 'Qopcha',
+      imageUrls: [
+        'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800',
+      ],
+      sizeStocks: [
+        { size: '40', quantity: 5 },
+        { size: '41', quantity: 5 },
+        { size: '42', quantity: 5 },
+      ],
+      isFeatured: true,
+      productType: 'clothing',
+    },
+    {
+      reviewDemoKey: 'demo_hoodie',
+      name: 'Soft Black Hoodie',
+      description: 'Cozy hoodie for cool evenings. App Review demo product.',
+      category: 'Tops',
+      price: 42000,
+      colors: ['Black', 'Grey'],
+      material: 'Cotton blend',
+      brand: 'Qopcha',
+      imageUrls: [
+        'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800',
+      ],
+      sizeStocks: [
+        { size: 'M', quantity: 9 },
+        { size: 'L', quantity: 9 },
+      ],
+      isFeatured: true,
+      productType: 'clothing',
+    },
+    {
+      reviewDemoKey: 'demo_leather_bag',
+      name: 'Brown Leather Bag',
+      description: 'Everyday leather-style bag. App Review demo product.',
+      category: 'Bags',
+      price: 75000,
+      colors: ['Brown'],
+      material: 'Leather',
+      brand: 'Qopcha',
+      imageUrls: [
+        'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800',
+      ],
+      sizeStocks: [{ size: 'One Size', quantity: 12 }],
+      isFeatured: false,
+      productType: 'clothing',
+    },
+    {
+      reviewDemoKey: 'demo_cap',
+      name: 'Navy Baseball Cap',
+      description: 'Simple navy cap for sunny days. App Review demo product.',
+      category: 'Accessories',
+      price: 18000,
+      colors: ['Navy'],
+      material: 'Cotton',
+      brand: 'Qopcha',
+      imageUrls: [
+        'https://images.unsplash.com/photo-1588850561407-ed78c63e2248?w=800',
+      ],
+      sizeStocks: [{ size: 'One Size', quantity: 20 }],
+      isFeatured: false,
+      productType: 'clothing',
+    },
+  ];
+}
+
+async function ensureReviewCatalog() {
+  const adminAuth =
+    (await store.getAuthByPhone(ADMIN_PHONE)) ||
+    (await store.getAuthByEmail(ADMIN_EMAIL));
+  if (!adminAuth) {
+    throw new Error('Admin account missing — cannot seed review catalog');
+  }
+  const adminUser = await read('users', adminAuth.id);
+  if (!adminUser) {
+    throw new Error('Admin user missing — cannot seed review catalog');
+  }
+
+  const existing = await all('products');
+  const shopName = adminUser.shopName || 'Qopcha';
+  const now = new Date().toISOString();
+  let added = 0;
+  let updated = 0;
+
+  for (const demo of reviewCatalogDemos()) {
+    const found = existing.find((p) => p.reviewDemoKey === demo.reviewDemoKey);
+    if (found) {
+      await merge('products', found.id, {
+        ...demo,
+        shopOwnerId: found.shopOwnerId || adminUser.id,
+        shopName: found.shopName || shopName,
+        updatedAt: now,
+      });
+      updated += 1;
+      continue;
+    }
+    const id = uuidv4();
+    await write('products', id, {
+      ...demo,
+      id,
+      shopOwnerId: adminUser.id,
+      shopName,
+      createdAt: now,
+      updatedAt: now,
+    });
+    added += 1;
+  }
+
+  const products = await all('products');
+  return { added, updated, products: products.length };
 }
 
 const storage = multer.diskStorage({
@@ -403,8 +549,19 @@ app.post('/api/setup/seed-starter', async (_req, res) => {
     const after = (await all('products')).length;
     res.json({ ok: true, seeded: after > before, products: after });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'هەڵەیەک ڕوویدا' });
+    console.error('seed-starter failed:', err.message || err);
+    res.status(500).json({ error: 'seed failed' });
+  }
+});
+
+/** Ensures English clothing demos exist for App Store / Play review (safe to re-run). */
+app.post('/api/setup/ensure-review-catalog', async (_req, res) => {
+  try {
+    const result = await ensureReviewCatalog();
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error('ensure-review-catalog failed:', err.message || err);
+    res.status(500).json({ error: String(err.message || 'seed failed') });
   }
 });
 
