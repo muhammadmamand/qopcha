@@ -171,7 +171,9 @@ class PushNotificationService {
     final messaging = _messaging;
     if (!_initialized || messaging == null || user == null) return;
     try {
-      await messaging.requestPermission(alert: true, badge: true, sound: true);
+      await messaging
+          .requestPermission(alert: true, badge: true, sound: true)
+          .timeout(const Duration(seconds: 6));
       if (!kIsWeb && Platform.isAndroid) {
         await _localNotifications
             .resolvePlatformSpecificImplementation<
@@ -179,11 +181,18 @@ class PushNotificationService {
             ?.requestNotificationsPermission();
       }
       if (user.isCustomer) {
-        await messaging.subscribeToTopic(kNewProductsTopic);
+        await messaging
+            .subscribeToTopic(kNewProductsTopic)
+            .timeout(const Duration(seconds: 6));
       } else {
-        await messaging.unsubscribeFromTopic(kNewProductsTopic);
+        await messaging
+            .unsubscribeFromTopic(kNewProductsTopic)
+            .timeout(const Duration(seconds: 6));
       }
-      final token = await messaging.getToken();
+      // APNs token fetch can hang forever on some iPad review environments.
+      final token = await messaging
+          .getToken()
+          .timeout(const Duration(seconds: 8));
       if (token == null || token.isEmpty) return;
       await ApiClient.instance.patchJson('/api/auth/me', {
         'fcmToken': token,

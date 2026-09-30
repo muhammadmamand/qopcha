@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -104,21 +105,38 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     HapticFeedback.lightImpact();
     setState(() => _loginBusy = true);
 
-    final success = await ref
-        .read(authProvider.notifier)
-        .login(_loginPhone.text.trim(), _loginPassword.text);
+    try {
+      final success = await ref
+          .read(authProvider.notifier)
+          .login(_loginPhone.text.trim(), _loginPassword.text)
+          .timeout(const Duration(seconds: 30));
 
-    if (!mounted) return;
-    setState(() => _loginBusy = false);
+      if (!mounted) return;
 
-    if (success) {
-      final user = ref.read(authProvider).user;
-      if (user != null) _navigateAfterAuth(user);
-    } else {
+      if (success) {
+        final user = ref.read(authProvider).user;
+        if (user != null) _navigateAfterAuth(user);
+      } else {
+        _showError(
+          ref.read(authProvider).error ??
+              ref.read(stringsProvider).errorGeneric,
+        );
+      }
+    } on TimeoutException {
+      if (!mounted) return;
       _showError(
-        ref.read(authProvider).error ??
-            ref.read(stringsProvider).errorGeneric,
+        tr(
+          ref.read(appSettingsProvider).language,
+          'کاتی پەیوەندی بەسەرچوو — دووبارە هەوڵ بدەرەوە',
+          'Connection timed out — please try again',
+          'انتهت مهلة الاتصال — حاول مرة أخرى',
+        ),
       );
+    } catch (e) {
+      if (!mounted) return;
+      _showError(e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _loginBusy = false);
     }
   }
 

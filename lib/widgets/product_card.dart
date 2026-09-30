@@ -270,8 +270,10 @@ class ProductCard extends ConsumerWidget {
   }
 
   Widget _buildImage() {
+    final path =
+        product.imageUrls.isNotEmpty ? product.imageUrls.first : '';
     return ProductImage(
-      path: product.imageUrls.first,
+      path: path,
       fit: BoxFit.cover,
       placeholder: Shimmer.fromColors(
         baseColor: AppColors.shimmerBase,

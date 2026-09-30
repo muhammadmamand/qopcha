@@ -45,5 +45,6 @@ class ApiConfig {
   static const pollInterval = Duration(seconds: 8);
 
   /// Keep a stalled network request from leaving an action permanently busy.
-  static const requestTimeout = Duration(seconds: 20);
+  /// Apple App Review devices must never hang on login / catalog.
+  static const requestTimeout = Duration(seconds: 18);
 }

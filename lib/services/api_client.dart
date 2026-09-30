@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/config/api_config.dart';
@@ -15,6 +16,17 @@ class ApiClient {
   static const _tokenKey = 'qopcha_vps_token';
   String? _token;
   Future<void>? _loading;
+  http.Client? _client;
+
+  /// Shared client with hard connection timeouts (critical for App Review / iPad).
+  http.Client get _http {
+    if (_client != null) return _client!;
+    final io = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 12)
+      ..idleTimeout = const Duration(seconds: 15);
+    _client = IOClient(io);
+    return _client!;
+  }
 
   Future<void> _ensureLoaded() {
     return _loading ??= () async {
@@ -59,8 +71,12 @@ class ApiClient {
 
   Future<T> _guard<T>(Future<T> Function() run) async {
     try {
-      return await run();
+      return await run().timeout(ApiConfig.requestTimeout);
     } on SocketException {
+      throw Exception(
+        'پەیوەندی سێرڤەر شکستی هێنا — ئینتەرنێتەکەت بپشکنە و دووبارە هەوڵ بدەرەوە',
+      );
+    } on HandshakeException {
       throw Exception(
         'پەیوەندی سێرڤەر شکستی هێنا — ئینتەرنێتەکەت بپشکنە و دووبارە هەوڵ بدەرەوە',
       );
@@ -68,7 +84,9 @@ class ApiClient {
       final msg = e.message.toLowerCase();
       if (msg.contains('refused') ||
           msg.contains('failed host') ||
-          msg.contains('connection')) {
+          msg.contains('connection') ||
+          msg.contains('timed out') ||
+          msg.contains('timeout')) {
         throw Exception(
           'پەیوەندی سێرڤەر شکستی هێنا — ئینتەرنێتەکەت بپشکنە و دووبارە هەوڵ بدەرەوە',
         );
@@ -85,9 +103,10 @@ class ApiClient {
   }) async {
     await _ensureLoaded();
     return _guard(() async {
-      final res = await http
-          .get(_uri(path, query), headers: _headers(json: false))
-          .timeout(ApiConfig.requestTimeout);
+      final res = await _http.get(
+        _uri(path, query),
+        headers: _headers(json: false),
+      );
       return _decode(res);
     });
   }
@@ -98,13 +117,11 @@ class ApiClient {
   ) async {
     await _ensureLoaded();
     return _guard(() async {
-      final res = await http
-          .post(
-            _uri(path),
-            headers: _headers(),
-            body: jsonEncode(body ?? const {}),
-          )
-          .timeout(ApiConfig.requestTimeout);
+      final res = await _http.post(
+        _uri(path),
+        headers: _headers(),
+        body: jsonEncode(body ?? const {}),
+      );
       return _decode(res);
     });
   }
@@ -115,9 +132,11 @@ class ApiClient {
   ) async {
     await _ensureLoaded();
     return _guard(() async {
-      final res = await http
-          .patch(_uri(path), headers: _headers(), body: jsonEncode(body))
-          .timeout(ApiConfig.requestTimeout);
+      final res = await _http.patch(
+        _uri(path),
+        headers: _headers(),
+        body: jsonEncode(body),
+      );
       return _decode(res);
     });
   }
@@ -128,9 +147,11 @@ class ApiClient {
   ) async {
     await _ensureLoaded();
     return _guard(() async {
-      final res = await http
-          .put(_uri(path), headers: _headers(), body: jsonEncode(body))
-          .timeout(ApiConfig.requestTimeout);
+      final res = await _http.put(
+        _uri(path),
+        headers: _headers(),
+        body: jsonEncode(body),
+      );
       return _decode(res);
     });
   }
@@ -138,9 +159,10 @@ class ApiClient {
   Future<void> delete(String path) async {
     await _ensureLoaded();
     await _guard(() async {
-      final res = await http
-          .delete(_uri(path), headers: _headers(json: false))
-          .timeout(ApiConfig.requestTimeout);
+      final res = await _http.delete(
+        _uri(path),
+        headers: _headers(json: false),
+      );
       _decode(res);
     });
   }
@@ -156,10 +178,8 @@ class ApiClient {
       req.files.add(
         http.MultipartFile.fromBytes('file', bytes, filename: filename),
       );
-      final streamed = await req.send();
-      final res = await http.Response.fromStream(
-        streamed,
-      ).timeout(ApiConfig.requestTimeout);
+      final streamed = await _http.send(req);
+      final res = await http.Response.fromStream(streamed);
       final data = _decode(res);
       final url = data['url'] as String?;
       if (url == null || url.isEmpty) {

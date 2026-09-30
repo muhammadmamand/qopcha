@@ -70,7 +70,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
           isLoading: false,
           emailVerified: user == null ? false : _authService.isEmailVerified,
         );
-        _syncPush(user);
+        // Never block UI / auth routing on push token / APNs.
+        unawaited(_syncPush(user));
       },
       onError: (e) {
         state = AuthState(isLoading: false, error: e.toString());
@@ -99,7 +100,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<bool> login(String phone, String password) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final user = await _authService.login(phone: phone, password: password);
+      final user = await _authService
+          .login(phone: phone, password: password)
+          .timeout(const Duration(seconds: 25));
 
       // Admins must use the separate staff console — not the public app login.
       if (user.isAdmin) {
@@ -117,7 +120,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isLoading: false,
         emailVerified: _authService.isEmailVerified,
       );
+      // Never block login on push / APNs (can hang on iPad review devices).
+      unawaited(_syncPush(user));
       return true;
+    } on TimeoutException {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'کاتی پەیوەندی بەسەرچوو — دووبارە هەوڵ بدەرەوە',
+      );
+      return false;
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
